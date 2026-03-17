@@ -130,11 +130,20 @@ BreadboardResult breadboard_artifact_draft_query_metadata(
 /*
  * breadboard_artifact_draft_query_info
  *
- * Retrieves structural metadata about the generated draft.
+ * Retrieves coarse structural metadata about the generated draft.
  */
 BreadboardResult breadboard_artifact_draft_query_info(
     const BreadboardArtifactDraft* draft,
     BreadboardDraftInfo* out_info);
+
+/*
+ * breadboard_draft_query_admission_info
+ *
+ * Retrieves admission-oriented metadata about the generated draft.
+ */
+BreadboardResult breadboard_draft_query_admission_info(
+    const BreadboardArtifactDraft* draft,
+    BreadboardDraftAdmissionInfo* out_info);
 
 /*
  * breadboard_module_query_target_info

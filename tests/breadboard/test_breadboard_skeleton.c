@@ -136,20 +136,69 @@ int main(void)
     BreadboardDraftInfo draft_info;
     res = breadboard_artifact_draft_query_info(draft, &draft_info);
     print_result("draft_query_info", res, BREADBOARD_OK);
-    if (draft_info.target != BREADBOARD_TARGET_TEMPORAL || !draft_info.has_placeholders)
+    if (draft_info.target != BREADBOARD_TARGET_TEMPORAL ||
+        !draft_info.has_placeholders ||
+        draft_info.approximate_size_bytes != 1024)
     {
-        printf("[FAIL] draft info mismatch\n");
+        printf("[FAIL] draft info mismatch for TEMPORAL\n");
         exit(1);
     }
+
+    /* 8b. Artifact admission info check (TEMPORAL) */
+    BreadboardDraftAdmissionInfo admission_info;
+    res = breadboard_draft_query_admission_info(draft, &admission_info);
+    print_result("draft_query_admission_info(TEMPORAL)", res, BREADBOARD_OK);
+    if (admission_info.target != BREADBOARD_TARGET_TEMPORAL || 
+        !admission_info.is_placeholder ||
+        !admission_info.requires_advanced_controls ||
+        !admission_info.native_only_behavior ||
+        admission_info.extension_flags != 1)
+    {
+        printf("[FAIL] admission info mismatch for TEMPORAL\n");
+        exit(1);
+    }
+
+    /* 8c. Artifact admission info check (FAST_4STATE) */
+    breadboard_module_set_target_policy(module, BREADBOARD_TARGET_MASK_ALL);
+    breadboard_module_set_target(module, BREADBOARD_TARGET_FAST_4STATE);
+    BreadboardArtifactDraft* draft_fast = NULL;
+    res = breadboard_module_compile(module, &opts_allow, &draft_fast);
+    print_result("module_compile(FAST_4STATE)", res, BREADBOARD_OK);
+
+    res = breadboard_artifact_draft_query_info(draft_fast, &draft_info);
+    print_result("draft_query_info(FAST_4STATE)", res, BREADBOARD_OK);
+    if (draft_info.target != BREADBOARD_TARGET_FAST_4STATE ||
+        !draft_info.has_placeholders ||
+        draft_info.approximate_size_bytes != 1024)
+    {
+        printf("[FAIL] draft info mismatch for FAST_4STATE\n");
+        exit(1);
+    }
+
+    BreadboardDraftAdmissionInfo admission_info_fast;
+    res = breadboard_draft_query_admission_info(draft_fast, &admission_info_fast);
+    print_result("draft_query_admission_info(FAST_4STATE)", res, BREADBOARD_OK);
+    if (admission_info_fast.target != BREADBOARD_TARGET_FAST_4STATE || 
+        !admission_info_fast.is_placeholder ||
+        admission_info_fast.requires_advanced_controls ||
+        admission_info_fast.native_only_behavior ||
+        admission_info_fast.extension_flags != 0)
+    {
+        printf("[FAIL] admission info mismatch for FAST_4STATE\n");
+        exit(1);
+    }
+
+    breadboard_module_set_target_policy(module, BREADBOARD_TARGET_MASK_TEMPORAL);
+    breadboard_module_set_target(module, BREADBOARD_TARGET_TEMPORAL); /* Restore */
 
     /* 9. Test diagnostics */
     size_t diag_count = 99;
     res = breadboard_module_get_diagnostic_count(module, &diag_count);
     print_result("module_get_diagnostic_count", res, BREADBOARD_OK);
-    /* We expect 3 diagnostics: denied target, compilation refusal without placeholders, and warning from successful compile */
-    if (diag_count != 3)
+    /* We expect 4 diagnostics: denied target, compilation refusal without placeholders, and two warnings from successful compiles */
+    if (diag_count != 4)
     {
-        printf("[FAIL] expected 3 diagnostics, got %zu\n", diag_count);
+        printf("[FAIL] expected 4 diagnostics, got %zu\n", diag_count);
         exit(1);
     }
 
@@ -275,7 +324,20 @@ int main(void)
     res = breadboard_draft_output_descriptor_by_name(draft, NULL, &lookup_desc);
     print_result("draft_output_descriptor_by_name(..., NULL, ...)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
 
-    /* 14. Free up */
+    res = breadboard_draft_query_admission_info(NULL, &admission_info);
+    print_result("draft_query_admission_info(NULL, ...)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+    res = breadboard_draft_query_admission_info(draft, NULL);
+    print_result("draft_query_admission_info(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+    res = breadboard_artifact_draft_query_info(NULL, &draft_info);
+    print_result("draft_query_info(NULL, ...)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+    res = breadboard_artifact_draft_query_info(draft, NULL);
+    print_result("draft_query_info(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+    /* 16. Free up */
+    breadboard_artifact_draft_free(draft_fast);
     breadboard_artifact_draft_free(draft);
     breadboard_module_free(module);
 

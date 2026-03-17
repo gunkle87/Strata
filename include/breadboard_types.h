@@ -141,6 +141,7 @@ BreadboardTargetInfo;
  * BreadboardDraftInfo
  *
  * Metadata surface describing a constructed compilation artifact draft.
+ * This is a stable coarse summary of the generated draft.
  */
 typedef struct BreadboardDraftInfo
 {
@@ -149,6 +150,23 @@ typedef struct BreadboardDraftInfo
     size_t approximate_size_bytes;
 }
 BreadboardDraftInfo;
+
+/*
+ * BreadboardDraftAdmissionInfo
+ *
+ * Metadata surface describing a constructed compilation artifact draft,
+ * oriented towards Forge runtime admission considerations.
+ */
+typedef struct BreadboardDraftAdmissionInfo
+{
+    BreadboardTarget target;
+    bool is_placeholder;
+    size_t approximate_size_bytes;
+    uint32_t extension_flags;
+    bool requires_advanced_controls;
+    bool native_only_behavior;
+}
+BreadboardDraftAdmissionInfo;
 
 
 /*

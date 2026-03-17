@@ -240,11 +240,33 @@ BreadboardResult breadboard_module_compile(
         draft->probes[0].is_placeholder = true;
     }
 
-    /* Copy target expectation to the draft */
+    /* Copy target expectation and admission logic to the draft */
     draft->target = module->target;
     draft->info.target = module->target;
     draft->info.has_placeholders = true;
     draft->info.approximate_size_bytes = 1024; /* Fake size */
+    draft->admission_info.target = module->target;
+    draft->admission_info.is_placeholder = true;
+    draft->admission_info.approximate_size_bytes = 1024; /* Fake size */
+
+    if (module->target == BREADBOARD_TARGET_FAST_4STATE)
+    {
+        draft->admission_info.requires_advanced_controls = false;
+        draft->admission_info.native_only_behavior = false;
+        draft->admission_info.extension_flags = 0;
+    }
+    else if (module->target == BREADBOARD_TARGET_TEMPORAL)
+    {
+        draft->admission_info.requires_advanced_controls = true;
+        draft->admission_info.native_only_behavior = true;
+        draft->admission_info.extension_flags = 1;
+    }
+    else
+    {
+        draft->admission_info.requires_advanced_controls = false;
+        draft->admission_info.native_only_behavior = false;
+        draft->admission_info.extension_flags = 0;
+    }
 
     /* Record a warning that placeholders were emitted */
     record_diagnostic(module, BREADBOARD_DIAG_WARNING, BREADBOARD_DIAG_CODE_NONE, "Draft emitted with placeholder structures");
@@ -350,6 +372,19 @@ BreadboardResult breadboard_artifact_draft_query_info(
     }
 
     *out_info = draft->info;
+    return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_draft_query_admission_info(
+    const BreadboardArtifactDraft* draft,
+    BreadboardDraftAdmissionInfo* out_info)
+{
+    if (!draft || !out_info)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    *out_info = draft->admission_info;
     return BREADBOARD_OK;
 }
 

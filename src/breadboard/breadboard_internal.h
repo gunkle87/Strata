@@ -28,6 +28,7 @@ struct BreadboardArtifactDraft
 {
     BreadboardTarget target;
     BreadboardDraftInfo info;
+    BreadboardDraftAdmissionInfo admission_info;
 
     /* Placeholder descriptors exposed when allow_placeholders was true */
     size_t input_count;
