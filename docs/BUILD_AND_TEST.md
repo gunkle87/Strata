@@ -2,9 +2,9 @@
 
 This document describes how to reliably build and test the current components of the Strata repository. 
 
-As of the current phase, Strata consists of bounded implementation slices, including the `bench_convert` tool and the `Forge` skeleton. 
+As of the current phase, Strata consists of bounded implementation slices, including the `bench_convert` tool, the `Breadboard` skeleton, and the `Forge` skeleton. 
 
-> **Important**: `Forge` is currently a skeleton API boundary and capability registry. It is **not** a full backend runtime yet. The tests validate its public boundary, error paths, and capability reporting, but do not execute genuine circuit simulation.
+> **Important**: `Forge` and `Breadboard` are currently skeleton API boundaries. They are **not** full backend runtimes or compilers yet. The tests validate their public boundaries, error paths, and capability reporting, but do not execute genuine circuit simulation.
 
 ---
 
@@ -20,10 +20,13 @@ powershell -ExecutionPolicy Bypass -File tools\run_checks.ps1
 **What it does:**
 - Validates it is being run from the repository root.
 - Navigates to `tools/bench_convert` to build and test the benchmarking tool.
+- Navigates to `tests/breadboard` to build and test the Breadboard compiler skeleton.
 - Navigates to `tests/forge` to build and test the Forge API skeleton.
+- Navigates to `tests/integration` to build and test the Breadboard-to-Forge handoff.
 - Stops immediately if any build or test fails, printing clear pass/fail status.
 - Does not reach into external repositories and does not mutate tracked source files.
-- Bench converter tests regenerate files under `tests/tools/bench_convert/fixtures/actual/`; that directory is treated as generated test output and is ignored for commit purposes.
+- Cleans generated `.exe` outputs after each lane.
+- Bench converter tests temporarily regenerate files under `tests/tools/bench_convert/fixtures/actual/`; the helper removes those generated files after validation and preserves the ignored placeholder in that directory.
 
 ---
 
@@ -50,6 +53,28 @@ A successful test run prints output from the PowerShell test runner, indicating 
 All tests passed successfully!
 ```
 
+### tests/breadboard
+
+The `Breadboard` tests compile the structural compiler's skeleton API to verify its diagnostics and boundary.
+
+**Location:** `tests/breadboard`
+
+**Commands:**
+- **Build:** `make`  
+  *(Builds Breadboard test executables.)*
+- **Test:** `make test`  
+  *(Runs Breadboard tests.)*
+- **Clean:** `make clean`  
+  *(Removes all generated `.exe` files.)*
+
+**Expected Pass Output:**
+A successful test run outputs:
+```
+--- Running Breadboard skeleton tests ---
+[Test outputs]
+--- All Breadboard skeleton tests passed ---
+```
+
 ### tests/forge
 
 The `Forge` tests compile the `Forge` API capabilities as a standalone application to verify boundary opacity and deterministic failure paths.
@@ -58,9 +83,9 @@ The `Forge` tests compile the `Forge` API capabilities as a standalone applicati
 
 **Commands:**
 - **Build:** `make`  
-  *(Builds 6 isolated test executables.)*
+  *(Builds the current Forge test executables.)*
 - **Test:** `make test`  
-  *(Runs each of the 6 executables sequentially.)*
+  *(Runs the current Forge executables sequentially.)*
 - **Clean:** `make clean`  
   *(Removes all generated `.exe` files.)*
 
@@ -70,6 +95,30 @@ A successful test run outputs:
 --- Running Forge skeleton tests ---
 [Test outputs for capabilities, backend info, invalid handles, and artifacts]
 --- All Forge skeleton tests passed ---
+```
+
+### tests/integration
+
+The integration tests validate the handoff between the Breadboard skeleton and the Forge runtime API.
+
+> **Note**: The current Breadboard -> Forge handoff is a temporary placeholder contract used to validate integration plumbing. It is **not** the final Strata artifact format.
+
+**Location:** `tests/integration`
+
+**Commands:**
+- **Build:** `make`  
+  *(Builds integration test executables.)*
+- **Test:** `make test`  
+  *(Runs integration tests.)*
+- **Clean:** `make clean`  
+  *(Removes all generated `.exe` files.)*
+
+**Expected Pass Output:**
+A successful test run outputs:
+```
+--- Running integration tests ---
+[Test outputs for handoff and validation]
+--- All integration tests passed ---
 ```
 
 ---
