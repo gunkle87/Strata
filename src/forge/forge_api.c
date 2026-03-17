@@ -152,24 +152,55 @@ forge_descriptor_class_visible(
 }
 
 static ForgeDescriptor
-forge_descriptor_from_placeholder_spec(
-    const StrataPlaceholderDescriptorSpec *spec)
+forge_descriptor_from_serialized(
+    const StrataPlaceholderSerializedDescriptor *descriptor_data)
 {
     ForgeDescriptor descriptor;
 
-    descriptor.id = spec->id;
-    descriptor.name = spec->name;
-    descriptor.width = spec->width;
-    descriptor.descriptor_class = (ForgeDescriptorClass)spec->class_type;
-    descriptor.placeholder_flags = 1u;
+    descriptor.id = descriptor_data->id;
+    descriptor.name = descriptor_data->name;
+    descriptor.width = descriptor_data->width;
+    descriptor.descriptor_class =
+        (ForgeDescriptorClass)descriptor_data->class_type;
+    descriptor.placeholder_flags = descriptor_data->placeholder_flags;
 
     return descriptor;
+}
+
+static const StrataPlaceholderSerializedDescriptor*
+forge_artifact_input_descriptors(const ForgeArtifact *artifact)
+{
+    return artifact ? artifact->descriptors : NULL;
+}
+
+static const StrataPlaceholderSerializedDescriptor*
+forge_artifact_output_descriptors(const ForgeArtifact *artifact)
+{
+    if (!artifact || !artifact->descriptors)
+    {
+        return NULL;
+    }
+
+    return artifact->descriptors + artifact->input_descriptor_count;
+}
+
+static const StrataPlaceholderSerializedDescriptor*
+forge_artifact_probe_descriptors(const ForgeArtifact *artifact)
+{
+    if (!artifact || !artifact->descriptors)
+    {
+        return NULL;
+    }
+
+    return artifact->descriptors +
+        artifact->input_descriptor_count +
+        artifact->output_descriptor_count;
 }
 
 static ForgeResult
 forge_descriptor_filtered_at(
     const ForgeEffectiveProfile *profile,
-    const StrataPlaceholderDescriptorSpec *descriptors,
+    const StrataPlaceholderSerializedDescriptor *descriptors,
     uint32_t count,
     uint32_t index,
     ForgeDescriptor *out_descriptor,
@@ -197,7 +228,7 @@ forge_descriptor_filtered_at(
 
         if (visible_index == index)
         {
-            *out_descriptor = forge_descriptor_from_placeholder_spec(
+            *out_descriptor = forge_descriptor_from_serialized(
                 &descriptors[source_index]);
             forge_diag_set("");
             return FORGE_OK;
@@ -212,7 +243,7 @@ forge_descriptor_filtered_at(
 static ForgeResult
 forge_descriptor_find_by_id(
     const ForgeEffectiveProfile *profile,
-    const StrataPlaceholderDescriptorSpec *descriptors,
+    const StrataPlaceholderSerializedDescriptor *descriptors,
     uint32_t               count,
     uint32_t               descriptor_id,
     ForgeDescriptor       *out_descriptor,
@@ -237,7 +268,7 @@ forge_descriptor_find_by_id(
 
         if (descriptors[index].id == descriptor_id)
         {
-            *out_descriptor = forge_descriptor_from_placeholder_spec(
+            *out_descriptor = forge_descriptor_from_serialized(
                 &descriptors[index]);
             forge_diag_set("");
             return FORGE_OK;
@@ -250,7 +281,7 @@ forge_descriptor_find_by_id(
 static ForgeResult
 forge_descriptor_find_by_name(
     const ForgeEffectiveProfile *profile,
-    const StrataPlaceholderDescriptorSpec *descriptors,
+    const StrataPlaceholderSerializedDescriptor *descriptors,
     uint32_t               count,
     const char            *name,
     ForgeDescriptor       *out_descriptor,
@@ -275,7 +306,7 @@ forge_descriptor_find_by_name(
 
         if (strcmp(descriptors[index].name, name) == 0)
         {
-            *out_descriptor = forge_descriptor_from_placeholder_spec(
+            *out_descriptor = forge_descriptor_from_serialized(
                 &descriptors[index]);
             forge_diag_set("");
             return FORGE_OK;
@@ -307,6 +338,113 @@ forge_descriptor_filtered_count(
 
     *out_count = count;
     forge_diag_set("");
+    return FORGE_OK;
+}
+
+static ForgeResult
+forge_validate_serialized_descriptor_block(
+    const ForgeArtifactHeader *header,
+    size_t size,
+    const StrataPlaceholderSerializedDescriptor **out_descriptors)
+{
+    const StrataPlaceholderSerializedDescriptor *descriptors;
+    size_t expected_descriptor_bytes;
+    size_t max_descriptor_entries;
+    size_t total_expected_size;
+    size_t total_descriptor_count;
+    uint32_t index;
+
+    if (!header || !out_descriptors)
+    {
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_artifact_load: descriptor validation received invalid input");
+    }
+
+    max_descriptor_entries = (size - sizeof(ForgeArtifactHeader)) /
+        sizeof(StrataPlaceholderSerializedDescriptor);
+    if ((size_t)header->input_descriptor_count > max_descriptor_entries ||
+        (size_t)header->output_descriptor_count > max_descriptor_entries ||
+        (size_t)header->probe_descriptor_count > max_descriptor_entries)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: descriptor counts exceed artifact bounds");
+    }
+
+    total_descriptor_count = (size_t)header->input_descriptor_count;
+    if ((size_t)header->output_descriptor_count >
+        max_descriptor_entries - total_descriptor_count)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: descriptor counts overflow artifact bounds");
+    }
+    total_descriptor_count += (size_t)header->output_descriptor_count;
+
+    if ((size_t)header->probe_descriptor_count >
+        max_descriptor_entries - total_descriptor_count)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: descriptor counts overflow artifact bounds");
+    }
+    total_descriptor_count += (size_t)header->probe_descriptor_count;
+
+    expected_descriptor_bytes = strata_placeholder_descriptor_bytes_for_counts(
+        header->input_descriptor_count,
+        header->output_descriptor_count,
+        header->probe_descriptor_count);
+
+    if ((size_t)header->descriptor_bytes != expected_descriptor_bytes)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: descriptor block size does not match descriptor counts");
+    }
+
+    total_expected_size = sizeof(ForgeArtifactHeader) +
+        (size_t)header->descriptor_bytes +
+        (size_t)header->payload_size;
+
+    if (size != total_expected_size)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: artifact size does not match descriptor and payload blocks");
+    }
+
+    descriptors = strata_placeholder_artifact_descriptors(header);
+
+    for (index = 0u; index < header->input_descriptor_count; ++index)
+    {
+        if (descriptors[index].class_type != FORGE_DESCRIPTOR_CLASS_INPUT ||
+            memchr(descriptors[index].name, '\0', sizeof(descriptors[index].name)) == NULL)
+        {
+            return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+                "forge_artifact_load: input descriptor block is malformed");
+        }
+    }
+
+    for (index = header->input_descriptor_count;
+         index < header->input_descriptor_count + header->output_descriptor_count;
+         ++index)
+    {
+        if (descriptors[index].class_type != FORGE_DESCRIPTOR_CLASS_OUTPUT ||
+            memchr(descriptors[index].name, '\0', sizeof(descriptors[index].name)) == NULL)
+        {
+            return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+                "forge_artifact_load: output descriptor block is malformed");
+        }
+    }
+
+    for (index = header->input_descriptor_count + header->output_descriptor_count;
+         index < total_descriptor_count;
+         ++index)
+    {
+        if (descriptors[index].class_type != FORGE_DESCRIPTOR_CLASS_PROBE ||
+            memchr(descriptors[index].name, '\0', sizeof(descriptors[index].name)) == NULL)
+        {
+            return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+                "forge_artifact_load: probe descriptor block is malformed");
+        }
+    }
+
+    *out_descriptors = descriptors;
     return FORGE_OK;
 }
 
@@ -533,6 +671,7 @@ forge_artifact_load(
     const ForgeBackendRecord *rec;
     ForgeArtifact            *art;
     const ForgeArtifactHeader *header;
+    const StrataPlaceholderSerializedDescriptor *serialized_descriptors;
     const unsigned char *payload;
     ForgeEffectiveProfile profile;
     StrataPlaceholderPayloadKind payload_kind;
@@ -540,6 +679,7 @@ forge_artifact_load(
     uint32_t requires_advanced_controls;
     uint32_t requires_native_state_read;
     uint32_t requires_native_inputs;
+    ForgeResult descriptor_result;
     ForgeResult requirement_result;
 
     if (!out_artifact || !data)
@@ -595,13 +735,23 @@ forge_artifact_load(
             "forge_artifact_load: artifact target backend mismatch");
     }
 
-    if ((size_t)header->payload_size != size - sizeof(ForgeArtifactHeader))
+    descriptor_result = forge_validate_serialized_descriptor_block(
+        header,
+        size,
+        &serialized_descriptors);
+    if (descriptor_result != FORGE_OK)
+    {
+        return descriptor_result;
+    }
+
+    if ((size_t)header->payload_size !=
+        size - sizeof(ForgeArtifactHeader) - (size_t)header->descriptor_bytes)
     {
         return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
             "forge_artifact_load: payload size does not match artifact size");
     }
 
-    payload = ((const unsigned char *)data) + sizeof(ForgeArtifactHeader);
+    payload = strata_placeholder_artifact_payload(header);
     payload_kind = (StrataPlaceholderPayloadKind)header->payload_kind;
     required_extension_mask = 0u;
     requires_advanced_controls = header->admission_info.requires_advanced_controls;
@@ -659,13 +809,34 @@ forge_artifact_load(
         art->format_version_major = header->version_major;
         art->format_version_minor = header->version_minor;
         art->payload_size = header->payload_size;
+        art->input_descriptor_count = header->input_descriptor_count;
+        art->output_descriptor_count = header->output_descriptor_count;
+        art->probe_descriptor_count = header->probe_descriptor_count;
         art->source_size = size;
         art->placeholder_flags = 1;
         art->required_extension_mask = required_extension_mask;
         art->requires_advanced_controls = requires_advanced_controls;
         art->requires_native_state_read = requires_native_state_read;
         art->requires_native_inputs = requires_native_inputs;
+        art->descriptors = NULL;
         art->effective_profile = profile;
+
+        if (header->descriptor_bytes != 0u)
+        {
+            art->descriptors = (StrataPlaceholderSerializedDescriptor*)malloc(
+                (size_t)header->descriptor_bytes);
+            if (!art->descriptors)
+            {
+                free(art);
+                return forge_fail(FORGE_ERR_INTERNAL,
+                    "forge_artifact_load: descriptor block allocation failed");
+            }
+
+            memcpy(
+                art->descriptors,
+                serialized_descriptors,
+                (size_t)header->descriptor_bytes);
+        }
 
         *out_artifact = art;
 
@@ -718,6 +889,10 @@ forge_artifact_unload(ForgeArtifact *artifact)
             "forge_artifact_unload: artifact is NULL");
     }
 
+    if (artifact->descriptors)
+    {
+        free(artifact->descriptors);
+    }
     free(artifact);
 
     forge_diag_set("");
@@ -929,6 +1104,12 @@ forge_input_descriptor_count(
     const ForgeArtifact *artifact,
     uint32_t            *out_count)
 {
+    if (!out_count)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_input_descriptor_count: out_count is NULL");
+    }
+
     if (!artifact)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
@@ -938,7 +1119,7 @@ forge_input_descriptor_count(
     return forge_descriptor_filtered_count(
         &artifact->effective_profile,
         FORGE_DESCRIPTOR_CLASS_INPUT,
-        strata_placeholder_input_descriptor_count(),
+        artifact->input_descriptor_count,
         out_count,
         "forge_input_descriptor_count: out_count is NULL");
 }
@@ -949,6 +1130,12 @@ forge_input_descriptor_at(
     uint32_t             index,
     ForgeDescriptor     *out_descriptor)
 {
+    if (!out_descriptor)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_input_descriptor_at: out_descriptor is NULL");
+    }
+
     if (!artifact)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
@@ -957,8 +1144,8 @@ forge_input_descriptor_at(
 
     return forge_descriptor_filtered_at(
         &artifact->effective_profile,
-        k_strata_placeholder_input_descriptors,
-        strata_placeholder_input_descriptor_count(),
+        forge_artifact_input_descriptors(artifact),
+        artifact->input_descriptor_count,
         index,
         out_descriptor,
         "forge_input_descriptor_at: out_descriptor is NULL",
@@ -971,6 +1158,12 @@ forge_input_descriptor_by_id(
     uint32_t             descriptor_id,
     ForgeDescriptor     *out_descriptor)
 {
+    if (!out_descriptor)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_input_descriptor_by_id: out_descriptor is NULL");
+    }
+
     if (!artifact)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
@@ -979,8 +1172,8 @@ forge_input_descriptor_by_id(
 
     return forge_descriptor_find_by_id(
         &artifact->effective_profile,
-        k_strata_placeholder_input_descriptors,
-        strata_placeholder_input_descriptor_count(),
+        forge_artifact_input_descriptors(artifact),
+        artifact->input_descriptor_count,
         descriptor_id,
         out_descriptor,
         "forge_input_descriptor_by_id: out_descriptor is NULL",
@@ -993,6 +1186,12 @@ forge_input_descriptor_by_name(
     const char          *name,
     ForgeDescriptor     *out_descriptor)
 {
+    if (!name || !out_descriptor)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_input_descriptor_by_name: name or out_descriptor is NULL");
+    }
+
     if (!artifact)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
@@ -1001,8 +1200,8 @@ forge_input_descriptor_by_name(
 
     return forge_descriptor_find_by_name(
         &artifact->effective_profile,
-        k_strata_placeholder_input_descriptors,
-        strata_placeholder_input_descriptor_count(),
+        forge_artifact_input_descriptors(artifact),
+        artifact->input_descriptor_count,
         name,
         out_descriptor,
         "forge_input_descriptor_by_name: name or out_descriptor is NULL",
@@ -1014,6 +1213,12 @@ forge_output_descriptor_count(
     const ForgeArtifact *artifact,
     uint32_t            *out_count)
 {
+    if (!out_count)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_output_descriptor_count: out_count is NULL");
+    }
+
     if (!artifact)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
@@ -1023,7 +1228,7 @@ forge_output_descriptor_count(
     return forge_descriptor_filtered_count(
         &artifact->effective_profile,
         FORGE_DESCRIPTOR_CLASS_OUTPUT,
-        strata_placeholder_output_descriptor_count(),
+        artifact->output_descriptor_count,
         out_count,
         "forge_output_descriptor_count: out_count is NULL");
 }
@@ -1034,6 +1239,12 @@ forge_output_descriptor_at(
     uint32_t             index,
     ForgeDescriptor     *out_descriptor)
 {
+    if (!out_descriptor)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_output_descriptor_at: out_descriptor is NULL");
+    }
+
     if (!artifact)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
@@ -1042,8 +1253,8 @@ forge_output_descriptor_at(
 
     return forge_descriptor_filtered_at(
         &artifact->effective_profile,
-        k_strata_placeholder_output_descriptors,
-        strata_placeholder_output_descriptor_count(),
+        forge_artifact_output_descriptors(artifact),
+        artifact->output_descriptor_count,
         index,
         out_descriptor,
         "forge_output_descriptor_at: out_descriptor is NULL",
@@ -1056,6 +1267,12 @@ forge_output_descriptor_by_id(
     uint32_t             descriptor_id,
     ForgeDescriptor     *out_descriptor)
 {
+    if (!out_descriptor)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_output_descriptor_by_id: out_descriptor is NULL");
+    }
+
     if (!artifact)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
@@ -1064,8 +1281,8 @@ forge_output_descriptor_by_id(
 
     return forge_descriptor_find_by_id(
         &artifact->effective_profile,
-        k_strata_placeholder_output_descriptors,
-        strata_placeholder_output_descriptor_count(),
+        forge_artifact_output_descriptors(artifact),
+        artifact->output_descriptor_count,
         descriptor_id,
         out_descriptor,
         "forge_output_descriptor_by_id: out_descriptor is NULL",
@@ -1078,6 +1295,12 @@ forge_output_descriptor_by_name(
     const char          *name,
     ForgeDescriptor     *out_descriptor)
 {
+    if (!name || !out_descriptor)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_output_descriptor_by_name: name or out_descriptor is NULL");
+    }
+
     if (!artifact)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
@@ -1086,8 +1309,8 @@ forge_output_descriptor_by_name(
 
     return forge_descriptor_find_by_name(
         &artifact->effective_profile,
-        k_strata_placeholder_output_descriptors,
-        strata_placeholder_output_descriptor_count(),
+        forge_artifact_output_descriptors(artifact),
+        artifact->output_descriptor_count,
         name,
         out_descriptor,
         "forge_output_descriptor_by_name: name or out_descriptor is NULL",
@@ -1099,6 +1322,12 @@ forge_probe_descriptor_count(
     const ForgeArtifact *artifact,
     uint32_t            *out_count)
 {
+    if (!out_count)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_probe_descriptor_count: out_count is NULL");
+    }
+
     if (!artifact)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
@@ -1108,7 +1337,7 @@ forge_probe_descriptor_count(
     return forge_descriptor_filtered_count(
         &artifact->effective_profile,
         FORGE_DESCRIPTOR_CLASS_PROBE,
-        strata_placeholder_probe_descriptor_count(),
+        artifact->probe_descriptor_count,
         out_count,
         "forge_probe_descriptor_count: out_count is NULL");
 }
@@ -1119,6 +1348,12 @@ forge_probe_descriptor_at(
     uint32_t             index,
     ForgeDescriptor     *out_descriptor)
 {
+    if (!out_descriptor)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_probe_descriptor_at: out_descriptor is NULL");
+    }
+
     if (!artifact)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
@@ -1127,8 +1362,8 @@ forge_probe_descriptor_at(
 
     return forge_descriptor_filtered_at(
         &artifact->effective_profile,
-        k_strata_placeholder_probe_descriptors,
-        strata_placeholder_probe_descriptor_count(),
+        forge_artifact_probe_descriptors(artifact),
+        artifact->probe_descriptor_count,
         index,
         out_descriptor,
         "forge_probe_descriptor_at: out_descriptor is NULL",
@@ -1141,6 +1376,12 @@ forge_probe_descriptor_by_id(
     uint32_t             descriptor_id,
     ForgeDescriptor     *out_descriptor)
 {
+    if (!out_descriptor)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_probe_descriptor_by_id: out_descriptor is NULL");
+    }
+
     if (!artifact)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
@@ -1149,8 +1390,8 @@ forge_probe_descriptor_by_id(
 
     return forge_descriptor_find_by_id(
         &artifact->effective_profile,
-        k_strata_placeholder_probe_descriptors,
-        strata_placeholder_probe_descriptor_count(),
+        forge_artifact_probe_descriptors(artifact),
+        artifact->probe_descriptor_count,
         descriptor_id,
         out_descriptor,
         "forge_probe_descriptor_by_id: out_descriptor is NULL",
@@ -1163,6 +1404,12 @@ forge_probe_descriptor_by_name(
     const char          *name,
     ForgeDescriptor     *out_descriptor)
 {
+    if (!name || !out_descriptor)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_probe_descriptor_by_name: name or out_descriptor is NULL");
+    }
+
     if (!artifact)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
@@ -1171,8 +1418,8 @@ forge_probe_descriptor_by_name(
 
     return forge_descriptor_find_by_name(
         &artifact->effective_profile,
-        k_strata_placeholder_probe_descriptors,
-        strata_placeholder_probe_descriptor_count(),
+        forge_artifact_probe_descriptors(artifact),
+        artifact->probe_descriptor_count,
         name,
         out_descriptor,
         "forge_probe_descriptor_by_name: name or out_descriptor is NULL",

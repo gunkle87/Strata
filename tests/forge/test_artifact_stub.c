@@ -44,11 +44,15 @@ int main(void)
     ForgeArtifact  *art  = NULL;
     ForgeArtifactInfo info;
     ForgeResult     result;
-    unsigned char   artifact_bytes[sizeof(StrataPlaceholderArtifactHeader) + 4];
-    unsigned char   bad_magic[sizeof(StrataPlaceholderArtifactHeader) + 4];
-    unsigned char   backend_mismatch[sizeof(StrataPlaceholderArtifactHeader) + 4];
-    unsigned char   unsupported_payload[sizeof(StrataPlaceholderArtifactHeader) + 4];
+    unsigned char   artifact_bytes[strata_placeholder_artifact_size()];
+    unsigned char   bad_magic[strata_placeholder_artifact_size()];
+    unsigned char   backend_mismatch[strata_placeholder_artifact_size()];
+    unsigned char   unsupported_payload[strata_placeholder_artifact_size()];
+    unsigned char   bad_descriptor_bytes[strata_placeholder_artifact_size()];
+    unsigned char   bad_descriptor_class[strata_placeholder_artifact_size()];
+    unsigned char   bad_descriptor_name[strata_placeholder_artifact_size()];
     StrataPlaceholderArtifactHeader *bad_header;
+    StrataPlaceholderSerializedDescriptor *bad_descriptors;
 
     result = forge_backend_id_at(0, &id);
 
@@ -98,7 +102,7 @@ int main(void)
 
     if (info.backend_id != id ||
         info.format_version_major != 0 ||
-        info.format_version_minor != 2 ||
+        info.format_version_minor != 3 ||
         info.payload_size != 4 ||
         info.placeholder_flags != 1 ||
         info.required_extension_mask != 0u ||
@@ -157,10 +161,14 @@ int main(void)
     }
 
     memcpy(unsupported_payload, artifact_bytes, sizeof(artifact_bytes));
-    unsupported_payload[sizeof(StrataPlaceholderArtifactHeader)] = 0x00;
-    unsupported_payload[sizeof(StrataPlaceholderArtifactHeader) + 1] = 0x01;
-    unsupported_payload[sizeof(StrataPlaceholderArtifactHeader) + 2] = 0x02;
-    unsupported_payload[sizeof(StrataPlaceholderArtifactHeader) + 3] = 0x03;
+    unsupported_payload[sizeof(StrataPlaceholderArtifactHeader) +
+        ((StrataPlaceholderArtifactHeader*)unsupported_payload)->descriptor_bytes] = 0x00;
+    unsupported_payload[sizeof(StrataPlaceholderArtifactHeader) +
+        ((StrataPlaceholderArtifactHeader*)unsupported_payload)->descriptor_bytes + 1] = 0x01;
+    unsupported_payload[sizeof(StrataPlaceholderArtifactHeader) +
+        ((StrataPlaceholderArtifactHeader*)unsupported_payload)->descriptor_bytes + 2] = 0x02;
+    unsupported_payload[sizeof(StrataPlaceholderArtifactHeader) +
+        ((StrataPlaceholderArtifactHeader*)unsupported_payload)->descriptor_bytes + 3] = 0x03;
     result = forge_artifact_load(id, unsupported_payload, sizeof(unsupported_payload), &art);
     if (result != FORGE_ERR_UNSUPPORTED)
     {
@@ -190,6 +198,44 @@ int main(void)
     {
         fprintf(stderr,
             "FAIL: mismatched admission manifest expected FORGE_ERR_ARTIFACT_INCOMPATIBLE, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    memcpy(bad_descriptor_bytes, artifact_bytes, sizeof(artifact_bytes));
+    bad_header = (StrataPlaceholderArtifactHeader *)bad_descriptor_bytes;
+    bad_header->descriptor_bytes -= sizeof(StrataPlaceholderSerializedDescriptor);
+    result = forge_artifact_load(id, bad_descriptor_bytes, sizeof(bad_descriptor_bytes), &art);
+    if (result != FORGE_ERR_ARTIFACT_INCOMPATIBLE)
+    {
+        fprintf(stderr,
+            "FAIL: descriptor_bytes mismatch expected FORGE_ERR_ARTIFACT_INCOMPATIBLE, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    memcpy(bad_descriptor_class, artifact_bytes, sizeof(artifact_bytes));
+    bad_descriptors = (StrataPlaceholderSerializedDescriptor*)
+        (((unsigned char*)bad_descriptor_class) + sizeof(StrataPlaceholderArtifactHeader));
+    bad_descriptors[0].class_type = FORGE_DESCRIPTOR_CLASS_OUTPUT;
+    result = forge_artifact_load(id, bad_descriptor_class, sizeof(bad_descriptor_class), &art);
+    if (result != FORGE_ERR_ARTIFACT_INCOMPATIBLE)
+    {
+        fprintf(stderr,
+            "FAIL: malformed descriptor class expected FORGE_ERR_ARTIFACT_INCOMPATIBLE, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    memcpy(bad_descriptor_name, artifact_bytes, sizeof(artifact_bytes));
+    bad_descriptors = (StrataPlaceholderSerializedDescriptor*)
+        (((unsigned char*)bad_descriptor_name) + sizeof(StrataPlaceholderArtifactHeader));
+    memset(bad_descriptors[0].name, 'A', sizeof(bad_descriptors[0].name));
+    result = forge_artifact_load(id, bad_descriptor_name, sizeof(bad_descriptor_name), &art);
+    if (result != FORGE_ERR_ARTIFACT_INCOMPATIBLE)
+    {
+        fprintf(stderr,
+            "FAIL: unterminated descriptor name expected FORGE_ERR_ARTIFACT_INCOMPATIBLE, got %d\n",
             (int)result);
         return 1;
     }

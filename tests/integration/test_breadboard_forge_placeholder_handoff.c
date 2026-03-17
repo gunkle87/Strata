@@ -188,6 +188,9 @@ main(void)
 
     header = (const StrataPlaceholderArtifactHeader *)bytes;
     if (header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_BASELINE ||
+        header->input_descriptor_count != 2u ||
+        header->output_descriptor_count != 2u ||
+        header->probe_descriptor_count != 1u ||
         header->admission_info.requirement_flags != STRATA_PLACEHOLDER_REQUIREMENT_NONE)
     {
         free(bytes);
@@ -250,30 +253,6 @@ main(void)
         return 1;
     }
 
-    result = forge_output_descriptor_at(artifact, 0u, &forge_descriptor);
-    if (result != FORGE_OK ||
-        forge_descriptor.id != breadboard_output.id ||
-        strcmp(forge_descriptor.name, breadboard_output.name) != 0 ||
-        forge_descriptor.width != breadboard_output.width)
-    {
-        free(bytes);
-        fprintf(stderr, "FAIL: TEMPORAL output descriptor handoff mismatch\n");
-        forge_artifact_unload(artifact);
-        return 1;
-    }
-
-    result = forge_probe_descriptor_at(artifact, 0u, &forge_descriptor);
-    if (result != FORGE_OK ||
-        forge_descriptor.id != breadboard_probe.id ||
-        strcmp(forge_descriptor.name, breadboard_probe.name) != 0 ||
-        forge_descriptor.width != breadboard_probe.width)
-    {
-        free(bytes);
-        fprintf(stderr, "FAIL: TEMPORAL probe descriptor handoff mismatch\n");
-        forge_artifact_unload(artifact);
-        return 1;
-    }
-
     if (forge_artifact_unload(artifact) != FORGE_OK)
     {
         fprintf(stderr, "FAIL: could not unload FAST_4STATE artifact\n");
@@ -296,6 +275,9 @@ main(void)
 
     header = (const StrataPlaceholderArtifactHeader *)bytes;
     if (header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_ADVANCED ||
+        header->input_descriptor_count != 2u ||
+        header->output_descriptor_count != 2u ||
+        header->probe_descriptor_count != 1u ||
         header->admission_info.requirement_flags !=
             STRATA_PLACEHOLDER_REQUIREMENT_ADVANCED_CONTROL ||
         !header->admission_info.requires_advanced_controls)
@@ -333,6 +315,30 @@ main(void)
     {
         free(bytes);
         fprintf(stderr, "FAIL: TEMPORAL input descriptor handoff mismatch\n");
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_output_descriptor_at(artifact, 0u, &forge_descriptor);
+    if (result != FORGE_OK ||
+        forge_descriptor.id != breadboard_output.id ||
+        strcmp(forge_descriptor.name, breadboard_output.name) != 0 ||
+        forge_descriptor.width != breadboard_output.width)
+    {
+        free(bytes);
+        fprintf(stderr, "FAIL: TEMPORAL output descriptor handoff mismatch\n");
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_probe_descriptor_at(artifact, 0u, &forge_descriptor);
+    if (result != FORGE_OK ||
+        forge_descriptor.id != breadboard_probe.id ||
+        strcmp(forge_descriptor.name, breadboard_probe.name) != 0 ||
+        forge_descriptor.width != breadboard_probe.width)
+    {
+        free(bytes);
+        fprintf(stderr, "FAIL: TEMPORAL probe descriptor handoff mismatch\n");
         forge_artifact_unload(artifact);
         return 1;
     }

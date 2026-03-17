@@ -16,8 +16,9 @@
 
 #define STRATA_PLACEHOLDER_ARTIFACT_MAGIC_LEN 4u
 #define STRATA_PLACEHOLDER_ARTIFACT_VERSION_MAJOR 0u
-#define STRATA_PLACEHOLDER_ARTIFACT_VERSION_MINOR 2u
+#define STRATA_PLACEHOLDER_ARTIFACT_VERSION_MINOR 3u
 #define STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN 4u
+#define STRATA_PLACEHOLDER_DESCRIPTOR_NAME_CAPACITY 32u
 
 #define STRATA_PLACEHOLDER_BACKEND_ID_INVALID 0u
 #define STRATA_PLACEHOLDER_BACKEND_ID_LXS 1u
@@ -42,6 +43,10 @@ typedef struct StrataPlaceholderArtifactHeader
     uint16_t version_major;
     uint16_t version_minor;
     uint32_t target_backend_id;
+    uint32_t input_descriptor_count;
+    uint32_t output_descriptor_count;
+    uint32_t probe_descriptor_count;
+    uint32_t descriptor_bytes;
     uint32_t payload_size;
     uint32_t payload_kind;
     StrataPlaceholderAdmissionInfo admission_info;
@@ -65,6 +70,16 @@ typedef struct StrataPlaceholderDescriptorSpec
     uint32_t class_type;
 }
 StrataPlaceholderDescriptorSpec;
+
+typedef struct StrataPlaceholderSerializedDescriptor
+{
+    uint32_t id;
+    uint32_t width;
+    uint32_t class_type;
+    uint32_t placeholder_flags;
+    char name[STRATA_PLACEHOLDER_DESCRIPTOR_NAME_CAPACITY];
+}
+StrataPlaceholderSerializedDescriptor;
 
 static const uint8_t k_strata_placeholder_artifact_magic[STRATA_PLACEHOLDER_ARTIFACT_MAGIC_LEN] =
     { 0x46, 0x41, 0x52, 0x54 }; /* "FART" */
@@ -96,9 +111,37 @@ static const StrataPlaceholderDescriptorSpec k_strata_placeholder_probe_descript
 };
 
 static inline size_t
-strata_placeholder_artifact_size(void)
+strata_placeholder_total_descriptor_count(
+    uint32_t input_count,
+    uint32_t output_count,
+    uint32_t probe_count)
+{
+    return (size_t)input_count + (size_t)output_count + (size_t)probe_count;
+}
+
+static inline size_t
+strata_placeholder_descriptor_bytes_for_counts(
+    uint32_t input_count,
+    uint32_t output_count,
+    uint32_t probe_count)
+{
+    return strata_placeholder_total_descriptor_count(
+        input_count,
+        output_count,
+        probe_count) * sizeof(StrataPlaceholderSerializedDescriptor);
+}
+
+static inline size_t
+strata_placeholder_artifact_size_for_counts(
+    uint32_t input_count,
+    uint32_t output_count,
+    uint32_t probe_count)
 {
     return sizeof(StrataPlaceholderArtifactHeader) +
+        strata_placeholder_descriptor_bytes_for_counts(
+            input_count,
+            output_count,
+            probe_count) +
         STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN;
 }
 
@@ -121,6 +164,15 @@ strata_placeholder_probe_descriptor_count(void)
 {
     return (uint32_t)(sizeof(k_strata_placeholder_probe_descriptors) /
         sizeof(k_strata_placeholder_probe_descriptors[0]));
+}
+
+static inline size_t
+strata_placeholder_artifact_size(void)
+{
+    return strata_placeholder_artifact_size_for_counts(
+        strata_placeholder_input_descriptor_count(),
+        strata_placeholder_output_descriptor_count(),
+        strata_placeholder_probe_descriptor_count());
 }
 
 static inline uint32_t
@@ -222,20 +274,121 @@ strata_placeholder_payload_matches(
     return memcmp(payload, expected, STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN) == 0;
 }
 
+static inline void
+strata_placeholder_fill_serialized_descriptor_from_spec(
+    StrataPlaceholderSerializedDescriptor* out_descriptor,
+    const StrataPlaceholderDescriptorSpec* spec)
+{
+    size_t copy_len;
+
+    if (!out_descriptor || !spec)
+    {
+        return;
+    }
+
+    out_descriptor->id = spec->id;
+    out_descriptor->width = spec->width;
+    out_descriptor->class_type = spec->class_type;
+    out_descriptor->placeholder_flags = 1u;
+    memset(out_descriptor->name, 0, sizeof(out_descriptor->name));
+
+    if (!spec->name)
+    {
+        return;
+    }
+
+    copy_len = strlen(spec->name);
+    if (copy_len >= sizeof(out_descriptor->name))
+    {
+        copy_len = sizeof(out_descriptor->name) - 1u;
+    }
+
+    memcpy(out_descriptor->name, spec->name, copy_len);
+}
+
+static inline void
+strata_placeholder_fill_default_serialized_descriptors(
+    StrataPlaceholderSerializedDescriptor* out_descriptors)
+{
+    uint32_t index;
+    uint32_t output_offset;
+    uint32_t probe_offset;
+
+    if (!out_descriptors)
+    {
+        return;
+    }
+
+    for (index = 0u; index < strata_placeholder_input_descriptor_count(); ++index)
+    {
+        strata_placeholder_fill_serialized_descriptor_from_spec(
+            &out_descriptors[index],
+            &k_strata_placeholder_input_descriptors[index]);
+    }
+
+    output_offset = strata_placeholder_input_descriptor_count();
+    for (index = 0u; index < strata_placeholder_output_descriptor_count(); ++index)
+    {
+        strata_placeholder_fill_serialized_descriptor_from_spec(
+            &out_descriptors[output_offset + index],
+            &k_strata_placeholder_output_descriptors[index]);
+    }
+
+    probe_offset = output_offset + strata_placeholder_output_descriptor_count();
+    for (index = 0u; index < strata_placeholder_probe_descriptor_count(); ++index)
+    {
+        strata_placeholder_fill_serialized_descriptor_from_spec(
+            &out_descriptors[probe_offset + index],
+            &k_strata_placeholder_probe_descriptors[index]);
+    }
+}
+
+static inline const StrataPlaceholderSerializedDescriptor*
+strata_placeholder_artifact_descriptors(
+    const StrataPlaceholderArtifactHeader* header)
+{
+    if (!header)
+    {
+        return NULL;
+    }
+
+    return (const StrataPlaceholderSerializedDescriptor*)
+        (((const uint8_t*)header) + sizeof(StrataPlaceholderArtifactHeader));
+}
+
+static inline const uint8_t*
+strata_placeholder_artifact_payload(
+    const StrataPlaceholderArtifactHeader* header)
+{
+    if (!header)
+    {
+        return NULL;
+    }
+
+    return ((const uint8_t*)header) +
+        sizeof(StrataPlaceholderArtifactHeader) +
+        header->descriptor_bytes;
+}
+
 static inline int
-strata_placeholder_artifact_write(
+strata_placeholder_artifact_write_with_descriptors(
     void* buffer,
     size_t buffer_size,
     uint32_t backend_id,
     StrataPlaceholderPayloadKind payload_kind,
     const StrataPlaceholderAdmissionInfo* admission_info,
+    const StrataPlaceholderSerializedDescriptor* descriptors,
+    uint32_t input_descriptor_count,
+    uint32_t output_descriptor_count,
+    uint32_t probe_descriptor_count,
     size_t* out_size)
 {
     StrataPlaceholderArtifactHeader header;
     const uint8_t* payload_bytes;
+    size_t descriptor_bytes;
     size_t required_size;
 
-    if (!buffer || !out_size || !admission_info ||
+    if (!buffer || !out_size || !admission_info || !descriptors ||
         backend_id == STRATA_PLACEHOLDER_BACKEND_ID_INVALID)
     {
         return 0;
@@ -248,7 +401,14 @@ strata_placeholder_artifact_write(
         return 0;
     }
 
-    required_size = strata_placeholder_artifact_size();
+    descriptor_bytes = strata_placeholder_descriptor_bytes_for_counts(
+        input_descriptor_count,
+        output_descriptor_count,
+        probe_descriptor_count);
+    required_size = sizeof(StrataPlaceholderArtifactHeader) +
+        descriptor_bytes +
+        STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN;
+
     if (buffer_size < required_size)
     {
         return 0;
@@ -258,16 +418,58 @@ strata_placeholder_artifact_write(
     header.version_major = STRATA_PLACEHOLDER_ARTIFACT_VERSION_MAJOR;
     header.version_minor = STRATA_PLACEHOLDER_ARTIFACT_VERSION_MINOR;
     header.target_backend_id = backend_id;
+    header.input_descriptor_count = input_descriptor_count;
+    header.output_descriptor_count = output_descriptor_count;
+    header.probe_descriptor_count = probe_descriptor_count;
+    header.descriptor_bytes = (uint32_t)descriptor_bytes;
     header.payload_size = STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN;
     header.payload_kind = (uint32_t)payload_kind;
     header.admission_info = *admission_info;
 
     memcpy(buffer, &header, sizeof(header));
-    memcpy(((uint8_t*)buffer) + sizeof(header), payload_bytes,
+    memcpy(
+        ((uint8_t*)buffer) + sizeof(header),
+        descriptors,
+        descriptor_bytes);
+    memcpy(
+        ((uint8_t*)buffer) + sizeof(header) + descriptor_bytes,
+        payload_bytes,
         STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN);
 
     *out_size = required_size;
     return 1;
+}
+
+static inline int
+strata_placeholder_artifact_write(
+    void* buffer,
+    size_t buffer_size,
+    uint32_t backend_id,
+    StrataPlaceholderPayloadKind payload_kind,
+    const StrataPlaceholderAdmissionInfo* admission_info,
+    size_t* out_size)
+{
+    StrataPlaceholderSerializedDescriptor descriptors[
+        sizeof(k_strata_placeholder_input_descriptors) /
+        sizeof(k_strata_placeholder_input_descriptors[0]) +
+        sizeof(k_strata_placeholder_output_descriptors) /
+        sizeof(k_strata_placeholder_output_descriptors[0]) +
+        sizeof(k_strata_placeholder_probe_descriptors) /
+        sizeof(k_strata_placeholder_probe_descriptors[0])];
+
+    strata_placeholder_fill_default_serialized_descriptors(descriptors);
+
+    return strata_placeholder_artifact_write_with_descriptors(
+        buffer,
+        buffer_size,
+        backend_id,
+        payload_kind,
+        admission_info,
+        descriptors,
+        strata_placeholder_input_descriptor_count(),
+        strata_placeholder_output_descriptor_count(),
+        strata_placeholder_probe_descriptor_count(),
+        out_size);
 }
 
 #endif /* STRATA_PLACEHOLDER_ARTIFACT_H */

@@ -75,6 +75,45 @@ copy_placeholder_descriptors(
     }
 }
 
+static void
+serialize_breadboard_descriptors(
+    StrataPlaceholderSerializedDescriptor* out_descriptors,
+    const BreadboardDescriptor* descriptors,
+    size_t count)
+{
+    size_t index;
+    size_t copy_len;
+
+    if (!out_descriptors || !descriptors)
+    {
+        return;
+    }
+
+    for (index = 0u; index < count; ++index)
+    {
+        out_descriptors[index].id = (uint32_t)descriptors[index].id;
+        out_descriptors[index].width = descriptors[index].width;
+        out_descriptors[index].class_type = (uint32_t)descriptors[index].class_type;
+        out_descriptors[index].placeholder_flags =
+            descriptors[index].is_placeholder ? 1u : 0u;
+
+        memset(out_descriptors[index].name, 0, sizeof(out_descriptors[index].name));
+
+        if (!descriptors[index].name)
+        {
+            continue;
+        }
+
+        copy_len = strlen(descriptors[index].name);
+        if (copy_len >= sizeof(out_descriptors[index].name))
+        {
+            copy_len = sizeof(out_descriptors[index].name) - 1u;
+        }
+
+        memcpy(out_descriptors[index].name, descriptors[index].name, copy_len);
+    }
+}
+
 /*
  * breadboard_api.c
  *
@@ -465,7 +504,10 @@ BreadboardResult breadboard_artifact_draft_export_placeholder_size(
         return BREADBOARD_ERR_UNSUPPORTED;
     }
 
-    *out_size = strata_placeholder_artifact_size();
+    *out_size = strata_placeholder_artifact_size_for_counts(
+        (uint32_t)draft->input_count,
+        (uint32_t)draft->output_count,
+        (uint32_t)draft->probe_count);
     return BREADBOARD_OK;
 }
 
@@ -479,6 +521,8 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
     uint32_t target_backend_id;
     StrataPlaceholderPayloadKind payload_kind;
     StrataPlaceholderAdmissionInfo admission_info;
+    size_t total_descriptor_count;
+    StrataPlaceholderSerializedDescriptor* serialized_descriptors;
 
     if (!draft || !buffer || !out_size)
     {
@@ -490,7 +534,10 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
         return BREADBOARD_ERR_UNSUPPORTED;
     }
 
-    required_size = strata_placeholder_artifact_size();
+    required_size = strata_placeholder_artifact_size_for_counts(
+        (uint32_t)draft->input_count,
+        (uint32_t)draft->output_count,
+        (uint32_t)draft->probe_count);
 
     if (buffer_size < required_size)
     {
@@ -516,17 +563,47 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
         return BREADBOARD_ERR_INTERNAL;
     }
 
-    if (!strata_placeholder_artifact_write(
+    total_descriptor_count = draft->input_count +
+        draft->output_count +
+        draft->probe_count;
+    serialized_descriptors = (StrataPlaceholderSerializedDescriptor*)calloc(
+        total_descriptor_count,
+        sizeof(StrataPlaceholderSerializedDescriptor));
+    if (!serialized_descriptors)
+    {
+        return BREADBOARD_ERR_INTERNAL;
+    }
+
+    serialize_breadboard_descriptors(
+        serialized_descriptors,
+        draft->inputs,
+        draft->input_count);
+    serialize_breadboard_descriptors(
+        serialized_descriptors + draft->input_count,
+        draft->outputs,
+        draft->output_count);
+    serialize_breadboard_descriptors(
+        serialized_descriptors + draft->input_count + draft->output_count,
+        draft->probes,
+        draft->probe_count);
+
+    if (!strata_placeholder_artifact_write_with_descriptors(
         buffer,
         buffer_size,
         target_backend_id,
         payload_kind,
         &admission_info,
+        serialized_descriptors,
+        (uint32_t)draft->input_count,
+        (uint32_t)draft->output_count,
+        (uint32_t)draft->probe_count,
         out_size))
     {
+        free(serialized_descriptors);
         return BREADBOARD_ERR_INTERNAL;
     }
 
+    free(serialized_descriptors);
     return BREADBOARD_OK;
 }
 

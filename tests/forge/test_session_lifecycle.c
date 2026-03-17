@@ -44,7 +44,7 @@ int main(void)
     ForgeSession   *session = NULL;
     ForgeSessionInfo session_info;
     ForgeResult     result;
-    unsigned char   artifact_bytes[sizeof(StrataPlaceholderArtifactHeader) + 4];
+    unsigned char   artifact_bytes[strata_placeholder_artifact_size()];
 
     result = forge_backend_id_at(0, &id);
 

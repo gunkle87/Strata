@@ -16,12 +16,16 @@ struct ForgeArtifact
     uint16_t format_version_major;
     uint16_t format_version_minor;
     uint32_t payload_size;
+    uint32_t input_descriptor_count;
+    uint32_t output_descriptor_count;
+    uint32_t probe_descriptor_count;
     size_t source_size;
     uint32_t placeholder_flags;
     uint32_t required_extension_mask;
     uint32_t requires_advanced_controls;
     uint32_t requires_native_state_read;
     uint32_t requires_native_inputs;
+    StrataPlaceholderSerializedDescriptor *descriptors;
     ForgeEffectiveProfile effective_profile;
 };
 

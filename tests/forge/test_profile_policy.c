@@ -77,7 +77,7 @@ int main(void)
     ForgeResult result;
     ForgeDescriptor descriptor;
     ForgeBackendInfo info;
-    unsigned char artifact_bytes[sizeof(StrataPlaceholderArtifactHeader) + 4];
+    unsigned char artifact_bytes[strata_placeholder_artifact_size()];
     uint32_t count;
 
     if (forge_install_product_profile(FORGE_PRODUCT_PROFILE_UNRESTRICTED) != FORGE_OK)

@@ -161,7 +161,7 @@ int main(void)
 
     {
         size_t export_size = 0;
-        unsigned char export_bytes[sizeof(StrataPlaceholderArtifactHeader) + 4];
+        unsigned char export_bytes[strata_placeholder_artifact_size()];
         const StrataPlaceholderArtifactHeader* export_header;
 
         res = breadboard_artifact_draft_export_placeholder_size(draft, &export_size);
@@ -181,6 +181,9 @@ int main(void)
 
         export_header = (const StrataPlaceholderArtifactHeader*)export_bytes;
         if (export_header->target_backend_id != STRATA_PLACEHOLDER_BACKEND_ID_HIGHZ ||
+            export_header->input_descriptor_count != 2u ||
+            export_header->output_descriptor_count != 2u ||
+            export_header->probe_descriptor_count != 1u ||
             export_header->payload_size != STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN ||
             export_header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_ADVANCED ||
             export_header->admission_info.requirement_flags !=
@@ -189,7 +192,7 @@ int main(void)
             export_header->admission_info.requires_native_state_read ||
             export_header->admission_info.requires_native_inputs ||
             !strata_placeholder_payload_matches(
-                export_bytes + sizeof(StrataPlaceholderArtifactHeader),
+                strata_placeholder_artifact_payload(export_header),
                 STRATA_PLACEHOLDER_PAYLOAD_ADVANCED))
         {
             printf("[FAIL] exported TEMPORAL placeholder bytes mismatch\n");
@@ -229,7 +232,7 @@ int main(void)
 
     {
         size_t export_size = 0;
-        unsigned char export_bytes[sizeof(StrataPlaceholderArtifactHeader) + 4];
+        unsigned char export_bytes[strata_placeholder_artifact_size()];
         const StrataPlaceholderArtifactHeader* export_header;
 
         res = breadboard_artifact_draft_export_placeholder_size(draft_fast, &export_size);
@@ -249,6 +252,9 @@ int main(void)
 
         export_header = (const StrataPlaceholderArtifactHeader*)export_bytes;
         if (export_header->target_backend_id != STRATA_PLACEHOLDER_BACKEND_ID_LXS ||
+            export_header->input_descriptor_count != 2u ||
+            export_header->output_descriptor_count != 2u ||
+            export_header->probe_descriptor_count != 1u ||
             export_header->payload_size != STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN ||
             export_header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_BASELINE ||
             export_header->admission_info.requirement_flags !=
@@ -257,7 +263,7 @@ int main(void)
             export_header->admission_info.requires_native_state_read ||
             export_header->admission_info.requires_native_inputs ||
             !strata_placeholder_payload_matches(
-                export_bytes + sizeof(StrataPlaceholderArtifactHeader),
+                strata_placeholder_artifact_payload(export_header),
                 STRATA_PLACEHOLDER_PAYLOAD_BASELINE))
         {
             printf("[FAIL] exported FAST_4STATE placeholder bytes mismatch\n");
@@ -415,7 +421,7 @@ int main(void)
 
     {
         size_t export_size = 0;
-        unsigned char export_bytes[sizeof(StrataPlaceholderArtifactHeader) + 4];
+        unsigned char export_bytes[strata_placeholder_artifact_size()];
 
         res = breadboard_artifact_draft_export_placeholder_size(NULL, &export_size);
         print_result("draft_export_placeholder_size(NULL, ...)", res, BREADBOARD_ERR_INVALID_ARGUMENT);

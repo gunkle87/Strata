@@ -42,7 +42,7 @@ int main(void)
     ForgeSession *session = NULL;
     ForgeDescriptor descriptor;
     ForgeProbeValue probe_values[1];
-    unsigned char artifact_bytes[sizeof(StrataPlaceholderArtifactHeader) + 4];
+    unsigned char artifact_bytes[strata_placeholder_artifact_size()];
     uint32_t count;
     ForgeResult result;
 
