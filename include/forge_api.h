@@ -41,6 +41,24 @@ typedef enum ForgeSessionLifecycleState
 }
 ForgeSessionLifecycleState;
 
+typedef enum ForgeProductProfileKind
+{
+    FORGE_PRODUCT_PROFILE_UNRESTRICTED = 0,
+    FORGE_PRODUCT_PROFILE_LXS_ONLY     = 1,
+    FORGE_PRODUCT_PROFILE_COMMON_ONLY  = 2
+
+}
+ForgeProductProfileKind;
+
+typedef enum ForgeSessionProfileKind
+{
+    FORGE_SESSION_PROFILE_DEFAULT     = 0,
+    FORGE_SESSION_PROFILE_COMMON_ONLY = 1,
+    FORGE_SESSION_PROFILE_NO_PROBES   = 2
+
+}
+ForgeSessionProfileKind;
+
 typedef struct ForgeArtifactInfo
 {
     ForgeBackendId backend_id;
@@ -111,6 +129,19 @@ ForgeProbeValue;
 
 uint32_t forge_backend_count(void);
 
+/*
+ * forge_install_product_profile
+ *
+ * Installs the active product exposure profile for subsequent discovery,
+ * artifact admission, and session creation.
+ *
+ * Loaded artifacts retain the effective profile that was active at load time
+ * for artifact-side descriptor visibility. Session creation and runtime access
+ * are evaluated against the product profile active at the time the session is
+ * created.
+ */
+ForgeResult forge_install_product_profile(ForgeProductProfileKind profile_kind);
+
 ForgeResult forge_backend_id_at(uint32_t index, ForgeBackendId *out_id);
 
 ForgeResult forge_backend_info(ForgeBackendId backend_id, ForgeBackendInfo *out_info);
@@ -141,6 +172,18 @@ ForgeResult forge_artifact_unload(ForgeArtifact *artifact);
 ForgeResult forge_session_create(
     ForgeArtifact  *artifact,
     ForgeSession  **out_session);
+
+/*
+ * forge_session_create_with_profile
+ *
+ * Creates a session using a session-level narrowing profile. The requested
+ * session profile may narrow the currently installed product profile but may
+ * never widen it.
+ */
+ForgeResult forge_session_create_with_profile(
+    ForgeArtifact            *artifact,
+    ForgeSessionProfileKind   profile_kind,
+    ForgeSession            **out_session);
 
 ForgeResult forge_session_info(
     const ForgeSession *session,

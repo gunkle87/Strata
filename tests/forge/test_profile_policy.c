@@ -9,7 +9,6 @@
 #include <string.h>
 #include "../../include/forge_api.h"
 #include "../../include/forge_capabilities.h"
-#include "../../src/forge/forge_policy.h"
 
 typedef struct TestArtifactHeader
 {
@@ -73,9 +72,6 @@ find_backend_id_by_name(const char *name)
 
 int main(void)
 {
-    ForgeProductExposureProfile common_only_profile;
-    ForgeProductExposureProfile lxs_only_profile;
-    ForgeSessionRestrictionProfile no_probe_session;
     ForgeBackendId lxs_id;
     ForgeBackendId highz_id;
     ForgeCapabilities caps;
@@ -88,7 +84,11 @@ int main(void)
     unsigned char artifact_bytes[sizeof(TestArtifactHeader) + 4];
     uint32_t count;
 
-    forge_policy_reset_defaults();
+    if (forge_install_product_profile(FORGE_PRODUCT_PROFILE_UNRESTRICTED) != FORGE_OK)
+    {
+        fprintf(stderr, "FAIL: could not install unrestricted profile\n");
+        return 1;
+    }
 
     lxs_id = find_backend_id_by_name("LXS");
     highz_id = find_backend_id_by_name("HighZ");
@@ -99,18 +99,11 @@ int main(void)
         return 1;
     }
 
-    common_only_profile.visible_backend_mask = FORGE_BACKEND_MASK_ALL;
-    common_only_profile.allowed_extension_mask = (1u << 0) | (1u << 3);
-    common_only_profile.visible_probe_class_mask =
-        FORGE_PROBE_VISIBILITY_MASK_COMMON_PUBLIC;
-    common_only_profile.allow_common_observation = 1u;
-    common_only_profile.allow_native_state_read = 0u;
-    common_only_profile.allow_common_inputs = 1u;
-    common_only_profile.allow_native_inputs = 0u;
-    common_only_profile.allow_common_probes = 1u;
-    common_only_profile.allow_advanced_controls = 0u;
-
-    forge_policy_install_product_profile_for_test(&common_only_profile);
+    if (forge_install_product_profile(FORGE_PRODUCT_PROFILE_COMMON_ONLY) != FORGE_OK)
+    {
+        fprintf(stderr, "FAIL: could not install common-only product profile\n");
+        return 1;
+    }
 
     result = forge_backend_capabilities(highz_id, &caps);
 
@@ -170,17 +163,65 @@ int main(void)
         return 1;
     }
 
-    lxs_only_profile.visible_backend_mask = FORGE_BACKEND_MASK_LXS;
-    lxs_only_profile.allowed_extension_mask = (1u << 0) | (1u << 3);
-    lxs_only_profile.visible_probe_class_mask = FORGE_PROBE_VISIBILITY_MASK_COMMON_PUBLIC;
-    lxs_only_profile.allow_common_observation = 1u;
-    lxs_only_profile.allow_native_state_read = 0u;
-    lxs_only_profile.allow_common_inputs = 1u;
-    lxs_only_profile.allow_native_inputs = 0u;
-    lxs_only_profile.allow_common_probes = 1u;
-    lxs_only_profile.allow_advanced_controls = 0u;
+    if (forge_install_product_profile(FORGE_PRODUCT_PROFILE_UNRESTRICTED) != FORGE_OK)
+    {
+        fprintf(stderr, "FAIL: could not restore unrestricted profile before mutation test\n");
+        return 1;
+    }
 
-    forge_policy_install_product_profile_for_test(&lxs_only_profile);
+    fill_stub_artifact(artifact_bytes, (unsigned int)highz_id);
+    artifact = NULL;
+    result = forge_artifact_load(highz_id, artifact_bytes, sizeof(artifact_bytes), &artifact);
+
+    if (result != FORGE_OK || !artifact)
+    {
+        fprintf(stderr, "FAIL: HighZ artifact should load before profile mutation test\n");
+        return 1;
+    }
+
+    if (forge_install_product_profile(FORGE_PRODUCT_PROFILE_LXS_ONLY) != FORGE_OK)
+    {
+        fprintf(stderr, "FAIL: could not install LXS-only profile for mutation test\n");
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_probe_descriptor_count(artifact, &count);
+
+    if (result != FORGE_OK || count != 1u)
+    {
+        fprintf(stderr, "FAIL: loaded artifact should retain descriptor visibility snapshot, got %d / %u\n",
+            (int)result, count);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    session = NULL;
+    result = forge_session_create(artifact, &session);
+
+    if (result != FORGE_ERR_FORBIDDEN)
+    {
+        fprintf(stderr, "FAIL: session create should honor current product profile after mutation, got %d\n",
+            (int)result);
+        if (session)
+        {
+            forge_session_free(session);
+        }
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    if (forge_artifact_unload(artifact) != FORGE_OK)
+    {
+        fprintf(stderr, "FAIL: could not unload artifact after profile mutation test\n");
+        return 1;
+    }
+
+    if (forge_install_product_profile(FORGE_PRODUCT_PROFILE_LXS_ONLY) != FORGE_OK)
+    {
+        fprintf(stderr, "FAIL: could not install LXS-only product profile\n");
+        return 1;
+    }
 
     if (forge_backend_count() != 1u)
     {
@@ -208,19 +249,11 @@ int main(void)
         return 1;
     }
 
-    forge_policy_reset_defaults();
-
-    no_probe_session.visible_backend_mask = FORGE_BACKEND_MASK_ALL;
-    no_probe_session.allowed_extension_mask = (1u << 0) | (1u << 1) | (1u << 2) | (1u << 3);
-    no_probe_session.visible_probe_class_mask = 0u;
-    no_probe_session.allow_common_observation = 1u;
-    no_probe_session.allow_native_state_read = 1u;
-    no_probe_session.allow_common_inputs = 1u;
-    no_probe_session.allow_native_inputs = 1u;
-    no_probe_session.allow_common_probes = 0u;
-    no_probe_session.allow_advanced_controls = 1u;
-
-    forge_policy_install_session_profile_for_test(&no_probe_session);
+    if (forge_install_product_profile(FORGE_PRODUCT_PROFILE_UNRESTRICTED) != FORGE_OK)
+    {
+        fprintf(stderr, "FAIL: could not restore unrestricted product profile\n");
+        return 1;
+    }
 
     fill_stub_artifact(artifact_bytes, (unsigned int)lxs_id);
     artifact = NULL;
@@ -233,11 +266,14 @@ int main(void)
     }
 
     session = NULL;
-    result = forge_session_create(artifact, &session);
+    result = forge_session_create_with_profile(
+        artifact,
+        FORGE_SESSION_PROFILE_NO_PROBES,
+        &session);
 
     if (result != FORGE_OK || !session)
     {
-        fprintf(stderr, "FAIL: session create under no-probe session profile returned %d\n",
+        fprintf(stderr, "FAIL: session create with no-probes profile returned %d\n",
             (int)result);
         forge_artifact_unload(artifact);
         return 1;
@@ -263,7 +299,11 @@ int main(void)
         return 1;
     }
 
-    forge_policy_reset_defaults();
+    if (forge_install_product_profile(FORGE_PRODUCT_PROFILE_UNRESTRICTED) != FORGE_OK)
+    {
+        fprintf(stderr, "FAIL: could not restore unrestricted profile at end of test\n");
+        return 1;
+    }
 
     printf("PASS: test_profile_policy\n");
     return 0;

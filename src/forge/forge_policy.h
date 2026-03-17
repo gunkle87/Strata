@@ -108,11 +108,26 @@ typedef struct ForgeInternalDescriptor
 ForgeInternalDescriptor;
 
 void forge_policy_reset_defaults(void);
+void forge_policy_get_installed_product_profile(ForgeProductExposureProfile *out_product);
 void forge_policy_get_library_effective_profile(ForgeEffectiveProfile *out_effective);
 void forge_policy_get_session_effective_profile(ForgeEffectiveProfile *out_effective);
-void forge_policy_install_product_profile_for_test(
+void forge_policy_build_product_profile_kind(
+    ForgeProductProfileKind profile_kind,
+    ForgeProductExposureProfile *out_profile);
+void forge_policy_build_session_profile_kind(
+    ForgeSessionProfileKind profile_kind,
+    ForgeSessionRestrictionProfile *out_profile);
+uint32_t forge_policy_profile_is_valid(
+    const ForgeBuildCapabilitySet *build,
+    const ForgeProductExposureProfile *product);
+uint32_t forge_policy_session_profile_is_valid(
+    const ForgeBuildCapabilitySet *build,
+    const ForgeProductExposureProfile *product,
+    const ForgeSessionRestrictionProfile *session);
+void forge_policy_get_build_capabilities(ForgeBuildCapabilitySet *out_build);
+void forge_policy_install_product_profile(
     const ForgeProductExposureProfile *profile);
-void forge_policy_install_session_profile_for_test(
+void forge_policy_install_session_profile(
     const ForgeSessionRestrictionProfile *profile);
 uint32_t forge_policy_backend_visible(
     const ForgeEffectiveProfile *profile,

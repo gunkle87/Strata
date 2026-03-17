@@ -159,6 +159,28 @@ forge_policy_reset_defaults(void)
 }
 
 void
+forge_policy_get_build_capabilities(ForgeBuildCapabilitySet *out_build)
+{
+    forge_policy_ensure_initialized();
+
+    if (out_build)
+    {
+        *out_build = s_build_capabilities;
+    }
+}
+
+void
+forge_policy_get_installed_product_profile(ForgeProductExposureProfile *out_product)
+{
+    forge_policy_ensure_initialized();
+
+    if (out_product)
+    {
+        *out_product = s_product_profile;
+    }
+}
+
+void
 forge_policy_get_library_effective_profile(ForgeEffectiveProfile *out_effective)
 {
     ForgeSessionRestrictionProfile no_session_narrowing;
@@ -195,7 +217,196 @@ forge_policy_get_session_effective_profile(ForgeEffectiveProfile *out_effective)
 }
 
 void
-forge_policy_install_product_profile_for_test(
+forge_policy_build_product_profile_kind(
+    ForgeProductProfileKind profile_kind,
+    ForgeProductExposureProfile *out_profile)
+{
+    forge_policy_ensure_initialized();
+
+    if (!out_profile)
+    {
+        return;
+    }
+
+    *out_profile = s_product_profile;
+
+    switch (profile_kind)
+    {
+        case FORGE_PRODUCT_PROFILE_UNRESTRICTED:
+            out_profile->visible_backend_mask = s_build_capabilities.backend_mask;
+            out_profile->allowed_extension_mask = s_build_capabilities.extension_mask;
+            out_profile->visible_probe_class_mask =
+                FORGE_PROBE_VISIBILITY_MASK_COMMON_PUBLIC |
+                FORGE_PROBE_VISIBILITY_MASK_BACKEND_PUBLIC |
+                FORGE_PROBE_VISIBILITY_MASK_BACKEND_PRIVILEGED;
+            out_profile->allow_common_observation = 1u;
+            out_profile->allow_native_state_read = 1u;
+            out_profile->allow_common_inputs = 1u;
+            out_profile->allow_native_inputs = 1u;
+            out_profile->allow_common_probes = 1u;
+            out_profile->allow_advanced_controls = 1u;
+            break;
+        case FORGE_PRODUCT_PROFILE_LXS_ONLY:
+            out_profile->visible_backend_mask = FORGE_BACKEND_MASK_LXS;
+            out_profile->allowed_extension_mask =
+                forge_extension_mask_for_family(FORGE_EXT_PERFORMANCE_PROFILE) |
+                forge_extension_mask_for_family(FORGE_EXT_RUNTIME_DIAGNOSTICS);
+            out_profile->visible_probe_class_mask =
+                FORGE_PROBE_VISIBILITY_MASK_COMMON_PUBLIC;
+            out_profile->allow_common_observation = 1u;
+            out_profile->allow_native_state_read = 0u;
+            out_profile->allow_common_inputs = 1u;
+            out_profile->allow_native_inputs = 0u;
+            out_profile->allow_common_probes = 1u;
+            out_profile->allow_advanced_controls = 0u;
+            break;
+        case FORGE_PRODUCT_PROFILE_COMMON_ONLY:
+            out_profile->visible_backend_mask = s_build_capabilities.backend_mask;
+            out_profile->allowed_extension_mask =
+                forge_extension_mask_for_family(FORGE_EXT_RUNTIME_DIAGNOSTICS);
+            out_profile->visible_probe_class_mask =
+                FORGE_PROBE_VISIBILITY_MASK_COMMON_PUBLIC;
+            out_profile->allow_common_observation = 1u;
+            out_profile->allow_native_state_read = 0u;
+            out_profile->allow_common_inputs = 1u;
+            out_profile->allow_native_inputs = 0u;
+            out_profile->allow_common_probes = 1u;
+            out_profile->allow_advanced_controls = 0u;
+            break;
+        default:
+            break;
+    }
+}
+
+void
+forge_policy_build_session_profile_kind(
+    ForgeSessionProfileKind profile_kind,
+    ForgeSessionRestrictionProfile *out_profile)
+{
+    forge_policy_ensure_initialized();
+
+    if (!out_profile)
+    {
+        return;
+    }
+
+    out_profile->visible_backend_mask = FORGE_BACKEND_MASK_ALL;
+    out_profile->allowed_extension_mask = s_build_capabilities.extension_mask;
+    out_profile->visible_probe_class_mask =
+        FORGE_PROBE_VISIBILITY_MASK_COMMON_PUBLIC |
+        FORGE_PROBE_VISIBILITY_MASK_BACKEND_PUBLIC |
+        FORGE_PROBE_VISIBILITY_MASK_BACKEND_PRIVILEGED;
+    out_profile->allow_common_observation = 1u;
+    out_profile->allow_native_state_read = 1u;
+    out_profile->allow_common_inputs = 1u;
+    out_profile->allow_native_inputs = 1u;
+    out_profile->allow_common_probes = 1u;
+    out_profile->allow_advanced_controls = 1u;
+
+    switch (profile_kind)
+    {
+        case FORGE_SESSION_PROFILE_DEFAULT:
+            break;
+        case FORGE_SESSION_PROFILE_COMMON_ONLY:
+            out_profile->visible_probe_class_mask =
+                FORGE_PROBE_VISIBILITY_MASK_COMMON_PUBLIC;
+            out_profile->allow_native_state_read = 0u;
+            out_profile->allow_native_inputs = 0u;
+            out_profile->allow_advanced_controls = 0u;
+            break;
+        case FORGE_SESSION_PROFILE_NO_PROBES:
+            out_profile->visible_probe_class_mask = 0u;
+            out_profile->allow_common_probes = 0u;
+            break;
+        default:
+            break;
+    }
+}
+
+uint32_t
+forge_policy_profile_is_valid(
+    const ForgeBuildCapabilitySet *build,
+    const ForgeProductExposureProfile *product)
+{
+    if (!build || !product)
+    {
+        return 0u;
+    }
+
+    if ((product->visible_backend_mask & ~build->backend_mask) != 0u)
+    {
+        return 0u;
+    }
+
+    if ((product->allowed_extension_mask & ~build->extension_mask) != 0u)
+    {
+        return 0u;
+    }
+
+    if ((product->visible_probe_class_mask & ~build->probe_visibility_mask) != 0u)
+    {
+        return 0u;
+    }
+
+    return 1u;
+}
+
+uint32_t
+forge_policy_session_profile_is_valid(
+    const ForgeBuildCapabilitySet *build,
+    const ForgeProductExposureProfile *product,
+    const ForgeSessionRestrictionProfile *session)
+{
+    if (!build || !product || !session)
+    {
+        return 0u;
+    }
+
+    if ((session->visible_backend_mask & ~build->backend_mask) != 0u)
+    {
+        return 0u;
+    }
+
+    if ((session->visible_backend_mask & ~product->visible_backend_mask) != 0u)
+    {
+        return 0u;
+    }
+
+    if ((session->allowed_extension_mask & ~build->extension_mask) != 0u)
+    {
+        return 0u;
+    }
+
+    if ((session->allowed_extension_mask & ~product->allowed_extension_mask) != 0u)
+    {
+        return 0u;
+    }
+
+    if ((session->visible_probe_class_mask & ~build->probe_visibility_mask) != 0u)
+    {
+        return 0u;
+    }
+
+    if ((session->visible_probe_class_mask & ~product->visible_probe_class_mask) != 0u)
+    {
+        return 0u;
+    }
+
+    if (session->allow_common_observation > product->allow_common_observation ||
+        session->allow_native_state_read > product->allow_native_state_read ||
+        session->allow_common_inputs > product->allow_common_inputs ||
+        session->allow_native_inputs > product->allow_native_inputs ||
+        session->allow_common_probes > product->allow_common_probes ||
+        session->allow_advanced_controls > product->allow_advanced_controls)
+    {
+        return 0u;
+    }
+
+    return 1u;
+}
+
+void
+forge_policy_install_product_profile(
     const ForgeProductExposureProfile *profile)
 {
     forge_policy_ensure_initialized();
@@ -207,7 +418,7 @@ forge_policy_install_product_profile_for_test(
 }
 
 void
-forge_policy_install_session_profile_for_test(
+forge_policy_install_session_profile(
     const ForgeSessionRestrictionProfile *profile)
 {
     forge_policy_ensure_initialized();

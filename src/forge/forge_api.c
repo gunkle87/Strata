@@ -272,6 +272,37 @@ forge_backend_count(void)
 }
 
 ForgeResult
+forge_install_product_profile(ForgeProductProfileKind profile_kind)
+{
+    ForgeBuildCapabilitySet build;
+    ForgeProductExposureProfile product;
+
+    switch (profile_kind)
+    {
+        case FORGE_PRODUCT_PROFILE_UNRESTRICTED:
+        case FORGE_PRODUCT_PROFILE_LXS_ONLY:
+        case FORGE_PRODUCT_PROFILE_COMMON_ONLY:
+            break;
+        default:
+            return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+                "forge_install_product_profile: invalid profile kind");
+    }
+
+    forge_policy_get_build_capabilities(&build);
+    forge_policy_build_product_profile_kind(profile_kind, &product);
+
+    if (!forge_policy_profile_is_valid(&build, &product))
+    {
+        return forge_fail(FORGE_ERR_UNSUPPORTED,
+            "forge_install_product_profile: requested profile is not valid for this build");
+    }
+
+    forge_policy_install_product_profile(&product);
+    forge_diag_set("");
+    return FORGE_OK;
+}
+
+ForgeResult
 forge_backend_id_at(uint32_t index, ForgeBackendId *out_id)
 {
     ForgeEffectiveProfile profile;
@@ -581,8 +612,23 @@ forge_session_create(
     ForgeArtifact  *artifact,
     ForgeSession  **out_session)
 {
+    return forge_session_create_with_profile(
+        artifact,
+        FORGE_SESSION_PROFILE_DEFAULT,
+        out_session);
+}
+
+ForgeResult
+forge_session_create_with_profile(
+    ForgeArtifact            *artifact,
+    ForgeSessionProfileKind   profile_kind,
+    ForgeSession            **out_session)
+{
     ForgeSession *session;
     ForgeEffectiveProfile profile;
+    ForgeBuildCapabilitySet build;
+    ForgeProductExposureProfile product;
+    ForgeSessionRestrictionProfile session_profile;
 
     if (!out_session)
     {
@@ -594,6 +640,17 @@ forge_session_create(
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
             "forge_session_create: artifact is NULL");
+    }
+
+    switch (profile_kind)
+    {
+        case FORGE_SESSION_PROFILE_DEFAULT:
+        case FORGE_SESSION_PROFILE_COMMON_ONLY:
+        case FORGE_SESSION_PROFILE_NO_PROBES:
+            break;
+        default:
+            return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+                "forge_session_create_with_profile: invalid session profile kind");
     }
 
     *out_session = NULL;
@@ -608,13 +665,25 @@ forge_session_create(
 
     session->artifact = artifact;
     session->placeholder_state = 0;
+    forge_policy_get_build_capabilities(&build);
+    forge_policy_get_installed_product_profile(&product);
+    forge_policy_build_session_profile_kind(profile_kind, &session_profile);
+
+    if (!forge_policy_session_profile_is_valid(&build, &product, &session_profile))
+    {
+        free(session);
+        return forge_fail(FORGE_ERR_FORBIDDEN,
+            "forge_session_create_with_profile: session profile exceeds installed product policy");
+    }
+
+    forge_policy_install_session_profile(&session_profile);
     forge_policy_get_session_effective_profile(&profile);
 
     if (!forge_policy_backend_visible(&profile, artifact->backend_id))
     {
         free(session);
         return forge_fail(FORGE_ERR_FORBIDDEN,
-            "forge_session_create: backend is denied by active session policy");
+            "forge_session_create_with_profile: backend is denied by active session policy");
     }
 
     session->effective_profile = profile;
