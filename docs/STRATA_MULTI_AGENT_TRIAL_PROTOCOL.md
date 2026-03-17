@@ -118,6 +118,24 @@ Preferred use:
 - style and constraint audits
 - specialty audit passes
 
+Hard audit rule
+- audit runs are always report-only unless a directive explicitly says
+  otherwise
+- the audit agent must not modify code, docs, build files, staging state, or
+  generated outputs
+- the audit agent must not stage files
+- the audit agent must not perform cleanup that changes the working tree except
+  temporary build outputs required for verification
+- audit directives should explicitly repeat:
+  - `Do not modify code, docs, build files, staging state, or generated outputs.`
+  - `Do not stage files.`
+  - `Audit and report only.`
+
+Reason
+- audit work exists to verify reality, not to improve the repo
+- once an audit agent starts "helping," the audit result stops being clean
+- commit control and cleanup decisions must remain with the integration owner
+
 ------------------------------------------------------------------------
 
 ## 6. Codex Role During Trial
@@ -185,7 +203,40 @@ After stop:
 
 ------------------------------------------------------------------------
 
-## 9. Trial Evaluation Criteria
+## 9. Known-Issue Fix Rule
+
+If a problem is found and it is already clear that the problem will need to be
+fixed, then the default action is to fix it now.
+
+This applies when the issue is:
+- understood,
+- safely fixable,
+- inside the current task boundary,
+- and not blocked by a later architectural decision.
+
+Default rule
+- do not knowingly leave behind small or medium cleanup debt just because it
+  can be deferred
+- if the fix is safe and clearly required, fix it during the current pass
+
+Valid reasons to defer:
+- the fix would materially broaden scope
+- the fix depends on a later architecture choice
+- the fix would collide with active work in another lane
+- the fix would turn a bounded task into an unbounded refactor
+
+Important separation
+- audit agents remain report-only
+- the integration owner decides whether and when the known issue is fixed
+
+Reason
+- known unresolved issues make future audits noisier
+- deferred obvious cleanup reduces trust in task completion
+- fixing safe issues immediately keeps the repo easier to reason about
+
+------------------------------------------------------------------------
+
+## 10. Trial Evaluation Criteria
 
 Over the next 15 to 20 tasks, we should evaluate each external agent on:
 - directive compliance
@@ -203,7 +254,7 @@ This trial is successful if it gives us a clearer map of:
 
 ------------------------------------------------------------------------
 
-## 10. Trial Notes To Preserve
+## 11. Trial Notes To Preserve
 
 After notable tasks, we should record:
 - which agent ran the task
@@ -211,13 +262,14 @@ After notable tasks, we should record:
 - whether cleanup was needed
 - whether the directive was followed cleanly
 - whether the result was commit-ready
+- whether a report-only audit stayed report-only
 
 This does not need a heavy process yet.
 Simple checkpoint notes are enough.
 
 ------------------------------------------------------------------------
 
-## 11. Non-Permanent Status
+## 12. Non-Permanent Status
 
 This protocol is not permanent policy yet.
 
@@ -232,7 +284,7 @@ After 15 to 20 tasks, reassess:
 
 ------------------------------------------------------------------------
 
-## 12. High-Level Conclusion
+## 13. High-Level Conclusion
 
 For now, Strata should operate with:
 - one continuous architecture owner,
