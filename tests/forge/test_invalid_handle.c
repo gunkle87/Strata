@@ -223,6 +223,127 @@ int main(void)
         return 1;
     }
 
+    /* forge_input_descriptor_count: NULL artifact and NULL out_count must validate. */
+    {
+        uint32_t count = 0;
+
+        result = forge_input_descriptor_count(NULL, &count);
+
+        if (result != FORGE_ERR_INVALID_HANDLE)
+        {
+            fprintf(stderr,
+                "FAIL: forge_input_descriptor_count(NULL, ...) expected "
+                "FORGE_ERR_INVALID_HANDLE, got %d\n",
+                (int)result);
+            return 1;
+        }
+    }
+
+    result = forge_input_descriptor_count((const ForgeArtifact *)0x1, NULL);
+
+    if (result != FORGE_ERR_INVALID_ARGUMENT)
+    {
+        fprintf(stderr,
+            "FAIL: forge_input_descriptor_count(..., NULL) expected "
+            "FORGE_ERR_INVALID_ARGUMENT, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    /* forge_input_descriptor_at: NULL artifact and NULL out_descriptor must validate. */
+    {
+        ForgeDescriptor descriptor;
+
+        result = forge_input_descriptor_at(NULL, 0, &descriptor);
+
+        if (result != FORGE_ERR_INVALID_HANDLE)
+        {
+            fprintf(stderr,
+                "FAIL: forge_input_descriptor_at(NULL, ...) expected "
+                "FORGE_ERR_INVALID_HANDLE, got %d\n",
+                (int)result);
+            return 1;
+        }
+    }
+
+    result = forge_input_descriptor_at((const ForgeArtifact *)0x1, 0, NULL);
+
+    if (result != FORGE_ERR_INVALID_ARGUMENT)
+    {
+        fprintf(stderr,
+            "FAIL: forge_input_descriptor_at(..., NULL) expected "
+            "FORGE_ERR_INVALID_ARGUMENT, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    {
+        ForgeDescriptor descriptor;
+
+        result = forge_input_descriptor_by_id(NULL, 101u, &descriptor);
+
+        if (result != FORGE_ERR_INVALID_HANDLE)
+        {
+            fprintf(stderr,
+                "FAIL: forge_input_descriptor_by_id(NULL, ...) expected "
+                "FORGE_ERR_INVALID_HANDLE, got %d\n",
+                (int)result);
+            return 1;
+        }
+    }
+
+    result = forge_input_descriptor_by_id((const ForgeArtifact *)0x1, 101u, NULL);
+
+    if (result != FORGE_ERR_INVALID_ARGUMENT)
+    {
+        fprintf(stderr,
+            "FAIL: forge_input_descriptor_by_id(..., NULL) expected "
+            "FORGE_ERR_INVALID_ARGUMENT, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    {
+        ForgeDescriptor descriptor;
+
+        result = forge_input_descriptor_by_name(NULL, "in0", &descriptor);
+
+        if (result != FORGE_ERR_INVALID_HANDLE)
+        {
+            fprintf(stderr,
+                "FAIL: forge_input_descriptor_by_name(NULL, ...) expected "
+                "FORGE_ERR_INVALID_HANDLE, got %d\n",
+                (int)result);
+            return 1;
+        }
+    }
+
+    {
+        ForgeDescriptor descriptor;
+
+        result = forge_input_descriptor_by_name((const ForgeArtifact *)0x1, NULL, &descriptor);
+
+        if (result != FORGE_ERR_INVALID_ARGUMENT)
+        {
+            fprintf(stderr,
+                "FAIL: forge_input_descriptor_by_name(..., NULL, ...) expected "
+                "FORGE_ERR_INVALID_ARGUMENT, got %d\n",
+                (int)result);
+            return 1;
+        }
+    }
+
+    result = forge_input_descriptor_by_name((const ForgeArtifact *)0x1, "in0", NULL);
+
+    if (result != FORGE_ERR_INVALID_ARGUMENT)
+    {
+        fprintf(stderr,
+            "FAIL: forge_input_descriptor_by_name(..., ..., NULL) expected "
+            "FORGE_ERR_INVALID_ARGUMENT, got %d\n",
+            (int)result);
+        return 1;
+    }
+
     /* forge_output_descriptor_count: NULL artifact and NULL out_count must validate. */
     {
         uint32_t count = 0;

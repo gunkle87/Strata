@@ -68,6 +68,84 @@ int main(void)
         return 1;
     }
 
+    result = forge_input_descriptor_count(artifact, &count);
+
+    if (result != FORGE_OK || count != 2u)
+    {
+        fprintf(stderr,
+            "FAIL: forge_input_descriptor_count expected FORGE_OK and count 2, got %d / %u\n",
+            (int)result, count);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_input_descriptor_at(artifact, 0u, &descriptor);
+
+    if (result != FORGE_OK ||
+        descriptor.descriptor_class != FORGE_DESCRIPTOR_CLASS_INPUT ||
+        descriptor.id != 101u ||
+        descriptor.width != 1u)
+    {
+        fprintf(stderr, "FAIL: forge_input_descriptor_at returned unexpected descriptor\n");
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_input_descriptor_by_id(artifact, 102u, &descriptor);
+
+    if (result != FORGE_OK ||
+        descriptor.descriptor_class != FORGE_DESCRIPTOR_CLASS_INPUT ||
+        strcmp(descriptor.name, "in1") != 0)
+    {
+        fprintf(stderr, "FAIL: forge_input_descriptor_by_id returned unexpected descriptor\n");
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_input_descriptor_by_name(artifact, "in0", &descriptor);
+
+    if (result != FORGE_OK ||
+        descriptor.id != 101u ||
+        descriptor.descriptor_class != FORGE_DESCRIPTOR_CLASS_INPUT)
+    {
+        fprintf(stderr, "FAIL: forge_input_descriptor_by_name returned unexpected descriptor\n");
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_input_descriptor_at(artifact, count, &descriptor);
+
+    if (result != FORGE_ERR_OUT_OF_BOUNDS)
+    {
+        fprintf(stderr,
+            "FAIL: forge_input_descriptor_at expected FORGE_ERR_OUT_OF_BOUNDS, got %d\n",
+            (int)result);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_input_descriptor_by_id(artifact, 999u, &descriptor);
+
+    if (result != FORGE_ERR_OUT_OF_BOUNDS)
+    {
+        fprintf(stderr,
+            "FAIL: forge_input_descriptor_by_id expected FORGE_ERR_OUT_OF_BOUNDS, got %d\n",
+            (int)result);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_input_descriptor_by_name(artifact, "missing_input", &descriptor);
+
+    if (result != FORGE_ERR_OUT_OF_BOUNDS)
+    {
+        fprintf(stderr,
+            "FAIL: forge_input_descriptor_by_name expected FORGE_ERR_OUT_OF_BOUNDS, got %d\n",
+            (int)result);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
     result = forge_output_descriptor_count(artifact, &count);
 
     if (result != FORGE_OK || count != 2u)

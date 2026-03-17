@@ -8,13 +8,13 @@
 /*
  * forge_api.c
  *
- * Stub artifact and session lifecycle for Forge.
+ * Stub artifact, descriptor, and session lifecycle for Forge.
  * No real backend execution is implemented here.
  * All execution paths return explicit result codes.
  *
  * Backend discovery functions (forge_backend_count, forge_backend_id_at,
- * forge_backend_info) delegate directly to the registry. Capability queries
- * delegate to forge_capabilities.c through the public API.
+ * forge_backend_info, and forge_backend_capabilities) delegate directly to the
+ * registry.
  */
 
 /* -------------------------------------------------------------------------
@@ -53,6 +53,12 @@ static const ForgeDescriptor k_placeholder_output_descriptors[] =
 {
     { 1u, "out0", 1u, FORGE_DESCRIPTOR_CLASS_OUTPUT, 1u },
     { 2u, "out1", 1u, FORGE_DESCRIPTOR_CLASS_OUTPUT, 1u }
+};
+
+static const ForgeDescriptor k_placeholder_input_descriptors[] =
+{
+    { 101u, "in0", 1u, FORGE_DESCRIPTOR_CLASS_INPUT, 1u },
+    { 102u, "in1", 1u, FORGE_DESCRIPTOR_CLASS_INPUT, 1u }
 };
 
 static const ForgeDescriptor k_placeholder_probe_descriptors[] =
@@ -483,6 +489,111 @@ forge_read_outputs(
 
     return forge_fail(FORGE_ERR_UNSUPPORTED,
         "forge_read_outputs: runtime output mapping not yet implemented");
+}
+
+ForgeResult
+forge_input_descriptor_count(
+    const ForgeArtifact *artifact,
+    uint32_t            *out_count)
+{
+    if (!out_count)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_input_descriptor_count: out_count is NULL");
+    }
+
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_input_descriptor_count: artifact is NULL");
+    }
+
+    *out_count = forge_descriptor_array_count(
+        k_placeholder_input_descriptors,
+        (uint32_t)(sizeof(k_placeholder_input_descriptors) /
+        sizeof(k_placeholder_input_descriptors[0])));
+
+    forge_diag_set("");
+    return FORGE_OK;
+}
+
+ForgeResult
+forge_input_descriptor_at(
+    const ForgeArtifact *artifact,
+    uint32_t             index,
+    ForgeDescriptor     *out_descriptor)
+{
+    uint32_t count;
+
+    if (!out_descriptor)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_input_descriptor_at: out_descriptor is NULL");
+    }
+
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_input_descriptor_at: artifact is NULL");
+    }
+
+    count = (uint32_t)(sizeof(k_placeholder_input_descriptors) /
+        sizeof(k_placeholder_input_descriptors[0]));
+
+    if (index >= count)
+    {
+        return forge_fail(FORGE_ERR_OUT_OF_BOUNDS,
+            "forge_input_descriptor_at: index out of bounds");
+    }
+
+    *out_descriptor = k_placeholder_input_descriptors[index];
+
+    forge_diag_set("");
+    return FORGE_OK;
+}
+
+ForgeResult
+forge_input_descriptor_by_id(
+    const ForgeArtifact *artifact,
+    uint32_t             descriptor_id,
+    ForgeDescriptor     *out_descriptor)
+{
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_input_descriptor_by_id: artifact is NULL");
+    }
+
+    return forge_descriptor_find_by_id(
+        k_placeholder_input_descriptors,
+        (uint32_t)(sizeof(k_placeholder_input_descriptors) /
+        sizeof(k_placeholder_input_descriptors[0])),
+        descriptor_id,
+        out_descriptor,
+        "forge_input_descriptor_by_id: out_descriptor is NULL",
+        "forge_input_descriptor_by_id: descriptor_id not found");
+}
+
+ForgeResult
+forge_input_descriptor_by_name(
+    const ForgeArtifact *artifact,
+    const char          *name,
+    ForgeDescriptor     *out_descriptor)
+{
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_input_descriptor_by_name: artifact is NULL");
+    }
+
+    return forge_descriptor_find_by_name(
+        k_placeholder_input_descriptors,
+        (uint32_t)(sizeof(k_placeholder_input_descriptors) /
+        sizeof(k_placeholder_input_descriptors[0])),
+        name,
+        out_descriptor,
+        "forge_input_descriptor_by_name: name or out_descriptor is NULL",
+        "forge_input_descriptor_by_name: descriptor name not found");
 }
 
 ForgeResult
