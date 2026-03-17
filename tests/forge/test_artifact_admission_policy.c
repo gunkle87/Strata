@@ -116,7 +116,10 @@ main(void)
         return 1;
     }
 
-    if (!info.requires_advanced_controls ||
+    if (info.source_target_value != 2u ||
+        info.source_has_placeholders != 1u ||
+        info.source_approximate_size_bytes != 1024u ||
+        !info.requires_advanced_controls ||
         info.requires_native_state_read ||
         info.requires_native_inputs ||
         info.required_extension_mask == 0u)
@@ -224,7 +227,10 @@ main(void)
         return 1;
     }
 
-    if (info.required_extension_mask != 0u ||
+    if (info.source_target_value != 1u ||
+        info.source_has_placeholders != 1u ||
+        info.source_approximate_size_bytes != 1024u ||
+        info.required_extension_mask != 0u ||
         info.requires_advanced_controls != 0u ||
         info.requires_native_state_read != 0u ||
         info.requires_native_inputs != 0u)

@@ -2,6 +2,7 @@
 #include "../../include/strata_placeholder_artifact.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /*
  * test_breadboard_skeleton.c
@@ -163,8 +164,12 @@ int main(void)
         size_t export_size = 0;
         unsigned char export_bytes[strata_placeholder_artifact_size()];
         const StrataPlaceholderArtifactHeader* export_header;
+        const StrataPlaceholderSectionEntry* admission_section;
+        const StrataPlaceholderSectionEntry* draft_summary_section;
         const StrataPlaceholderSectionEntry* descriptor_section;
         const StrataPlaceholderSectionEntry* payload_section;
+        const StrataPlaceholderAdmissionInfo* export_admission_info;
+        const StrataPlaceholderDraftSummary* export_draft_summary;
 
         res = breadboard_artifact_draft_export_placeholder_size(draft, &export_size);
         print_result("draft_export_placeholder_size(TEMPORAL)", res, BREADBOARD_OK);
@@ -182,22 +187,43 @@ int main(void)
         print_result("draft_export_placeholder(TEMPORAL)", res, BREADBOARD_OK);
 
         export_header = (const StrataPlaceholderArtifactHeader*)export_bytes;
+        admission_section = strata_placeholder_find_section_entry(
+            export_header, STRATA_PLACEHOLDER_SECTION_ADMISSION);
+        draft_summary_section = strata_placeholder_find_section_entry(
+            export_header, STRATA_PLACEHOLDER_SECTION_DRAFT_SUMMARY);
         descriptor_section = strata_placeholder_find_section_entry(
             export_header, STRATA_PLACEHOLDER_SECTION_DESCRIPTORS);
         payload_section = strata_placeholder_find_section_entry(
             export_header, STRATA_PLACEHOLDER_SECTION_PAYLOAD);
+        export_admission_info = strata_placeholder_artifact_admission_info(export_header);
+        export_draft_summary = strata_placeholder_artifact_draft_summary(export_header);
         if (export_header->target_backend_id != STRATA_PLACEHOLDER_BACKEND_ID_HIGHZ ||
             export_header->input_descriptor_count != 2u ||
             export_header->output_descriptor_count != 2u ||
             export_header->probe_descriptor_count != 1u ||
             export_header->section_table_offset != sizeof(StrataPlaceholderArtifactHeader) ||
-            export_header->section_count != 2u ||
+            export_header->section_count != 4u ||
+            !admission_section ||
+            admission_section->section_offset !=
+                sizeof(StrataPlaceholderArtifactHeader) +
+                strata_placeholder_section_table_bytes(4u) ||
+            admission_section->section_size != sizeof(StrataPlaceholderAdmissionInfo) ||
+            !draft_summary_section ||
+            draft_summary_section->section_offset !=
+                sizeof(StrataPlaceholderArtifactHeader) +
+                strata_placeholder_section_table_bytes(4u) +
+                sizeof(StrataPlaceholderAdmissionInfo) ||
+            draft_summary_section->section_size != sizeof(StrataPlaceholderDraftSummary) ||
             export_header->descriptor_offset !=
                 sizeof(StrataPlaceholderArtifactHeader) +
-                strata_placeholder_section_table_bytes(2u) ||
+                strata_placeholder_section_table_bytes(4u) +
+                sizeof(StrataPlaceholderAdmissionInfo) +
+                sizeof(StrataPlaceholderDraftSummary) ||
             export_header->payload_offset !=
                 sizeof(StrataPlaceholderArtifactHeader) +
-                strata_placeholder_section_table_bytes(2u) +
+                strata_placeholder_section_table_bytes(4u) +
+                sizeof(StrataPlaceholderAdmissionInfo) +
+                sizeof(StrataPlaceholderDraftSummary) +
                 export_header->descriptor_bytes ||
             !descriptor_section ||
             descriptor_section->section_offset != export_header->descriptor_offset ||
@@ -207,6 +233,14 @@ int main(void)
             payload_section->section_size != export_header->payload_size ||
             export_header->payload_size != STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN ||
             export_header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_ADVANCED ||
+            !export_admission_info ||
+            memcmp(export_admission_info,
+                &export_header->admission_info,
+                sizeof(*export_admission_info)) != 0 ||
+            !export_draft_summary ||
+            export_draft_summary->source_target_value != BREADBOARD_TARGET_TEMPORAL ||
+            export_draft_summary->has_placeholders != 1u ||
+            export_draft_summary->approximate_size_bytes != 1024u ||
             export_header->admission_info.requirement_flags !=
                 STRATA_PLACEHOLDER_REQUIREMENT_ADVANCED_CONTROL ||
             !export_header->admission_info.requires_advanced_controls ||
@@ -255,8 +289,12 @@ int main(void)
         size_t export_size = 0;
         unsigned char export_bytes[strata_placeholder_artifact_size()];
         const StrataPlaceholderArtifactHeader* export_header;
+        const StrataPlaceholderSectionEntry* admission_section;
+        const StrataPlaceholderSectionEntry* draft_summary_section;
         const StrataPlaceholderSectionEntry* descriptor_section;
         const StrataPlaceholderSectionEntry* payload_section;
+        const StrataPlaceholderAdmissionInfo* export_admission_info;
+        const StrataPlaceholderDraftSummary* export_draft_summary;
 
         res = breadboard_artifact_draft_export_placeholder_size(draft_fast, &export_size);
         print_result("draft_export_placeholder_size(FAST_4STATE)", res, BREADBOARD_OK);
@@ -274,22 +312,43 @@ int main(void)
         print_result("draft_export_placeholder(FAST_4STATE)", res, BREADBOARD_OK);
 
         export_header = (const StrataPlaceholderArtifactHeader*)export_bytes;
+        admission_section = strata_placeholder_find_section_entry(
+            export_header, STRATA_PLACEHOLDER_SECTION_ADMISSION);
+        draft_summary_section = strata_placeholder_find_section_entry(
+            export_header, STRATA_PLACEHOLDER_SECTION_DRAFT_SUMMARY);
         descriptor_section = strata_placeholder_find_section_entry(
             export_header, STRATA_PLACEHOLDER_SECTION_DESCRIPTORS);
         payload_section = strata_placeholder_find_section_entry(
             export_header, STRATA_PLACEHOLDER_SECTION_PAYLOAD);
+        export_admission_info = strata_placeholder_artifact_admission_info(export_header);
+        export_draft_summary = strata_placeholder_artifact_draft_summary(export_header);
         if (export_header->target_backend_id != STRATA_PLACEHOLDER_BACKEND_ID_LXS ||
             export_header->input_descriptor_count != 2u ||
             export_header->output_descriptor_count != 2u ||
             export_header->probe_descriptor_count != 1u ||
             export_header->section_table_offset != sizeof(StrataPlaceholderArtifactHeader) ||
-            export_header->section_count != 2u ||
+            export_header->section_count != 4u ||
+            !admission_section ||
+            admission_section->section_offset !=
+                sizeof(StrataPlaceholderArtifactHeader) +
+                strata_placeholder_section_table_bytes(4u) ||
+            admission_section->section_size != sizeof(StrataPlaceholderAdmissionInfo) ||
+            !draft_summary_section ||
+            draft_summary_section->section_offset !=
+                sizeof(StrataPlaceholderArtifactHeader) +
+                strata_placeholder_section_table_bytes(4u) +
+                sizeof(StrataPlaceholderAdmissionInfo) ||
+            draft_summary_section->section_size != sizeof(StrataPlaceholderDraftSummary) ||
             export_header->descriptor_offset !=
                 sizeof(StrataPlaceholderArtifactHeader) +
-                strata_placeholder_section_table_bytes(2u) ||
+                strata_placeholder_section_table_bytes(4u) +
+                sizeof(StrataPlaceholderAdmissionInfo) +
+                sizeof(StrataPlaceholderDraftSummary) ||
             export_header->payload_offset !=
                 sizeof(StrataPlaceholderArtifactHeader) +
-                strata_placeholder_section_table_bytes(2u) +
+                strata_placeholder_section_table_bytes(4u) +
+                sizeof(StrataPlaceholderAdmissionInfo) +
+                sizeof(StrataPlaceholderDraftSummary) +
                 export_header->descriptor_bytes ||
             !descriptor_section ||
             descriptor_section->section_offset != export_header->descriptor_offset ||
@@ -299,6 +358,14 @@ int main(void)
             payload_section->section_size != export_header->payload_size ||
             export_header->payload_size != STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN ||
             export_header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_BASELINE ||
+            !export_admission_info ||
+            memcmp(export_admission_info,
+                &export_header->admission_info,
+                sizeof(*export_admission_info)) != 0 ||
+            !export_draft_summary ||
+            export_draft_summary->source_target_value != BREADBOARD_TARGET_FAST_4STATE ||
+            export_draft_summary->has_placeholders != 1u ||
+            export_draft_summary->approximate_size_bytes != 1024u ||
             export_header->admission_info.requirement_flags !=
                 STRATA_PLACEHOLDER_REQUIREMENT_NONE ||
             export_header->admission_info.requires_advanced_controls ||

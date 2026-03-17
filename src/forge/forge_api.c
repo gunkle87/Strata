@@ -345,8 +345,14 @@ static ForgeResult
 forge_validate_serialized_descriptor_block(
     const ForgeArtifactHeader *header,
     size_t size,
+    const StrataPlaceholderAdmissionInfo **out_admission_info,
+    const StrataPlaceholderDraftSummary **out_draft_summary,
     const StrataPlaceholderSerializedDescriptor **out_descriptors)
 {
+    const StrataPlaceholderAdmissionInfo *admission_info;
+    const StrataPlaceholderSectionEntry *admission_section;
+    const StrataPlaceholderDraftSummary *draft_summary;
+    const StrataPlaceholderSectionEntry *draft_summary_section;
     const StrataPlaceholderSerializedDescriptor *descriptors;
     const StrataPlaceholderSectionEntry *descriptor_section;
     const StrataPlaceholderSectionEntry *payload_section;
@@ -357,13 +363,13 @@ forge_validate_serialized_descriptor_block(
     size_t total_descriptor_count;
     uint32_t index;
 
-    if (!header || !out_descriptors)
+    if (!header || !out_admission_info || !out_draft_summary || !out_descriptors)
     {
         return forge_fail(FORGE_ERR_INTERNAL,
             "forge_artifact_load: descriptor validation received invalid input");
     }
 
-    if (header->section_count != 2u)
+    if (header->section_count != 4u)
     {
         return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
             "forge_artifact_load: unsupported placeholder section count");
@@ -419,11 +425,73 @@ forge_validate_serialized_descriptor_block(
     payload_section = strata_placeholder_find_section_entry(
         header,
         STRATA_PLACEHOLDER_SECTION_PAYLOAD);
+    draft_summary_section = strata_placeholder_find_section_entry(
+        header,
+        STRATA_PLACEHOLDER_SECTION_DRAFT_SUMMARY);
+    admission_section = strata_placeholder_find_section_entry(
+        header,
+        STRATA_PLACEHOLDER_SECTION_ADMISSION);
 
-    if (!descriptor_section || !payload_section)
+    if (!admission_section || !draft_summary_section || !descriptor_section || !payload_section)
     {
         return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
             "forge_artifact_load: required placeholder sections are missing");
+    }
+
+    if ((size_t)admission_section->section_offset < sizeof(ForgeArtifactHeader) ||
+        (size_t)admission_section->section_offset > size ||
+        (size_t)admission_section->section_offset + admission_section->section_size > size)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: admission section is out of bounds");
+    }
+
+    if (admission_section->section_size != sizeof(StrataPlaceholderAdmissionInfo))
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: admission section size is invalid");
+    }
+
+    if ((size_t)header->section_table_offset + section_table_bytes >
+        (size_t)admission_section->section_offset)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: section table overlaps admission section");
+    }
+
+    if ((size_t)admission_section->section_offset + admission_section->section_size >
+        (size_t)header->descriptor_offset)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: admission section overlaps later blocks");
+    }
+
+    if ((size_t)draft_summary_section->section_offset < sizeof(ForgeArtifactHeader) ||
+        (size_t)draft_summary_section->section_offset > size ||
+        (size_t)draft_summary_section->section_offset + draft_summary_section->section_size > size)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: draft summary section is out of bounds");
+    }
+
+    if (draft_summary_section->section_size != sizeof(StrataPlaceholderDraftSummary))
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: draft summary section size is invalid");
+    }
+
+    if ((size_t)admission_section->section_offset + admission_section->section_size >
+        (size_t)draft_summary_section->section_offset)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: admission section overlaps draft summary section");
+    }
+
+    if ((size_t)draft_summary_section->section_offset + draft_summary_section->section_size >
+        (size_t)header->descriptor_offset)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: draft summary section overlaps descriptor block");
     }
 
     if (descriptor_section->section_offset != header->descriptor_offset ||
@@ -438,6 +506,33 @@ forge_validate_serialized_descriptor_block(
     {
         return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
             "forge_artifact_load: payload section does not match header");
+    }
+
+    admission_info = strata_placeholder_artifact_admission_info(header);
+    if (!admission_info)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: admission section data is missing");
+    }
+
+    if (memcmp(admission_info, &header->admission_info, sizeof(*admission_info)) != 0)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: admission section does not match header");
+    }
+
+    draft_summary = strata_placeholder_artifact_draft_summary(header);
+    if (!draft_summary)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: draft summary section data is missing");
+    }
+
+    if (strata_placeholder_backend_id_for_target_value(
+            draft_summary->source_target_value) != header->target_backend_id)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: draft summary target does not match backend");
     }
 
     max_descriptor_entries =
@@ -531,6 +626,8 @@ forge_validate_serialized_descriptor_block(
         }
     }
 
+    *out_admission_info = admission_info;
+    *out_draft_summary = draft_summary;
     *out_descriptors = descriptors;
     return FORGE_OK;
 }
@@ -758,6 +855,8 @@ forge_artifact_load(
     const ForgeBackendRecord *rec;
     ForgeArtifact            *art;
     const ForgeArtifactHeader *header;
+    const StrataPlaceholderAdmissionInfo *admission_info;
+    const StrataPlaceholderDraftSummary *draft_summary;
     const StrataPlaceholderSerializedDescriptor *serialized_descriptors;
     const unsigned char *payload;
     ForgeEffectiveProfile profile;
@@ -825,6 +924,8 @@ forge_artifact_load(
     descriptor_result = forge_validate_serialized_descriptor_block(
         header,
         size,
+        &admission_info,
+        &draft_summary,
         &serialized_descriptors);
     if (descriptor_result != FORGE_OK)
     {
@@ -840,9 +941,9 @@ forge_artifact_load(
     payload = strata_placeholder_artifact_payload(header);
     payload_kind = (StrataPlaceholderPayloadKind)header->payload_kind;
     required_extension_mask = 0u;
-    requires_advanced_controls = header->admission_info.requires_advanced_controls;
-    requires_native_state_read = header->admission_info.requires_native_state_read;
-    requires_native_inputs = header->admission_info.requires_native_inputs;
+    requires_advanced_controls = admission_info->requires_advanced_controls;
+    requires_native_state_read = admission_info->requires_native_state_read;
+    requires_native_inputs = admission_info->requires_native_inputs;
 
     /*
      * Stub success path:
@@ -861,14 +962,14 @@ forge_artifact_load(
 
         if (!strata_placeholder_admission_matches_payload_kind(
             payload_kind,
-            &header->admission_info))
+            admission_info))
         {
             return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
                 "forge_artifact_load: placeholder admission manifest does not match payload kind");
         }
 
         required_extension_mask = forge_extension_mask_from_placeholder_requirements(
-            header->admission_info.requirement_flags);
+            admission_info->requirement_flags);
 
         requirement_result = forge_validate_artifact_requirements(
             &profile,
@@ -894,6 +995,9 @@ forge_artifact_load(
         art->backend_id = backend_id;
         art->format_version_major = header->version_major;
         art->format_version_minor = header->version_minor;
+        art->source_target_value = draft_summary->source_target_value;
+        art->source_has_placeholders = draft_summary->has_placeholders;
+        art->source_approximate_size_bytes = draft_summary->approximate_size_bytes;
         art->payload_size = header->payload_size;
         art->input_descriptor_count = header->input_descriptor_count;
         art->output_descriptor_count = header->output_descriptor_count;
@@ -954,6 +1058,9 @@ forge_artifact_info(
     out_info->backend_id = artifact->backend_id;
     out_info->format_version_major = artifact->format_version_major;
     out_info->format_version_minor = artifact->format_version_minor;
+    out_info->source_target_value = artifact->source_target_value;
+    out_info->source_has_placeholders = artifact->source_has_placeholders;
+    out_info->source_approximate_size_bytes = artifact->source_approximate_size_bytes;
     out_info->payload_size = artifact->payload_size;
     out_info->placeholder_flags = artifact->placeholder_flags;
     out_info->required_extension_mask = artifact->required_extension_mask;

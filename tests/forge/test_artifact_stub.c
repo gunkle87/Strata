@@ -104,7 +104,10 @@ int main(void)
 
     if (info.backend_id != id ||
         info.format_version_major != 0 ||
-        info.format_version_minor != 5 ||
+        info.format_version_minor != 7 ||
+        info.source_target_value != 1u ||
+        info.source_has_placeholders != 1u ||
+        info.source_approximate_size_bytes != 1024u ||
         info.payload_size != 4 ||
         info.placeholder_flags != 1 ||
         info.required_extension_mask != 0u ||
@@ -196,6 +199,23 @@ int main(void)
     {
         fprintf(stderr,
             "FAIL: mismatched admission manifest expected FORGE_ERR_ARTIFACT_INCOMPATIBLE, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    memcpy(bad_magic, artifact_bytes, sizeof(artifact_bytes));
+    bad_header = (StrataPlaceholderArtifactHeader *)bad_magic;
+    {
+        StrataPlaceholderAdmissionInfo *bad_admission_info;
+        bad_admission_info = (StrataPlaceholderAdmissionInfo *)
+            strata_placeholder_artifact_admission_info(bad_header);
+        bad_admission_info->requires_advanced_controls = 1u;
+    }
+    result = forge_artifact_load(id, bad_magic, sizeof(bad_magic), &art);
+    if (result != FORGE_ERR_ARTIFACT_INCOMPATIBLE)
+    {
+        fprintf(stderr,
+            "FAIL: mismatched admission section expected FORGE_ERR_ARTIFACT_INCOMPATIBLE, got %d\n",
             (int)result);
         return 1;
     }

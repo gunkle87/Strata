@@ -521,6 +521,7 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
     uint32_t target_backend_id;
     StrataPlaceholderPayloadKind payload_kind;
     StrataPlaceholderAdmissionInfo admission_info;
+    StrataPlaceholderDraftSummary draft_summary;
     size_t total_descriptor_count;
     StrataPlaceholderSerializedDescriptor* serialized_descriptors;
 
@@ -563,6 +564,11 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
         return BREADBOARD_ERR_INTERNAL;
     }
 
+    draft_summary.source_target_value = (uint32_t)draft->info.target;
+    draft_summary.has_placeholders = draft->info.has_placeholders ? 1u : 0u;
+    draft_summary.approximate_size_bytes =
+        (uint64_t)draft->info.approximate_size_bytes;
+
     total_descriptor_count = draft->input_count +
         draft->output_count +
         draft->probe_count;
@@ -593,6 +599,7 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
         target_backend_id,
         payload_kind,
         &admission_info,
+        &draft_summary,
         serialized_descriptors,
         (uint32_t)draft->input_count,
         (uint32_t)draft->output_count,

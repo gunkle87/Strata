@@ -64,6 +64,9 @@ typedef struct ForgeArtifactInfo
     ForgeBackendId backend_id;
     uint16_t format_version_major;
     uint16_t format_version_minor;
+    uint32_t source_target_value;
+    uint32_t source_has_placeholders;
+    uint64_t source_approximate_size_bytes;
     uint32_t payload_size;
     uint32_t placeholder_flags;
     uint32_t required_extension_mask;

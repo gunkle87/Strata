@@ -68,11 +68,14 @@ This export path exists only to validate the first Breadboard -> Forge vertical
 handoff. It should be treated as scaffolding rather than the long-term artifact
 contract.
 
-The current placeholder handoff now carries an explicit coarse admission
-manifest, a serialized descriptor block, and a tiny section directory in the
-shared placeholder header in addition to the payload class. That keeps the
-temporary contract self-describing while still remaining a scaffolding format
-rather than the final Strata artifact layout.
+The current placeholder handoff now carries:
+- an explicit coarse admission manifest
+- a coarse draft summary block
+- a serialized descriptor block
+- a tiny typed section directory with admission, draft-summary, descriptor, and payload sections
+
+That keeps the temporary contract self-describing while still remaining a
+scaffolding format rather than the final Strata artifact layout.
 
 ## Current Stub Limitations
 
