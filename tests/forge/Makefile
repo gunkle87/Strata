@@ -18,6 +18,7 @@ INCLUDES = \
 
 FORGE_SRCS = \
     ../../src/forge/forge_registry.c \
+    ../../src/forge/forge_policy.c \
     ../../src/forge/forge_api.c \
     ../../src/common/forge_diagnostic.c
 
@@ -29,7 +30,8 @@ TESTS = \
     test_artifact_stub \
     test_session_lifecycle \
     test_runtime_stubs \
-    test_descriptor_stubs
+    test_descriptor_stubs \
+    test_profile_policy
 
 TEST_EXES = $(addsuffix .exe, $(TESTS))
 
@@ -59,6 +61,9 @@ test_runtime_stubs.exe: test_runtime_stubs.c $(FORGE_SRCS)
 test_descriptor_stubs.exe: test_descriptor_stubs.c $(FORGE_SRCS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(FORGE_SRCS)
 
+test_profile_policy.exe: test_profile_policy.c $(FORGE_SRCS)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(FORGE_SRCS)
+
 test: all
 	@echo --- Running Forge skeleton tests ---
 	@test_backend_enum.exe
@@ -69,6 +74,7 @@ test: all
 	@test_session_lifecycle.exe
 	@test_runtime_stubs.exe
 	@test_descriptor_stubs.exe
+	@test_profile_policy.exe
 	@echo --- All Forge skeleton tests passed ---
 
 clean:

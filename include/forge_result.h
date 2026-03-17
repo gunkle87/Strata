@@ -36,7 +36,10 @@ typedef enum ForgeResult
     FORGE_ERR_OUT_OF_BOUNDS = 7,
 
     /* An internal error that should not occur under normal conditions. */
-    FORGE_ERR_INTERNAL = 8
+    FORGE_ERR_INTERNAL = 8,
+
+    /* The runtime could support the call, but active policy forbids it. */
+    FORGE_ERR_FORBIDDEN = 9
 
 }
 ForgeResult;
