@@ -108,6 +108,19 @@ typedef struct BreadboardDescriptor
 BreadboardDescriptor;
 
 /*
+ * BreadboardDescriptorSpec
+ *
+ * Public declaration shape for authored draft-visible descriptors.
+ */
+typedef struct BreadboardDescriptorSpec
+{
+    uint64_t id;
+    const char* name;
+    uint32_t width;
+}
+BreadboardDescriptorSpec;
+
+/*
  * BreadboardCompileOptions
  *
  * Configuration knobs for adjusting structural compilation behavior.

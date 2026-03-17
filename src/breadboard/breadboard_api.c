@@ -76,6 +76,162 @@ copy_placeholder_descriptors(
 }
 
 static void
+free_descriptor_array(
+    BreadboardDescriptor* descriptors,
+    size_t count)
+{
+    size_t index;
+
+    if (!descriptors)
+    {
+        return;
+    }
+
+    for (index = 0u; index < count; ++index)
+    {
+        if (!descriptors[index].is_placeholder && descriptors[index].name)
+        {
+            free((void*)descriptors[index].name);
+        }
+    }
+
+    free(descriptors);
+}
+
+static int
+copy_descriptor_name(
+    const char* name,
+    const char** out_name)
+{
+    size_t len;
+    char* copy;
+
+    if (!name || !out_name)
+    {
+        return 0;
+    }
+
+    len = strlen(name);
+    copy = (char*)malloc(len + 1u);
+    if (!copy)
+    {
+        return 0;
+    }
+
+    memcpy(copy, name, len + 1u);
+    *out_name = copy;
+    return 1;
+}
+
+static int
+copy_declared_descriptors(
+    BreadboardDescriptor** out_descriptors,
+    const BreadboardDescriptor* descriptors,
+    size_t count)
+{
+    BreadboardDescriptor* copy;
+    size_t index;
+
+    if (!out_descriptors)
+    {
+        return 0;
+    }
+
+    *out_descriptors = NULL;
+
+    if (count == 0u)
+    {
+        return 1;
+    }
+
+    if (!descriptors)
+    {
+        return 0;
+    }
+
+    copy = (BreadboardDescriptor*)calloc(count, sizeof(BreadboardDescriptor));
+    if (!copy)
+    {
+        return 0;
+    }
+
+    for (index = 0u; index < count; ++index)
+    {
+        copy[index].id = descriptors[index].id;
+        copy[index].width = descriptors[index].width;
+        copy[index].class_type = descriptors[index].class_type;
+        copy[index].is_placeholder = descriptors[index].is_placeholder;
+
+        if (!copy[index].is_placeholder)
+        {
+            if (!copy_descriptor_name(descriptors[index].name, &copy[index].name))
+            {
+                free_descriptor_array(copy, index);
+                return 0;
+            }
+        }
+        else
+        {
+            copy[index].name = descriptors[index].name;
+        }
+    }
+
+    *out_descriptors = copy;
+    return 1;
+}
+
+static BreadboardResult
+append_module_descriptor(
+    BreadboardDescriptor** io_descriptors,
+    size_t* io_count,
+    const BreadboardDescriptorSpec* spec,
+    BreadboardDescriptorClass descriptor_class)
+{
+    BreadboardDescriptor* new_descriptors;
+    const char* name_copy;
+    size_t index;
+
+    if (!io_descriptors || !io_count || !spec || !spec->name ||
+        spec->name[0] == '\0' || spec->width == 0u)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    for (index = 0u; index < *io_count; ++index)
+    {
+        if ((*io_descriptors)[index].id == spec->id ||
+            strcmp((*io_descriptors)[index].name, spec->name) == 0)
+        {
+            return BREADBOARD_ERR_INVALID_ARGUMENT;
+        }
+    }
+
+    new_descriptors = (BreadboardDescriptor*)realloc(
+        *io_descriptors,
+        (*io_count + 1u) * sizeof(BreadboardDescriptor));
+    if (!new_descriptors)
+    {
+        return BREADBOARD_ERR_INTERNAL;
+    }
+
+    *io_descriptors = new_descriptors;
+    name_copy = NULL;
+    if (!copy_descriptor_name(spec->name, &name_copy))
+    {
+        return BREADBOARD_ERR_INTERNAL;
+    }
+
+    (*io_descriptors)[*io_count].id = spec->id;
+    (*io_descriptors)[*io_count].name = name_copy;
+    (*io_descriptors)[*io_count].width = spec->width;
+    (*io_descriptors)[*io_count].class_type = descriptor_class;
+    (*io_descriptors)[*io_count].is_placeholder = false;
+    *io_count += 1u;
+
+    return BREADBOARD_OK;
+}
+
+static void
 serialize_breadboard_descriptors(
     StrataPlaceholderSerializedDescriptor* out_descriptors,
     const BreadboardDescriptor* descriptors,
@@ -148,6 +304,9 @@ void breadboard_module_free(BreadboardModule* module)
 {
     if (module)
     {
+        free_descriptor_array(module->inputs, module->input_count);
+        free_descriptor_array(module->outputs, module->output_count);
+        free_descriptor_array(module->probes, module->probe_count);
         if (module->diagnostics)
         {
             free(module->diagnostics);
@@ -228,6 +387,54 @@ BreadboardResult breadboard_module_query_target_availability(
     return BREADBOARD_OK;
 }
 
+BreadboardResult breadboard_module_add_input_descriptor(
+    BreadboardModule* module,
+    const BreadboardDescriptorSpec* spec)
+{
+    if (!module)
+    {
+        return BREADBOARD_ERR_INVALID_HANDLE;
+    }
+
+    return append_module_descriptor(
+        &module->inputs,
+        &module->input_count,
+        spec,
+        BREADBOARD_DESC_INPUT);
+}
+
+BreadboardResult breadboard_module_add_output_descriptor(
+    BreadboardModule* module,
+    const BreadboardDescriptorSpec* spec)
+{
+    if (!module)
+    {
+        return BREADBOARD_ERR_INVALID_HANDLE;
+    }
+
+    return append_module_descriptor(
+        &module->outputs,
+        &module->output_count,
+        spec,
+        BREADBOARD_DESC_OUTPUT);
+}
+
+BreadboardResult breadboard_module_add_probe_descriptor(
+    BreadboardModule* module,
+    const BreadboardDescriptorSpec* spec)
+{
+    if (!module)
+    {
+        return BREADBOARD_ERR_INVALID_HANDLE;
+    }
+
+    return append_module_descriptor(
+        &module->probes,
+        &module->probe_count,
+        spec,
+        BREADBOARD_DESC_PROBE);
+}
+
 /* Helper to record a diagnostic */
 static BreadboardResult record_diagnostic(
     BreadboardModule* module,
@@ -305,51 +512,84 @@ BreadboardResult breadboard_module_compile(
         return BREADBOARD_ERR_INTERNAL;
     }
 
-    /* Allocate and populate hardcoded placeholder descriptors to prove plumbing */
-    draft->input_count = strata_placeholder_input_descriptor_count();
-    draft->inputs = (BreadboardDescriptor*)calloc(
-        draft->input_count,
-        sizeof(BreadboardDescriptor));
-    if (draft->inputs)
+    if (module->input_count != 0u || module->output_count != 0u || module->probe_count != 0u)
     {
-        copy_placeholder_descriptors(
-            draft->inputs,
-            k_strata_placeholder_input_descriptors,
-            draft->input_count);
-    }
+        draft->input_count = module->input_count;
+        if (!copy_declared_descriptors(&draft->inputs, module->inputs, draft->input_count))
+        {
+            breadboard_artifact_draft_free(draft);
+            record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_INTERNAL_ERROR, "Failed to copy declared input descriptors");
+            return BREADBOARD_ERR_INTERNAL;
+        }
 
-    draft->output_count = strata_placeholder_output_descriptor_count();
-    draft->outputs = (BreadboardDescriptor*)calloc(
-        draft->output_count,
-        sizeof(BreadboardDescriptor));
-    if (draft->outputs)
-    {
-        copy_placeholder_descriptors(
-            draft->outputs,
-            k_strata_placeholder_output_descriptors,
-            draft->output_count);
-    }
+        draft->output_count = module->output_count;
+        if (!copy_declared_descriptors(&draft->outputs, module->outputs, draft->output_count))
+        {
+            breadboard_artifact_draft_free(draft);
+            record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_INTERNAL_ERROR, "Failed to copy declared output descriptors");
+            return BREADBOARD_ERR_INTERNAL;
+        }
 
-    draft->probe_count = strata_placeholder_probe_descriptor_count();
-    draft->probes = (BreadboardDescriptor*)calloc(
-        draft->probe_count,
-        sizeof(BreadboardDescriptor));
-    if (draft->probes)
+        draft->probe_count = module->probe_count;
+        if (!copy_declared_descriptors(&draft->probes, module->probes, draft->probe_count))
+        {
+            breadboard_artifact_draft_free(draft);
+            record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_INTERNAL_ERROR, "Failed to copy declared probe descriptors");
+            return BREADBOARD_ERR_INTERNAL;
+        }
+    }
+    else
     {
-        copy_placeholder_descriptors(
-            draft->probes,
-            k_strata_placeholder_probe_descriptors,
-            draft->probe_count);
+        /* Placeholder fallback path used until real structure ingestion is richer. */
+        draft->input_count = strata_placeholder_input_descriptor_count();
+        draft->inputs = (BreadboardDescriptor*)calloc(
+            draft->input_count,
+            sizeof(BreadboardDescriptor));
+        if (draft->inputs)
+        {
+            copy_placeholder_descriptors(
+                draft->inputs,
+                k_strata_placeholder_input_descriptors,
+                draft->input_count);
+        }
+
+        draft->output_count = strata_placeholder_output_descriptor_count();
+        draft->outputs = (BreadboardDescriptor*)calloc(
+            draft->output_count,
+            sizeof(BreadboardDescriptor));
+        if (draft->outputs)
+        {
+            copy_placeholder_descriptors(
+                draft->outputs,
+                k_strata_placeholder_output_descriptors,
+                draft->output_count);
+        }
+
+        draft->probe_count = strata_placeholder_probe_descriptor_count();
+        draft->probes = (BreadboardDescriptor*)calloc(
+            draft->probe_count,
+            sizeof(BreadboardDescriptor));
+        if (draft->probes)
+        {
+            copy_placeholder_descriptors(
+                draft->probes,
+                k_strata_placeholder_probe_descriptors,
+                draft->probe_count);
+        }
     }
 
     /* Copy target expectation and admission logic to the draft */
     draft->target = module->target;
     draft->info.target = module->target;
-    draft->info.has_placeholders = true;
-    draft->info.approximate_size_bytes = 1024; /* Fake size */
+    draft->info.has_placeholders =
+        (module->input_count == 0u && module->output_count == 0u && module->probe_count == 0u);
+    draft->info.approximate_size_bytes = strata_placeholder_artifact_size_for_counts(
+        (uint32_t)draft->input_count,
+        (uint32_t)draft->output_count,
+        (uint32_t)draft->probe_count);
     draft->admission_info.target = module->target;
     draft->admission_info.is_placeholder = true;
-    draft->admission_info.approximate_size_bytes = 1024; /* Fake size */
+    draft->admission_info.approximate_size_bytes = draft->info.approximate_size_bytes;
 
     if (module->target == BREADBOARD_TARGET_FAST_4STATE)
     {
@@ -394,9 +634,9 @@ void breadboard_artifact_draft_free(BreadboardArtifactDraft* draft)
 {
     if (draft)
     {
-        if (draft->inputs) free(draft->inputs);
-        if (draft->outputs) free(draft->outputs);
-        if (draft->probes) free(draft->probes);
+        free_descriptor_array(draft->inputs, draft->input_count);
+        free_descriptor_array(draft->outputs, draft->output_count);
+        free_descriptor_array(draft->probes, draft->probe_count);
         free(draft);
     }
 }

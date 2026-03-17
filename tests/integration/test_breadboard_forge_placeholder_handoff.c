@@ -242,7 +242,7 @@ main(void)
         !draft_summary ||
         draft_summary->source_target_value != BREADBOARD_TARGET_FAST_4STATE ||
         draft_summary->has_placeholders != 1u ||
-        draft_summary->approximate_size_bytes != 1024u ||
+        draft_summary->approximate_size_bytes != strata_placeholder_artifact_size() ||
         header->admission_info.requirement_flags != STRATA_PLACEHOLDER_REQUIREMENT_NONE)
     {
         free(bytes);
@@ -265,7 +265,7 @@ main(void)
     if (result != FORGE_OK ||
         info.source_target_value != BREADBOARD_TARGET_FAST_4STATE ||
         info.source_has_placeholders != 1u ||
-        info.source_approximate_size_bytes != 1024u ||
+        info.source_approximate_size_bytes != strata_placeholder_artifact_size() ||
         info.requires_advanced_controls != 0u ||
         info.requires_native_state_read != 0u ||
         info.requires_native_inputs != 0u)
@@ -312,6 +312,140 @@ main(void)
     {
         fprintf(stderr, "FAIL: could not unload FAST_4STATE artifact\n");
         return 1;
+    }
+
+    {
+        BreadboardModule *module;
+        BreadboardArtifactDraft *draft;
+        BreadboardCompileOptions options;
+        BreadboardDescriptorSpec input_spec = { 1000u, "user_in", 4u };
+        BreadboardDescriptorSpec output_spec = { 2000u, "user_out", 2u };
+        BreadboardDescriptorSpec probe_spec = { 3000u, "user_probe", 1u };
+
+        module = NULL;
+        draft = NULL;
+        options.allow_placeholders = true;
+        options.deny_approximation = false;
+        options.strict_projection = false;
+
+        if (breadboard_module_create(&module) != BREADBOARD_OK ||
+            breadboard_module_set_target(module, BREADBOARD_TARGET_TEMPORAL) != BREADBOARD_OK ||
+            breadboard_module_add_input_descriptor(module, &input_spec) != BREADBOARD_OK ||
+            breadboard_module_add_output_descriptor(module, &output_spec) != BREADBOARD_OK ||
+            breadboard_module_add_probe_descriptor(module, &probe_spec) != BREADBOARD_OK ||
+            breadboard_module_compile(module, &options, &draft) != BREADBOARD_OK ||
+            !draft)
+        {
+            fprintf(stderr, "FAIL: could not build authored TEMPORAL draft\n");
+            return 1;
+        }
+
+        if (breadboard_artifact_draft_export_placeholder_size(draft, &size) != BREADBOARD_OK)
+        {
+            fprintf(stderr, "FAIL: could not size authored TEMPORAL draft export\n");
+            breadboard_artifact_draft_free(draft);
+            breadboard_module_free(module);
+            return 1;
+        }
+
+        bytes = (unsigned char*)malloc(size);
+        if (!bytes)
+        {
+            fprintf(stderr, "FAIL: could not allocate authored TEMPORAL export bytes\n");
+            breadboard_artifact_draft_free(draft);
+            breadboard_module_free(module);
+            return 1;
+        }
+
+        if (breadboard_artifact_draft_export_placeholder(draft, bytes, size, &size) != BREADBOARD_OK)
+        {
+            fprintf(stderr, "FAIL: could not export authored TEMPORAL draft\n");
+            free(bytes);
+            breadboard_artifact_draft_free(draft);
+            breadboard_module_free(module);
+            return 1;
+        }
+
+        breadboard_artifact_draft_free(draft);
+        breadboard_module_free(module);
+
+        header = (const StrataPlaceholderArtifactHeader *)bytes;
+        draft_summary = strata_placeholder_artifact_draft_summary(header);
+        if (!draft_summary ||
+            draft_summary->source_target_value != BREADBOARD_TARGET_TEMPORAL ||
+            draft_summary->has_placeholders != 0u ||
+            draft_summary->approximate_size_bytes !=
+                strata_placeholder_artifact_size_for_counts(1u, 1u, 1u))
+        {
+            free(bytes);
+            fprintf(stderr, "FAIL: authored TEMPORAL draft summary mismatch\n");
+            return 1;
+        }
+
+        artifact = NULL;
+        result = forge_artifact_load(highz_id, bytes, size, &artifact);
+        free(bytes);
+
+        if (result != FORGE_OK || !artifact)
+        {
+            fprintf(stderr, "FAIL: authored TEMPORAL handoff should load, got %d\n",
+                (int)result);
+            return 1;
+        }
+
+        result = forge_artifact_info(artifact, &info);
+        if (result != FORGE_OK ||
+            info.source_target_value != BREADBOARD_TARGET_TEMPORAL ||
+            info.source_has_placeholders != 0u ||
+            info.source_approximate_size_bytes !=
+                strata_placeholder_artifact_size_for_counts(1u, 1u, 1u))
+        {
+            fprintf(stderr, "FAIL: authored TEMPORAL artifact info mismatch\n");
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_input_descriptor_at(artifact, 0u, &forge_descriptor);
+        if (result != FORGE_OK ||
+            forge_descriptor.id != 1000u ||
+            strcmp(forge_descriptor.name, "user_in") != 0 ||
+            forge_descriptor.width != 4u ||
+            forge_descriptor.placeholder_flags != 0u)
+        {
+            fprintf(stderr, "FAIL: authored TEMPORAL input descriptor mismatch\n");
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_output_descriptor_at(artifact, 0u, &forge_descriptor);
+        if (result != FORGE_OK ||
+            forge_descriptor.id != 2000u ||
+            strcmp(forge_descriptor.name, "user_out") != 0 ||
+            forge_descriptor.width != 2u ||
+            forge_descriptor.placeholder_flags != 0u)
+        {
+            fprintf(stderr, "FAIL: authored TEMPORAL output descriptor mismatch\n");
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_probe_descriptor_at(artifact, 0u, &forge_descriptor);
+        if (result != FORGE_OK ||
+            forge_descriptor.id != 3000u ||
+            strcmp(forge_descriptor.name, "user_probe") != 0 ||
+            forge_descriptor.width != 1u ||
+            forge_descriptor.placeholder_flags != 0u)
+        {
+            fprintf(stderr, "FAIL: authored TEMPORAL probe descriptor mismatch\n");
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        if (forge_artifact_unload(artifact) != FORGE_OK)
+        {
+            fprintf(stderr, "FAIL: could not unload authored TEMPORAL artifact\n");
+            return 1;
+        }
     }
 
     bytes = NULL;
@@ -378,7 +512,7 @@ main(void)
         !draft_summary ||
         draft_summary->source_target_value != BREADBOARD_TARGET_TEMPORAL ||
         draft_summary->has_placeholders != 1u ||
-        draft_summary->approximate_size_bytes != 1024u ||
+        draft_summary->approximate_size_bytes != strata_placeholder_artifact_size() ||
         header->admission_info.requirement_flags !=
             STRATA_PLACEHOLDER_REQUIREMENT_ADVANCED_CONTROL ||
         !header->admission_info.requires_advanced_controls)
@@ -403,7 +537,7 @@ main(void)
     if (result != FORGE_OK ||
         info.source_target_value != BREADBOARD_TARGET_TEMPORAL ||
         info.source_has_placeholders != 1u ||
-        info.source_approximate_size_bytes != 1024u ||
+        info.source_approximate_size_bytes != strata_placeholder_artifact_size() ||
         !info.requires_advanced_controls)
     {
         free(bytes);

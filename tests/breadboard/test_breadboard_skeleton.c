@@ -140,7 +140,7 @@ int main(void)
     print_result("draft_query_info", res, BREADBOARD_OK);
     if (draft_info.target != BREADBOARD_TARGET_TEMPORAL ||
         !draft_info.has_placeholders ||
-        draft_info.approximate_size_bytes != 1024)
+        draft_info.approximate_size_bytes != strata_placeholder_artifact_size())
     {
         printf("[FAIL] draft info mismatch for TEMPORAL\n");
         exit(1);
@@ -240,7 +240,7 @@ int main(void)
             !export_draft_summary ||
             export_draft_summary->source_target_value != BREADBOARD_TARGET_TEMPORAL ||
             export_draft_summary->has_placeholders != 1u ||
-            export_draft_summary->approximate_size_bytes != 1024u ||
+            export_draft_summary->approximate_size_bytes != strata_placeholder_artifact_size() ||
             export_header->admission_info.requirement_flags !=
                 STRATA_PLACEHOLDER_REQUIREMENT_ADVANCED_CONTROL ||
             !export_header->admission_info.requires_advanced_controls ||
@@ -266,7 +266,7 @@ int main(void)
     print_result("draft_query_info(FAST_4STATE)", res, BREADBOARD_OK);
     if (draft_info.target != BREADBOARD_TARGET_FAST_4STATE ||
         !draft_info.has_placeholders ||
-        draft_info.approximate_size_bytes != 1024)
+        draft_info.approximate_size_bytes != strata_placeholder_artifact_size())
     {
         printf("[FAIL] draft info mismatch for FAST_4STATE\n");
         exit(1);
@@ -365,7 +365,7 @@ int main(void)
             !export_draft_summary ||
             export_draft_summary->source_target_value != BREADBOARD_TARGET_FAST_4STATE ||
             export_draft_summary->has_placeholders != 1u ||
-            export_draft_summary->approximate_size_bytes != 1024u ||
+            export_draft_summary->approximate_size_bytes != strata_placeholder_artifact_size() ||
             export_header->admission_info.requirement_flags !=
                 STRATA_PLACEHOLDER_REQUIREMENT_NONE ||
             export_header->admission_info.requires_advanced_controls ||
@@ -488,6 +488,86 @@ int main(void)
     res = breadboard_draft_probe_descriptor_by_name(draft, "placeholder_probe_0", &lookup_desc);
     print_result("draft_probe_descriptor_by_name('placeholder_probe_0')", res, BREADBOARD_OK);
     if (lookup_desc.id != 300 || lookup_desc.class_type != BREADBOARD_DESC_PROBE) { printf("[FAIL] Lookup mismatch\n"); exit(1); }
+
+    /* 12b. Authored descriptor declarations should drive draft structure when present */
+    {
+        BreadboardModule* authored_module = NULL;
+        BreadboardArtifactDraft* authored_draft = NULL;
+        BreadboardDescriptorSpec input_spec = { 1000u, "user_in", 4u };
+        BreadboardDescriptorSpec output_spec = { 2000u, "user_out", 2u };
+        BreadboardDescriptorSpec probe_spec = { 3000u, "user_probe", 1u };
+
+        res = breadboard_module_create(&authored_module);
+        print_result("authored module_create", res, BREADBOARD_OK);
+        res = breadboard_module_set_target(authored_module, BREADBOARD_TARGET_TEMPORAL);
+        print_result("authored module_set_target", res, BREADBOARD_OK);
+        res = breadboard_module_add_input_descriptor(authored_module, &input_spec);
+        print_result("authored add_input", res, BREADBOARD_OK);
+        res = breadboard_module_add_output_descriptor(authored_module, &output_spec);
+        print_result("authored add_output", res, BREADBOARD_OK);
+        res = breadboard_module_add_probe_descriptor(authored_module, &probe_spec);
+        print_result("authored add_probe", res, BREADBOARD_OK);
+        res = breadboard_module_compile(authored_module, &opts_allow, &authored_draft);
+        print_result("authored module_compile", res, BREADBOARD_OK);
+
+        res = breadboard_artifact_draft_query_info(authored_draft, &draft_info);
+        print_result("authored draft_query_info", res, BREADBOARD_OK);
+        if (draft_info.target != BREADBOARD_TARGET_TEMPORAL ||
+            draft_info.has_placeholders ||
+            draft_info.approximate_size_bytes !=
+                strata_placeholder_artifact_size_for_counts(1u, 1u, 1u))
+        {
+            printf("[FAIL] authored draft info mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_query_admission_info(authored_draft, &admission_info);
+        print_result("authored draft_query_admission_info", res, BREADBOARD_OK);
+        if (!admission_info.is_placeholder || !admission_info.requires_advanced_controls)
+        {
+            printf("[FAIL] authored admission info mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_input_descriptor_count(authored_draft, &in_count);
+        print_result("authored input_count", res, BREADBOARD_OK);
+        res = breadboard_draft_output_descriptor_count(authored_draft, &out_count);
+        print_result("authored output_count", res, BREADBOARD_OK);
+        res = breadboard_draft_probe_descriptor_count(authored_draft, &probe_count);
+        print_result("authored probe_count", res, BREADBOARD_OK);
+        if (in_count != 1u || out_count != 1u || probe_count != 1u)
+        {
+            printf("[FAIL] authored descriptor counts mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_input_descriptor_by_name(authored_draft, "user_in", &lookup_desc);
+        print_result("authored input by name", res, BREADBOARD_OK);
+        if (lookup_desc.id != 1000u || lookup_desc.is_placeholder)
+        {
+            printf("[FAIL] authored input descriptor mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_output_descriptor_by_id(authored_draft, 2000u, &lookup_desc);
+        print_result("authored output by id", res, BREADBOARD_OK);
+        if (lookup_desc.width != 2u || lookup_desc.is_placeholder)
+        {
+            printf("[FAIL] authored output descriptor mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_probe_descriptor_by_name(authored_draft, "user_probe", &lookup_desc);
+        print_result("authored probe by name", res, BREADBOARD_OK);
+        if (lookup_desc.id != 3000u || lookup_desc.is_placeholder)
+        {
+            printf("[FAIL] authored probe descriptor mismatch\n");
+            exit(1);
+        }
+
+        breadboard_artifact_draft_free(authored_draft);
+        breadboard_module_free(authored_module);
+    }
 
     /* 13. Lookup by ID and Name failure paths */
     res = breadboard_draft_input_descriptor_by_id(draft, 999, &lookup_desc);

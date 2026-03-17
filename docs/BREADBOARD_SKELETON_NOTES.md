@@ -13,6 +13,7 @@ The following core public types define the compiler contract:
 - `BreadboardTargetMask`: Bitmask representing allowed execution targets following product profile models.
 - `BreadboardDescriptorClass`: Enumerates the runtime-visible structural classifications (input, output, probe).
 - `BreadboardDescriptor`: Defines the layout of a deterministic identifier describing an exported object's shape, purpose, and stability.
+- `BreadboardDescriptorSpec`: Defines an authored draft-visible descriptor declaration for module inputs, outputs, and probes.
 - `BreadboardResult`: Provides standard compilation status and error codes.
 - `BreadboardCompileOptions`: Knobs for compilation strictness (provides `allow_placeholders`, `deny_approximation`, `strict_projection`).
 - `BreadboardDiagnosticSeverity`: Severity scale for emitted compiler diagnostics.
@@ -41,6 +42,11 @@ The draft also supports:
 - `breadboard_artifact_draft_export_placeholder_size`
 - `breadboard_artifact_draft_export_placeholder`
 
+Modules now also support explicit authored descriptor declaration through:
+- `breadboard_module_add_input_descriptor`
+- `breadboard_module_add_output_descriptor`
+- `breadboard_module_add_probe_descriptor`
+
 The first is a coarse stable draft summary. The second is the newer admission-oriented surface.
 The export helpers provide a temporary placeholder handoff into the current
 Forge stub artifact loader for vertical integration tests. They are explicitly
@@ -53,6 +59,23 @@ Drafts generated using the placeholder allowance (`allow_placeholders=true`) pro
 - **`extension_flags`**: Placeholder bit flags acting as a temporary proxy for future extension-family requirements. These are not yet real backend registry masks.
 
 This allows the Breadboard scaffolding to emit drafts which explicitly answer early admission-style questions without pretending to encode real backend binary structures.
+
+## Authored Descriptor Declarations
+
+Breadboard modules can now declare draft-visible input, output, and probe
+descriptors before compilation. When present, these authored declarations are
+used as the draft descriptor truth instead of the fixed placeholder descriptor
+set.
+
+This is still scaffolding, but it is a more truthful form of scaffolding:
+- the draft can now reflect authored descriptor IDs, names, and widths
+- the temporary export path serializes those authored descriptors into the
+  placeholder artifact
+- Forge descriptor queries then reflect the authored descriptor block rather
+  than always reflecting the built-in placeholder tuple set
+
+If no authored descriptors are declared, the older fixed placeholder descriptor
+fallback remains in place.
 
 ## Temporary Placeholder Export
 
@@ -83,7 +106,7 @@ As this is purely a scaffolding and contract task:
 1. **Compilation**: `breadboard_module_compile` does not run any real lowering, recognition, or validation passes.
 2. **Policy Gating**: target gating mechanisms via `breadboard_module_set_target_policy` and `breadboard_module_query_target_availability` exist. Compilation is explicitly rejected with `BREADBOARD_DIAG_CODE_TARGET_DENIED_BY_POLICY` if attempting to target denied backends. Note that Forge still remains the final runtime enforcement boundary.
 3. **Draft Metadata**: Both `BreadboardDraftInfo` and `BreadboardDraftAdmissionInfo` are placeholder-oriented summaries. They are intentionally coarse and should not be interpreted as real lowering facts.
-4. **Placeholders**: The compiler explicitly rejects compilation with `BREADBOARD_ERR_COMPILE_FAILED` recording a diagnostic unless `allow_placeholders=true` is set. If allowed, a draft is returned that deterministically exposes 2 dummy inputs, 2 dummy outputs, and 1 dummy probe descriptor, serving to establish standard runtime discovery.
+4. **Placeholders**: The compiler explicitly rejects compilation with `BREADBOARD_ERR_COMPILE_FAILED` recording a diagnostic unless `allow_placeholders=true` is set. If allowed, a draft is returned. With no authored descriptor declarations, that draft falls back to the deterministic placeholder tuple set of 2 dummy inputs, 2 dummy outputs, and 1 dummy probe descriptor. With authored declarations present, the draft now reflects those authored descriptors instead.
 5. **Diagnostics**: `breadboard_module_get_diagnostic_count` and `breadboard_module_get_diagnostic` now reflect the internally recorded array of diagnostics resulting from module compilation and API usage.
 6. **Temporary Artifact Handoff**: The export helpers produce only the current temporary Forge-compatible placeholder bytes. They do not define the final Strata artifact format.
 7. **No Structural Import**: There are not yet APIs for actually feeding components, graphs, or netlists into the `BreadboardModule`.

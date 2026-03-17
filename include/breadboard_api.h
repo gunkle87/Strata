@@ -69,6 +69,33 @@ BreadboardResult breadboard_module_query_target_availability(
     bool* out_is_available);
 
 /*
+ * breadboard_module_add_input_descriptor
+ *
+ * Declares a draft-visible input descriptor on the module.
+ */
+BreadboardResult breadboard_module_add_input_descriptor(
+    BreadboardModule* module,
+    const BreadboardDescriptorSpec* spec);
+
+/*
+ * breadboard_module_add_output_descriptor
+ *
+ * Declares a draft-visible output descriptor on the module.
+ */
+BreadboardResult breadboard_module_add_output_descriptor(
+    BreadboardModule* module,
+    const BreadboardDescriptorSpec* spec);
+
+/*
+ * breadboard_module_add_probe_descriptor
+ *
+ * Declares a draft-visible probe descriptor on the module.
+ */
+BreadboardResult breadboard_module_add_probe_descriptor(
+    BreadboardModule* module,
+    const BreadboardDescriptorSpec* spec);
+
+/*
  * breadboard_module_compile
  *
  * Compiles the accumulated structure targeting the specified backend restrictions,

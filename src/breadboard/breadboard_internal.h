@@ -16,6 +16,15 @@ struct BreadboardModule
     BreadboardTarget target;
     BreadboardTargetMask allowed_targets;
 
+    size_t input_count;
+    BreadboardDescriptor* inputs;
+
+    size_t output_count;
+    BreadboardDescriptor* outputs;
+
+    size_t probe_count;
+    BreadboardDescriptor* probes;
+
     /* Diagnostic storage block */
     size_t diagnostic_capacity;
     size_t diagnostic_count;
