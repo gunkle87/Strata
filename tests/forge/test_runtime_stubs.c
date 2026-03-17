@@ -6,6 +6,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "../../include/forge_api.h"
 #include "../../include/strata_placeholder_artifact.h"
@@ -13,12 +14,23 @@
 static void
 fill_stub_artifact(unsigned char *buffer, unsigned int target_backend_id)
 {
+    StrataPlaceholderAdmissionInfo admission_info;
     size_t out_size;
+
+    if (!strata_placeholder_expected_admission_info(
+        STRATA_PLACEHOLDER_PAYLOAD_BASELINE,
+        &admission_info))
+    {
+        fprintf(stderr, "FAIL: could not build baseline placeholder admission info\n");
+        exit(1);
+    }
+
     (void)strata_placeholder_artifact_write(
         buffer,
         strata_placeholder_artifact_size(),
         target_backend_id,
         STRATA_PLACEHOLDER_PAYLOAD_BASELINE,
+        &admission_info,
         &out_size);
 }
 

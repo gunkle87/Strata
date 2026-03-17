@@ -8,6 +8,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "../../include/forge_api.h"
 #include "../../include/strata_placeholder_artifact.h"
@@ -18,12 +19,21 @@ fill_stub_artifact(
     unsigned int target_backend_id,
     StrataPlaceholderPayloadKind payload_kind)
 {
+    StrataPlaceholderAdmissionInfo admission_info;
     size_t out_size;
+
+    if (!strata_placeholder_expected_admission_info(payload_kind, &admission_info))
+    {
+        fprintf(stderr, "FAIL: could not build placeholder admission info\n");
+        exit(1);
+    }
+
     (void)strata_placeholder_artifact_write(
         buffer,
         strata_placeholder_artifact_size(),
         target_backend_id,
         payload_kind,
+        &admission_info,
         &out_size);
 }
 
@@ -119,6 +129,21 @@ main(void)
     if (forge_artifact_unload(artifact) != FORGE_OK)
     {
         fprintf(stderr, "FAIL: could not unload advanced artifact\n");
+        return 1;
+    }
+
+    fill_stub_artifact(
+        artifact_bytes,
+        (unsigned int)highz_id,
+        STRATA_PLACEHOLDER_PAYLOAD_ADVANCED);
+    ((StrataPlaceholderArtifactHeader*)artifact_bytes)->admission_info.requires_advanced_controls = 0u;
+    artifact = NULL;
+    result = forge_artifact_load(highz_id, artifact_bytes, sizeof(artifact_bytes), &artifact);
+
+    if (result != FORGE_ERR_ARTIFACT_INCOMPATIBLE)
+    {
+        fprintf(stderr, "FAIL: mismatched advanced admission manifest should be incompatible, got %d\n",
+            (int)result);
         return 1;
     }
 

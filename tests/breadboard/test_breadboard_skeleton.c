@@ -182,6 +182,12 @@ int main(void)
         export_header = (const StrataPlaceholderArtifactHeader*)export_bytes;
         if (export_header->target_backend_id != STRATA_PLACEHOLDER_BACKEND_ID_HIGHZ ||
             export_header->payload_size != STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN ||
+            export_header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_ADVANCED ||
+            export_header->admission_info.requirement_flags !=
+                STRATA_PLACEHOLDER_REQUIREMENT_ADVANCED_CONTROL ||
+            !export_header->admission_info.requires_advanced_controls ||
+            export_header->admission_info.requires_native_state_read ||
+            export_header->admission_info.requires_native_inputs ||
             !strata_placeholder_payload_matches(
                 export_bytes + sizeof(StrataPlaceholderArtifactHeader),
                 STRATA_PLACEHOLDER_PAYLOAD_ADVANCED))
@@ -244,6 +250,12 @@ int main(void)
         export_header = (const StrataPlaceholderArtifactHeader*)export_bytes;
         if (export_header->target_backend_id != STRATA_PLACEHOLDER_BACKEND_ID_LXS ||
             export_header->payload_size != STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN ||
+            export_header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_BASELINE ||
+            export_header->admission_info.requirement_flags !=
+                STRATA_PLACEHOLDER_REQUIREMENT_NONE ||
+            export_header->admission_info.requires_advanced_controls ||
+            export_header->admission_info.requires_native_state_read ||
+            export_header->admission_info.requires_native_inputs ||
             !strata_placeholder_payload_matches(
                 export_bytes + sizeof(StrataPlaceholderArtifactHeader),
                 STRATA_PLACEHOLDER_PAYLOAD_BASELINE))

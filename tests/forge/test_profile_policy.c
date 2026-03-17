@@ -6,6 +6,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "../../include/forge_api.h"
 #include "../../include/forge_capabilities.h"
@@ -14,12 +15,23 @@
 static void
 fill_stub_artifact(unsigned char *buffer, unsigned int target_backend_id)
 {
+    StrataPlaceholderAdmissionInfo admission_info;
     size_t out_size;
+
+    if (!strata_placeholder_expected_admission_info(
+        STRATA_PLACEHOLDER_PAYLOAD_BASELINE,
+        &admission_info))
+    {
+        fprintf(stderr, "FAIL: could not build baseline placeholder admission info\n");
+        exit(1);
+    }
+
     (void)strata_placeholder_artifact_write(
         buffer,
         strata_placeholder_artifact_size(),
         target_backend_id,
         STRATA_PLACEHOLDER_PAYLOAD_BASELINE,
+        &admission_info,
         &out_size);
 }
 
@@ -131,12 +143,13 @@ int main(void)
         return 1;
     }
 
-    result = forge_probe_descriptor_by_id(artifact, 1002u, &descriptor);
+    result = forge_probe_descriptor_by_id(artifact, 300u, &descriptor);
 
-    if (result != FORGE_ERR_OUT_OF_BOUNDS)
+    if (result != FORGE_OK ||
+        descriptor.id != 300u ||
+        strcmp(descriptor.name, "placeholder_probe_0") != 0)
     {
-        fprintf(stderr, "FAIL: hidden probe ID should behave as absent, got %d\n",
-            (int)result);
+        fprintf(stderr, "FAIL: visible placeholder probe metadata mismatch under common-only profile\n");
         forge_artifact_unload(artifact);
         return 1;
     }
@@ -263,7 +276,7 @@ int main(void)
         return 1;
     }
 
-    probe_values[0].probe_id = 1001u;
+    probe_values[0].probe_id = 300u;
     probe_values[0].value = 0u;
     result = forge_read_probes(session, probe_values, 1u);
 

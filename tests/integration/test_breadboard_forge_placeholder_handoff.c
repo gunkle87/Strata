@@ -46,6 +46,9 @@ find_backend_id_by_name(const char *name)
 static int
 build_and_export_draft(
     BreadboardTarget target,
+    BreadboardDescriptor *out_input_descriptor,
+    BreadboardDescriptor *out_output_descriptor,
+    BreadboardDescriptor *out_probe_descriptor,
     unsigned char **out_bytes,
     size_t *out_size)
 {
@@ -75,6 +78,30 @@ build_and_export_draft(
 
     if (breadboard_module_compile(module, &options, &draft) != BREADBOARD_OK || !draft)
     {
+        breadboard_module_free(module);
+        return 0;
+    }
+
+    if (out_input_descriptor &&
+        breadboard_draft_input_descriptor_at(draft, 0u, out_input_descriptor) != BREADBOARD_OK)
+    {
+        breadboard_artifact_draft_free(draft);
+        breadboard_module_free(module);
+        return 0;
+    }
+
+    if (out_output_descriptor &&
+        breadboard_draft_output_descriptor_at(draft, 0u, out_output_descriptor) != BREADBOARD_OK)
+    {
+        breadboard_artifact_draft_free(draft);
+        breadboard_module_free(module);
+        return 0;
+    }
+
+    if (out_probe_descriptor &&
+        breadboard_draft_probe_descriptor_at(draft, 0u, out_probe_descriptor) != BREADBOARD_OK)
+    {
+        breadboard_artifact_draft_free(draft);
         breadboard_module_free(module);
         return 0;
     }
@@ -123,7 +150,12 @@ main(void)
     size_t size;
     ForgeArtifact *artifact;
     ForgeArtifactInfo info;
+    ForgeDescriptor forge_descriptor;
+    BreadboardDescriptor breadboard_input;
+    BreadboardDescriptor breadboard_output;
+    BreadboardDescriptor breadboard_probe;
     ForgeResult result;
+    const StrataPlaceholderArtifactHeader *header;
 
     lxs_id = find_backend_id_by_name("LXS");
     highz_id = find_backend_id_by_name("HighZ");
@@ -142,9 +174,24 @@ main(void)
 
     bytes = NULL;
     size = 0u;
-    if (!build_and_export_draft(BREADBOARD_TARGET_FAST_4STATE, &bytes, &size))
+    if (!build_and_export_draft(
+        BREADBOARD_TARGET_FAST_4STATE,
+        &breadboard_input,
+        &breadboard_output,
+        &breadboard_probe,
+        &bytes,
+        &size))
     {
         fprintf(stderr, "FAIL: could not build/export FAST_4STATE draft\n");
+        return 1;
+    }
+
+    header = (const StrataPlaceholderArtifactHeader *)bytes;
+    if (header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_BASELINE ||
+        header->admission_info.requirement_flags != STRATA_PLACEHOLDER_REQUIREMENT_NONE)
+    {
+        free(bytes);
+        fprintf(stderr, "FAIL: FAST_4STATE export manifest mismatch\n");
         return 1;
     }
 
@@ -170,6 +217,63 @@ main(void)
         return 1;
     }
 
+    result = forge_input_descriptor_at(artifact, 0u, &forge_descriptor);
+    if (result != FORGE_OK ||
+        forge_descriptor.id != breadboard_input.id ||
+        strcmp(forge_descriptor.name, breadboard_input.name) != 0 ||
+        forge_descriptor.width != breadboard_input.width)
+    {
+        fprintf(stderr, "FAIL: FAST_4STATE input descriptor handoff mismatch\n");
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_output_descriptor_at(artifact, 0u, &forge_descriptor);
+    if (result != FORGE_OK ||
+        forge_descriptor.id != breadboard_output.id ||
+        strcmp(forge_descriptor.name, breadboard_output.name) != 0 ||
+        forge_descriptor.width != breadboard_output.width)
+    {
+        fprintf(stderr, "FAIL: FAST_4STATE output descriptor handoff mismatch\n");
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_probe_descriptor_at(artifact, 0u, &forge_descriptor);
+    if (result != FORGE_OK ||
+        forge_descriptor.id != breadboard_probe.id ||
+        strcmp(forge_descriptor.name, breadboard_probe.name) != 0 ||
+        forge_descriptor.width != breadboard_probe.width)
+    {
+        fprintf(stderr, "FAIL: FAST_4STATE probe descriptor handoff mismatch\n");
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_output_descriptor_at(artifact, 0u, &forge_descriptor);
+    if (result != FORGE_OK ||
+        forge_descriptor.id != breadboard_output.id ||
+        strcmp(forge_descriptor.name, breadboard_output.name) != 0 ||
+        forge_descriptor.width != breadboard_output.width)
+    {
+        free(bytes);
+        fprintf(stderr, "FAIL: TEMPORAL output descriptor handoff mismatch\n");
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_probe_descriptor_at(artifact, 0u, &forge_descriptor);
+    if (result != FORGE_OK ||
+        forge_descriptor.id != breadboard_probe.id ||
+        strcmp(forge_descriptor.name, breadboard_probe.name) != 0 ||
+        forge_descriptor.width != breadboard_probe.width)
+    {
+        free(bytes);
+        fprintf(stderr, "FAIL: TEMPORAL probe descriptor handoff mismatch\n");
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
     if (forge_artifact_unload(artifact) != FORGE_OK)
     {
         fprintf(stderr, "FAIL: could not unload FAST_4STATE artifact\n");
@@ -178,9 +282,26 @@ main(void)
 
     bytes = NULL;
     size = 0u;
-    if (!build_and_export_draft(BREADBOARD_TARGET_TEMPORAL, &bytes, &size))
+    if (!build_and_export_draft(
+        BREADBOARD_TARGET_TEMPORAL,
+        &breadboard_input,
+        &breadboard_output,
+        &breadboard_probe,
+        &bytes,
+        &size))
     {
         fprintf(stderr, "FAIL: could not build/export TEMPORAL draft\n");
+        return 1;
+    }
+
+    header = (const StrataPlaceholderArtifactHeader *)bytes;
+    if (header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_ADVANCED ||
+        header->admission_info.requirement_flags !=
+            STRATA_PLACEHOLDER_REQUIREMENT_ADVANCED_CONTROL ||
+        !header->admission_info.requires_advanced_controls)
+    {
+        free(bytes);
+        fprintf(stderr, "FAIL: TEMPORAL export manifest mismatch\n");
         return 1;
     }
 
@@ -200,6 +321,18 @@ main(void)
     {
         free(bytes);
         fprintf(stderr, "FAIL: TEMPORAL handoff metadata mismatch\n");
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_input_descriptor_at(artifact, 0u, &forge_descriptor);
+    if (result != FORGE_OK ||
+        forge_descriptor.id != breadboard_input.id ||
+        strcmp(forge_descriptor.name, breadboard_input.name) != 0 ||
+        forge_descriptor.width != breadboard_input.width)
+    {
+        free(bytes);
+        fprintf(stderr, "FAIL: TEMPORAL input descriptor handoff mismatch\n");
         forge_artifact_unload(artifact);
         return 1;
     }

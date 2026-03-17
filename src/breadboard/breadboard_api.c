@@ -27,6 +27,54 @@ resolve_placeholder_backend_id(
     }
 }
 
+static int
+fill_placeholder_admission_info(
+    const BreadboardArtifactDraft* draft,
+    StrataPlaceholderPayloadKind payload_kind,
+    StrataPlaceholderAdmissionInfo* out_info)
+{
+    if (!draft || !out_info)
+    {
+        return 0;
+    }
+
+    if (!strata_placeholder_expected_admission_info(payload_kind, out_info))
+    {
+        return 0;
+    }
+
+    if (!draft->admission_info.is_placeholder)
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
+static void
+copy_placeholder_descriptors(
+    BreadboardDescriptor* out_descriptors,
+    const StrataPlaceholderDescriptorSpec* specs,
+    size_t count)
+{
+    size_t index;
+
+    if (!out_descriptors || !specs)
+    {
+        return;
+    }
+
+    for (index = 0u; index < count; ++index)
+    {
+        out_descriptors[index].id = specs[index].id;
+        out_descriptors[index].name = specs[index].name;
+        out_descriptors[index].width = specs[index].width;
+        out_descriptors[index].class_type =
+            (BreadboardDescriptorClass)specs[index].class_type;
+        out_descriptors[index].is_placeholder = true;
+    }
+}
+
 /*
  * breadboard_api.c
  *
@@ -219,49 +267,40 @@ BreadboardResult breadboard_module_compile(
     }
 
     /* Allocate and populate hardcoded placeholder descriptors to prove plumbing */
-    draft->input_count = 2;
-    draft->inputs = (BreadboardDescriptor*)calloc(2, sizeof(BreadboardDescriptor));
+    draft->input_count = strata_placeholder_input_descriptor_count();
+    draft->inputs = (BreadboardDescriptor*)calloc(
+        draft->input_count,
+        sizeof(BreadboardDescriptor));
     if (draft->inputs)
     {
-        draft->inputs[0].id = 100;
-        draft->inputs[0].name = "placeholder_in_0";
-        draft->inputs[0].width = 1;
-        draft->inputs[0].class_type = BREADBOARD_DESC_INPUT;
-        draft->inputs[0].is_placeholder = true;
-
-        draft->inputs[1].id = 101;
-        draft->inputs[1].name = "placeholder_in_1";
-        draft->inputs[1].width = 8;
-        draft->inputs[1].class_type = BREADBOARD_DESC_INPUT;
-        draft->inputs[1].is_placeholder = true;
+        copy_placeholder_descriptors(
+            draft->inputs,
+            k_strata_placeholder_input_descriptors,
+            draft->input_count);
     }
 
-    draft->output_count = 2;
-    draft->outputs = (BreadboardDescriptor*)calloc(2, sizeof(BreadboardDescriptor));
+    draft->output_count = strata_placeholder_output_descriptor_count();
+    draft->outputs = (BreadboardDescriptor*)calloc(
+        draft->output_count,
+        sizeof(BreadboardDescriptor));
     if (draft->outputs)
     {
-        draft->outputs[0].id = 200;
-        draft->outputs[0].name = "placeholder_out_0";
-        draft->outputs[0].width = 1;
-        draft->outputs[0].class_type = BREADBOARD_DESC_OUTPUT;
-        draft->outputs[0].is_placeholder = true;
-
-        draft->outputs[1].id = 201;
-        draft->outputs[1].name = "placeholder_out_1";
-        draft->outputs[1].width = 32;
-        draft->outputs[1].class_type = BREADBOARD_DESC_OUTPUT;
-        draft->outputs[1].is_placeholder = true;
+        copy_placeholder_descriptors(
+            draft->outputs,
+            k_strata_placeholder_output_descriptors,
+            draft->output_count);
     }
 
-    draft->probe_count = 1;
-    draft->probes = (BreadboardDescriptor*)calloc(1, sizeof(BreadboardDescriptor));
+    draft->probe_count = strata_placeholder_probe_descriptor_count();
+    draft->probes = (BreadboardDescriptor*)calloc(
+        draft->probe_count,
+        sizeof(BreadboardDescriptor));
     if (draft->probes)
     {
-        draft->probes[0].id = 300;
-        draft->probes[0].name = "placeholder_probe_0";
-        draft->probes[0].width = 1;
-        draft->probes[0].class_type = BREADBOARD_DESC_PROBE;
-        draft->probes[0].is_placeholder = true;
+        copy_placeholder_descriptors(
+            draft->probes,
+            k_strata_placeholder_probe_descriptors,
+            draft->probe_count);
     }
 
     /* Copy target expectation and admission logic to the draft */
@@ -439,6 +478,7 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
     size_t required_size;
     uint32_t target_backend_id;
     StrataPlaceholderPayloadKind payload_kind;
+    StrataPlaceholderAdmissionInfo admission_info;
 
     if (!draft || !buffer || !out_size)
     {
@@ -471,11 +511,17 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
         payload_kind = STRATA_PLACEHOLDER_PAYLOAD_BASELINE;
     }
 
+    if (!fill_placeholder_admission_info(draft, payload_kind, &admission_info))
+    {
+        return BREADBOARD_ERR_INTERNAL;
+    }
+
     if (!strata_placeholder_artifact_write(
         buffer,
         buffer_size,
         target_backend_id,
         payload_kind,
+        &admission_info,
         out_size))
     {
         return BREADBOARD_ERR_INTERNAL;

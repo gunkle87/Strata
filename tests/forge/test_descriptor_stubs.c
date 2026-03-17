@@ -7,6 +7,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "../../include/forge_api.h"
 #include "../../include/strata_placeholder_artifact.h"
@@ -14,12 +15,23 @@
 static void
 fill_stub_artifact(unsigned char *buffer, unsigned int target_backend_id)
 {
+    StrataPlaceholderAdmissionInfo admission_info;
     size_t out_size;
+
+    if (!strata_placeholder_expected_admission_info(
+        STRATA_PLACEHOLDER_PAYLOAD_BASELINE,
+        &admission_info))
+    {
+        fprintf(stderr, "FAIL: could not build baseline placeholder admission info\n");
+        exit(1);
+    }
+
     (void)strata_placeholder_artifact_write(
         buffer,
         strata_placeholder_artifact_size(),
         target_backend_id,
         STRATA_PLACEHOLDER_PAYLOAD_BASELINE,
+        &admission_info,
         &out_size);
 }
 
@@ -67,7 +79,7 @@ int main(void)
 
     if (result != FORGE_OK ||
         descriptor.descriptor_class != FORGE_DESCRIPTOR_CLASS_INPUT ||
-        descriptor.id != 101u ||
+        descriptor.id != 100u ||
         descriptor.width != 1u)
     {
         fprintf(stderr, "FAIL: forge_input_descriptor_at returned unexpected descriptor\n");
@@ -75,21 +87,21 @@ int main(void)
         return 1;
     }
 
-    result = forge_input_descriptor_by_id(artifact, 102u, &descriptor);
+    result = forge_input_descriptor_by_id(artifact, 101u, &descriptor);
 
     if (result != FORGE_OK ||
         descriptor.descriptor_class != FORGE_DESCRIPTOR_CLASS_INPUT ||
-        strcmp(descriptor.name, "in1") != 0)
+        strcmp(descriptor.name, "placeholder_in_1") != 0)
     {
         fprintf(stderr, "FAIL: forge_input_descriptor_by_id returned unexpected descriptor\n");
         forge_artifact_unload(artifact);
         return 1;
     }
 
-    result = forge_input_descriptor_by_name(artifact, "in0", &descriptor);
+    result = forge_input_descriptor_by_name(artifact, "placeholder_in_0", &descriptor);
 
     if (result != FORGE_OK ||
-        descriptor.id != 101u ||
+        descriptor.id != 100u ||
         descriptor.descriptor_class != FORGE_DESCRIPTOR_CLASS_INPUT)
     {
         fprintf(stderr, "FAIL: forge_input_descriptor_by_name returned unexpected descriptor\n");
@@ -145,7 +157,7 @@ int main(void)
 
     if (result != FORGE_OK ||
         descriptor.descriptor_class != FORGE_DESCRIPTOR_CLASS_OUTPUT ||
-        descriptor.id != 1u ||
+        descriptor.id != 200u ||
         descriptor.width != 1u)
     {
         fprintf(stderr, "FAIL: forge_output_descriptor_at returned unexpected descriptor\n");
@@ -153,21 +165,21 @@ int main(void)
         return 1;
     }
 
-    result = forge_output_descriptor_by_id(artifact, 2u, &descriptor);
+    result = forge_output_descriptor_by_id(artifact, 201u, &descriptor);
 
     if (result != FORGE_OK ||
         descriptor.descriptor_class != FORGE_DESCRIPTOR_CLASS_OUTPUT ||
-        strcmp(descriptor.name, "out1") != 0)
+        strcmp(descriptor.name, "placeholder_out_1") != 0)
     {
         fprintf(stderr, "FAIL: forge_output_descriptor_by_id returned unexpected descriptor\n");
         forge_artifact_unload(artifact);
         return 1;
     }
 
-    result = forge_output_descriptor_by_name(artifact, "out0", &descriptor);
+    result = forge_output_descriptor_by_name(artifact, "placeholder_out_0", &descriptor);
 
     if (result != FORGE_OK ||
-        descriptor.id != 1u ||
+        descriptor.id != 200u ||
         descriptor.descriptor_class != FORGE_DESCRIPTOR_CLASS_OUTPUT)
     {
         fprintf(stderr, "FAIL: forge_output_descriptor_by_name returned unexpected descriptor\n");
@@ -223,29 +235,29 @@ int main(void)
 
     if (result != FORGE_OK ||
         descriptor.descriptor_class != FORGE_DESCRIPTOR_CLASS_PROBE ||
-        descriptor.id != 1001u ||
-        descriptor.width != 64u)
+        descriptor.id != 300u ||
+        descriptor.width != 1u)
     {
         fprintf(stderr, "FAIL: forge_probe_descriptor_at returned unexpected descriptor\n");
         forge_artifact_unload(artifact);
         return 1;
     }
 
-    result = forge_probe_descriptor_by_id(artifact, 1001u, &descriptor);
+    result = forge_probe_descriptor_by_id(artifact, 300u, &descriptor);
 
     if (result != FORGE_OK ||
         descriptor.descriptor_class != FORGE_DESCRIPTOR_CLASS_PROBE ||
-        strcmp(descriptor.name, "probe_step_count") != 0)
+        strcmp(descriptor.name, "placeholder_probe_0") != 0)
     {
         fprintf(stderr, "FAIL: forge_probe_descriptor_by_id returned unexpected descriptor\n");
         forge_artifact_unload(artifact);
         return 1;
     }
 
-    result = forge_probe_descriptor_by_name(artifact, "probe_step_count", &descriptor);
+    result = forge_probe_descriptor_by_name(artifact, "placeholder_probe_0", &descriptor);
 
     if (result != FORGE_OK ||
-        descriptor.id != 1001u ||
+        descriptor.id != 300u ||
         descriptor.descriptor_class != FORGE_DESCRIPTOR_CLASS_PROBE)
     {
         fprintf(stderr, "FAIL: forge_probe_descriptor_by_name returned unexpected descriptor\n");
@@ -284,7 +296,7 @@ int main(void)
         return 1;
     }
 
-    probe_values[0].probe_id = 1001u;
+    probe_values[0].probe_id = 300u;
     probe_values[0].value = 0u;
 
     result = forge_read_probes(session, probe_values, 1u);

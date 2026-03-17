@@ -59,6 +59,26 @@ forge_extension_mask_for_family(ForgeExtensionFamily extension_family)
     }
 }
 
+static uint32_t
+forge_extension_mask_from_placeholder_requirements(uint32_t requirement_flags)
+{
+    uint32_t result;
+
+    result = 0u;
+
+    if ((requirement_flags & STRATA_PLACEHOLDER_REQUIREMENT_ADVANCED_CONTROL) != 0u)
+    {
+        result |= forge_extension_mask_for_family(FORGE_EXT_TEMPORAL_CONTROL);
+    }
+
+    if ((requirement_flags & STRATA_PLACEHOLDER_REQUIREMENT_NATIVE_STATE) != 0u)
+    {
+        result |= forge_extension_mask_for_family(FORGE_EXT_NATIVE_STATE_READ);
+    }
+
+    return result;
+}
+
 static ForgeResult
 forge_validate_artifact_requirements(
     const ForgeEffectiveProfile *profile,
@@ -108,91 +128,48 @@ forge_validate_artifact_requirements(
     return FORGE_OK;
 }
 
-static const ForgeInternalDescriptor k_placeholder_output_descriptors[] =
-{
-    { { 1u, "out0", 1u, FORGE_DESCRIPTOR_CLASS_OUTPUT, 1u },
-      FORGE_PROBE_VISIBILITY_COMMON_PUBLIC },
-    { { 2u, "out1", 1u, FORGE_DESCRIPTOR_CLASS_OUTPUT, 1u },
-      FORGE_PROBE_VISIBILITY_COMMON_PUBLIC }
-};
-
-static const ForgeInternalDescriptor k_placeholder_input_descriptors[] =
-{
-    { { 101u, "in0", 1u, FORGE_DESCRIPTOR_CLASS_INPUT, 1u },
-      FORGE_PROBE_VISIBILITY_COMMON_PUBLIC },
-    { { 102u, "in1", 1u, FORGE_DESCRIPTOR_CLASS_INPUT, 1u },
-      FORGE_PROBE_VISIBILITY_COMMON_PUBLIC }
-};
-
-static const ForgeInternalDescriptor k_placeholder_probe_descriptors[] =
-{
-    { { 1001u, "probe_step_count", 64u, FORGE_DESCRIPTOR_CLASS_PROBE, 1u },
-      FORGE_PROBE_VISIBILITY_COMMON_PUBLIC },
-    { { 1002u, "probe_internal_debug", 32u, FORGE_DESCRIPTOR_CLASS_PROBE, 1u },
-      FORGE_PROBE_VISIBILITY_INTERNAL_ONLY }
-};
-
 static uint32_t
-forge_descriptor_is_visible(
+forge_descriptor_class_visible(
     const ForgeEffectiveProfile *profile,
-    const ForgeInternalDescriptor *descriptor)
+    ForgeDescriptorClass descriptor_class)
 {
-    if (!profile || !descriptor)
+    if (!profile)
     {
         return 0u;
     }
 
-    switch (descriptor->descriptor.descriptor_class)
+    switch (descriptor_class)
     {
         case FORGE_DESCRIPTOR_CLASS_INPUT:
             return profile->allow_common_inputs != 0u;
         case FORGE_DESCRIPTOR_CLASS_OUTPUT:
             return profile->allow_common_observation != 0u;
         case FORGE_DESCRIPTOR_CLASS_PROBE:
-            return profile->allow_common_probes &&
-                forge_policy_probe_visibility_allowed(
-                    profile,
-                    descriptor->probe_visibility_class);
+            return profile->allow_common_probes != 0u;
         default:
             return 0u;
     }
 }
 
-static ForgeResult
-forge_descriptor_filtered_count(
-    const ForgeEffectiveProfile *profile,
-    const ForgeInternalDescriptor *descriptors,
-    uint32_t count,
-    uint32_t *out_count,
-    const char *null_out_msg)
+static ForgeDescriptor
+forge_descriptor_from_placeholder_spec(
+    const StrataPlaceholderDescriptorSpec *spec)
 {
-    uint32_t index;
-    uint32_t visible_count;
+    ForgeDescriptor descriptor;
 
-    if (!out_count)
-    {
-        return forge_fail(FORGE_ERR_INVALID_ARGUMENT, null_out_msg);
-    }
+    descriptor.id = spec->id;
+    descriptor.name = spec->name;
+    descriptor.width = spec->width;
+    descriptor.descriptor_class = (ForgeDescriptorClass)spec->class_type;
+    descriptor.placeholder_flags = 1u;
 
-    visible_count = 0u;
-
-    for (index = 0u; index < count; ++index)
-    {
-        if (forge_descriptor_is_visible(profile, &descriptors[index]))
-        {
-            ++visible_count;
-        }
-    }
-
-    *out_count = visible_count;
-    forge_diag_set("");
-    return FORGE_OK;
+    return descriptor;
 }
 
 static ForgeResult
 forge_descriptor_filtered_at(
     const ForgeEffectiveProfile *profile,
-    const ForgeInternalDescriptor *descriptors,
+    const StrataPlaceholderDescriptorSpec *descriptors,
     uint32_t count,
     uint32_t index,
     ForgeDescriptor *out_descriptor,
@@ -211,14 +188,17 @@ forge_descriptor_filtered_at(
 
     for (source_index = 0u; source_index < count; ++source_index)
     {
-        if (!forge_descriptor_is_visible(profile, &descriptors[source_index]))
+        if (!forge_descriptor_class_visible(
+            profile,
+            (ForgeDescriptorClass)descriptors[source_index].class_type))
         {
             continue;
         }
 
         if (visible_index == index)
         {
-            *out_descriptor = descriptors[source_index].descriptor;
+            *out_descriptor = forge_descriptor_from_placeholder_spec(
+                &descriptors[source_index]);
             forge_diag_set("");
             return FORGE_OK;
         }
@@ -232,7 +212,7 @@ forge_descriptor_filtered_at(
 static ForgeResult
 forge_descriptor_find_by_id(
     const ForgeEffectiveProfile *profile,
-    const ForgeInternalDescriptor *descriptors,
+    const StrataPlaceholderDescriptorSpec *descriptors,
     uint32_t               count,
     uint32_t               descriptor_id,
     ForgeDescriptor       *out_descriptor,
@@ -248,14 +228,17 @@ forge_descriptor_find_by_id(
 
     for (index = 0; index < count; ++index)
     {
-        if (!forge_descriptor_is_visible(profile, &descriptors[index]))
+        if (!forge_descriptor_class_visible(
+            profile,
+            (ForgeDescriptorClass)descriptors[index].class_type))
         {
             continue;
         }
 
-        if (descriptors[index].descriptor.id == descriptor_id)
+        if (descriptors[index].id == descriptor_id)
         {
-            *out_descriptor = descriptors[index].descriptor;
+            *out_descriptor = forge_descriptor_from_placeholder_spec(
+                &descriptors[index]);
             forge_diag_set("");
             return FORGE_OK;
         }
@@ -267,7 +250,7 @@ forge_descriptor_find_by_id(
 static ForgeResult
 forge_descriptor_find_by_name(
     const ForgeEffectiveProfile *profile,
-    const ForgeInternalDescriptor *descriptors,
+    const StrataPlaceholderDescriptorSpec *descriptors,
     uint32_t               count,
     const char            *name,
     ForgeDescriptor       *out_descriptor,
@@ -283,20 +266,48 @@ forge_descriptor_find_by_name(
 
     for (index = 0; index < count; ++index)
     {
-        if (!forge_descriptor_is_visible(profile, &descriptors[index]))
+        if (!forge_descriptor_class_visible(
+            profile,
+            (ForgeDescriptorClass)descriptors[index].class_type))
         {
             continue;
         }
 
-        if (strcmp(descriptors[index].descriptor.name, name) == 0)
+        if (strcmp(descriptors[index].name, name) == 0)
         {
-            *out_descriptor = descriptors[index].descriptor;
+            *out_descriptor = forge_descriptor_from_placeholder_spec(
+                &descriptors[index]);
             forge_diag_set("");
             return FORGE_OK;
         }
     }
 
     return forge_fail(FORGE_ERR_OUT_OF_BOUNDS, not_found_msg);
+}
+
+static ForgeResult
+forge_descriptor_filtered_count(
+    const ForgeEffectiveProfile *profile,
+    ForgeDescriptorClass descriptor_class,
+    uint32_t count,
+    uint32_t *out_count,
+    const char *null_out_msg)
+{
+    if (!out_count)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT, null_out_msg);
+    }
+
+    if (!forge_descriptor_class_visible(profile, descriptor_class))
+    {
+        *out_count = 0u;
+        forge_diag_set("");
+        return FORGE_OK;
+    }
+
+    *out_count = count;
+    forge_diag_set("");
+    return FORGE_OK;
 }
 
 /* -------------------------------------------------------------------------
@@ -524,6 +535,7 @@ forge_artifact_load(
     const ForgeArtifactHeader *header;
     const unsigned char *payload;
     ForgeEffectiveProfile profile;
+    StrataPlaceholderPayloadKind payload_kind;
     uint32_t required_extension_mask;
     uint32_t requires_advanced_controls;
     uint32_t requires_native_state_read;
@@ -590,44 +602,37 @@ forge_artifact_load(
     }
 
     payload = ((const unsigned char *)data) + sizeof(ForgeArtifactHeader);
+    payload_kind = (StrataPlaceholderPayloadKind)header->payload_kind;
     required_extension_mask = 0u;
-    requires_advanced_controls = 0u;
-    requires_native_state_read = 0u;
-    requires_native_inputs = 0u;
+    requires_advanced_controls = header->admission_info.requires_advanced_controls;
+    requires_native_state_read = header->admission_info.requires_native_state_read;
+    requires_native_inputs = header->admission_info.requires_native_inputs;
 
     /*
      * Stub success path:
      * valid shared header + one of the recognized placeholder payload classes
-     * returns a minimal ForgeArtifact with coarse admission metadata.
+     * plus a coherent explicit admission manifest returns a minimal
+     * ForgeArtifact with coarse admission metadata.
      * Any other payload remains unsupported until real decoding exists.
      */
     if (header->payload_size == STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN)
     {
-        if (strata_placeholder_payload_matches(
-            payload, STRATA_PLACEHOLDER_PAYLOAD_BASELINE))
-        {
-            /* Baseline placeholder artifact: no special requirements. */
-        }
-        else if (strata_placeholder_payload_matches(
-            payload, STRATA_PLACEHOLDER_PAYLOAD_ADVANCED))
-        {
-            required_extension_mask =
-                forge_extension_mask_for_family(FORGE_EXT_TEMPORAL_CONTROL);
-            requires_advanced_controls = 1u;
-        }
-        else if (strata_placeholder_payload_matches(
-            payload, STRATA_PLACEHOLDER_PAYLOAD_NATIVE))
-        {
-            required_extension_mask =
-                forge_extension_mask_for_family(FORGE_EXT_NATIVE_STATE_READ);
-            requires_native_state_read = 1u;
-            requires_native_inputs = 1u;
-        }
-        else
+        if (!strata_placeholder_payload_matches(payload, payload_kind))
         {
             return forge_fail(FORGE_ERR_UNSUPPORTED,
                 "forge_artifact_load: artifact header valid but payload decoding is not implemented");
         }
+
+        if (!strata_placeholder_admission_matches_payload_kind(
+            payload_kind,
+            &header->admission_info))
+        {
+            return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+                "forge_artifact_load: placeholder admission manifest does not match payload kind");
+        }
+
+        required_extension_mask = forge_extension_mask_from_placeholder_requirements(
+            header->admission_info.requirement_flags);
 
         requirement_result = forge_validate_artifact_requirements(
             &profile,
@@ -932,9 +937,8 @@ forge_input_descriptor_count(
 
     return forge_descriptor_filtered_count(
         &artifact->effective_profile,
-        k_placeholder_input_descriptors,
-        (uint32_t)(sizeof(k_placeholder_input_descriptors) /
-        sizeof(k_placeholder_input_descriptors[0])),
+        FORGE_DESCRIPTOR_CLASS_INPUT,
+        strata_placeholder_input_descriptor_count(),
         out_count,
         "forge_input_descriptor_count: out_count is NULL");
 }
@@ -953,9 +957,8 @@ forge_input_descriptor_at(
 
     return forge_descriptor_filtered_at(
         &artifact->effective_profile,
-        k_placeholder_input_descriptors,
-        (uint32_t)(sizeof(k_placeholder_input_descriptors) /
-        sizeof(k_placeholder_input_descriptors[0])),
+        k_strata_placeholder_input_descriptors,
+        strata_placeholder_input_descriptor_count(),
         index,
         out_descriptor,
         "forge_input_descriptor_at: out_descriptor is NULL",
@@ -976,9 +979,8 @@ forge_input_descriptor_by_id(
 
     return forge_descriptor_find_by_id(
         &artifact->effective_profile,
-        k_placeholder_input_descriptors,
-        (uint32_t)(sizeof(k_placeholder_input_descriptors) /
-        sizeof(k_placeholder_input_descriptors[0])),
+        k_strata_placeholder_input_descriptors,
+        strata_placeholder_input_descriptor_count(),
         descriptor_id,
         out_descriptor,
         "forge_input_descriptor_by_id: out_descriptor is NULL",
@@ -999,9 +1001,8 @@ forge_input_descriptor_by_name(
 
     return forge_descriptor_find_by_name(
         &artifact->effective_profile,
-        k_placeholder_input_descriptors,
-        (uint32_t)(sizeof(k_placeholder_input_descriptors) /
-        sizeof(k_placeholder_input_descriptors[0])),
+        k_strata_placeholder_input_descriptors,
+        strata_placeholder_input_descriptor_count(),
         name,
         out_descriptor,
         "forge_input_descriptor_by_name: name or out_descriptor is NULL",
@@ -1021,9 +1022,8 @@ forge_output_descriptor_count(
 
     return forge_descriptor_filtered_count(
         &artifact->effective_profile,
-        k_placeholder_output_descriptors,
-        (uint32_t)(sizeof(k_placeholder_output_descriptors) /
-        sizeof(k_placeholder_output_descriptors[0])),
+        FORGE_DESCRIPTOR_CLASS_OUTPUT,
+        strata_placeholder_output_descriptor_count(),
         out_count,
         "forge_output_descriptor_count: out_count is NULL");
 }
@@ -1042,9 +1042,8 @@ forge_output_descriptor_at(
 
     return forge_descriptor_filtered_at(
         &artifact->effective_profile,
-        k_placeholder_output_descriptors,
-        (uint32_t)(sizeof(k_placeholder_output_descriptors) /
-        sizeof(k_placeholder_output_descriptors[0])),
+        k_strata_placeholder_output_descriptors,
+        strata_placeholder_output_descriptor_count(),
         index,
         out_descriptor,
         "forge_output_descriptor_at: out_descriptor is NULL",
@@ -1065,9 +1064,8 @@ forge_output_descriptor_by_id(
 
     return forge_descriptor_find_by_id(
         &artifact->effective_profile,
-        k_placeholder_output_descriptors,
-        (uint32_t)(sizeof(k_placeholder_output_descriptors) /
-        sizeof(k_placeholder_output_descriptors[0])),
+        k_strata_placeholder_output_descriptors,
+        strata_placeholder_output_descriptor_count(),
         descriptor_id,
         out_descriptor,
         "forge_output_descriptor_by_id: out_descriptor is NULL",
@@ -1088,9 +1086,8 @@ forge_output_descriptor_by_name(
 
     return forge_descriptor_find_by_name(
         &artifact->effective_profile,
-        k_placeholder_output_descriptors,
-        (uint32_t)(sizeof(k_placeholder_output_descriptors) /
-        sizeof(k_placeholder_output_descriptors[0])),
+        k_strata_placeholder_output_descriptors,
+        strata_placeholder_output_descriptor_count(),
         name,
         out_descriptor,
         "forge_output_descriptor_by_name: name or out_descriptor is NULL",
@@ -1110,9 +1107,8 @@ forge_probe_descriptor_count(
 
     return forge_descriptor_filtered_count(
         &artifact->effective_profile,
-        k_placeholder_probe_descriptors,
-        (uint32_t)(sizeof(k_placeholder_probe_descriptors) /
-        sizeof(k_placeholder_probe_descriptors[0])),
+        FORGE_DESCRIPTOR_CLASS_PROBE,
+        strata_placeholder_probe_descriptor_count(),
         out_count,
         "forge_probe_descriptor_count: out_count is NULL");
 }
@@ -1131,9 +1127,8 @@ forge_probe_descriptor_at(
 
     return forge_descriptor_filtered_at(
         &artifact->effective_profile,
-        k_placeholder_probe_descriptors,
-        (uint32_t)(sizeof(k_placeholder_probe_descriptors) /
-        sizeof(k_placeholder_probe_descriptors[0])),
+        k_strata_placeholder_probe_descriptors,
+        strata_placeholder_probe_descriptor_count(),
         index,
         out_descriptor,
         "forge_probe_descriptor_at: out_descriptor is NULL",
@@ -1154,9 +1149,8 @@ forge_probe_descriptor_by_id(
 
     return forge_descriptor_find_by_id(
         &artifact->effective_profile,
-        k_placeholder_probe_descriptors,
-        (uint32_t)(sizeof(k_placeholder_probe_descriptors) /
-        sizeof(k_placeholder_probe_descriptors[0])),
+        k_strata_placeholder_probe_descriptors,
+        strata_placeholder_probe_descriptor_count(),
         descriptor_id,
         out_descriptor,
         "forge_probe_descriptor_by_id: out_descriptor is NULL",
@@ -1177,9 +1171,8 @@ forge_probe_descriptor_by_name(
 
     return forge_descriptor_find_by_name(
         &artifact->effective_profile,
-        k_placeholder_probe_descriptors,
-        (uint32_t)(sizeof(k_placeholder_probe_descriptors) /
-        sizeof(k_placeholder_probe_descriptors[0])),
+        k_strata_placeholder_probe_descriptors,
+        strata_placeholder_probe_descriptor_count(),
         name,
         out_descriptor,
         "forge_probe_descriptor_by_name: name or out_descriptor is NULL",

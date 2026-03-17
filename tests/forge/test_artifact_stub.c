@@ -9,6 +9,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "../../include/forge_api.h"
 #include "../../include/strata_placeholder_artifact.h"
@@ -16,12 +17,23 @@
 static void
 fill_stub_artifact(unsigned char *buffer, unsigned int target_backend_id)
 {
+    StrataPlaceholderAdmissionInfo admission_info;
     size_t out_size;
+
+    if (!strata_placeholder_expected_admission_info(
+        STRATA_PLACEHOLDER_PAYLOAD_BASELINE,
+        &admission_info))
+    {
+        fprintf(stderr, "FAIL: could not build baseline placeholder admission info\n");
+        exit(1);
+    }
+
     (void)strata_placeholder_artifact_write(
         buffer,
         strata_placeholder_artifact_size(),
         target_backend_id,
         STRATA_PLACEHOLDER_PAYLOAD_BASELINE,
+        &admission_info,
         &out_size);
 }
 
@@ -86,7 +98,7 @@ int main(void)
 
     if (info.backend_id != id ||
         info.format_version_major != 0 ||
-        info.format_version_minor != 1 ||
+        info.format_version_minor != 2 ||
         info.payload_size != 4 ||
         info.placeholder_flags != 1 ||
         info.required_extension_mask != 0u ||
@@ -166,6 +178,18 @@ int main(void)
     {
         fprintf(stderr,
             "FAIL: payload size mismatch expected FORGE_ERR_ARTIFACT_INCOMPATIBLE, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    memcpy(bad_magic, artifact_bytes, sizeof(artifact_bytes));
+    bad_header = (StrataPlaceholderArtifactHeader *)bad_magic;
+    bad_header->admission_info.requires_advanced_controls = 1u;
+    result = forge_artifact_load(id, bad_magic, sizeof(bad_magic), &art);
+    if (result != FORGE_ERR_ARTIFACT_INCOMPATIBLE)
+    {
+        fprintf(stderr,
+            "FAIL: mismatched admission manifest expected FORGE_ERR_ARTIFACT_INCOMPATIBLE, got %d\n",
             (int)result);
         return 1;
     }
