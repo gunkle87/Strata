@@ -10,6 +10,7 @@ The `Breadboard` boundary has been established as a structural compilation layer
 
 The following core public types define the compiler contract:
 - `BreadboardTarget`: Specifies backend-targeted compilation intent (e.g., fast 4-state, temporal).
+- `BreadboardTargetMask`: Bitmask representing allowed execution targets following product profile models.
 - `BreadboardDescriptorClass`: Enumerates the runtime-visible structural classifications (input, output, probe).
 - `BreadboardDescriptor`: Defines the layout of a deterministic identifier describing an exported object's shape, purpose, and stability.
 - `BreadboardResult`: Provides standard compilation status and error codes.
@@ -37,7 +38,8 @@ These queries are deterministic and operate entirely draft-side, keeping lookup 
 
 As this is purely a scaffolding and contract task:
 1. **Compilation**: `breadboard_module_compile` does not run any real lowering, recognition, or validation passes.
-2. **Placeholders**: The compiler explicitly rejects compilation with `BREADBOARD_ERR_COMPILE_FAILED` recording a diagnostic unless `allow_placeholders=true` is set. If allowed, an artifact is returned that deterministically exposes 2 dummy inputs, 2 dummy outputs, and 1 dummy probe descriptor, serving to establish standard runtime discovery.
+2. **Policy Gating**: target gating mechanisms via `breadboard_module_set_target_policy` and `breadboard_module_query_target_availability` exist. Compilation is explicitly rejected with `BREADBOARD_DIAG_CODE_TARGET_DENIED_BY_POLICY` if attempting to target denied backends. Note that Forge still remains the final runtime enforcement boundary.
+3. **Placeholders**: The compiler explicitly rejects compilation with `BREADBOARD_ERR_COMPILE_FAILED` recording a diagnostic unless `allow_placeholders=true` is set. If allowed, an artifact is returned that deterministically exposes 2 dummy inputs, 2 dummy outputs, and 1 dummy probe descriptor, serving to establish standard runtime discovery.
 3. **Diagnostics**: `breadboard_module_get_diagnostic_count` and `breadboard_module_get_diagnostic` now reflect the internally recorded array of diagnostics resulting from module compilation and API usage.
 4. **No Structural Import**: There are not yet APIs for actually feeding components, graphs, or netlists into the `BreadboardModule`.
 

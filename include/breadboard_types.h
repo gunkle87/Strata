@@ -26,6 +26,18 @@ typedef enum BreadboardTarget
 BreadboardTarget;
 
 /*
+ * BreadboardTargetMask
+ *
+ * Bitmask representing a set of allowed execution targets.
+ */
+typedef uint32_t BreadboardTargetMask;
+
+#define BREADBOARD_TARGET_MASK_NONE        (0u)
+#define BREADBOARD_TARGET_MASK_FAST_4STATE (1u << BREADBOARD_TARGET_FAST_4STATE)
+#define BREADBOARD_TARGET_MASK_TEMPORAL    (1u << BREADBOARD_TARGET_TEMPORAL)
+#define BREADBOARD_TARGET_MASK_ALL         (BREADBOARD_TARGET_MASK_FAST_4STATE | BREADBOARD_TARGET_MASK_TEMPORAL)
+
+/*
  * BreadboardDiagnosticSeverity
  *
  * Severity level for compilation, recognition, and lowering diagnostics.
@@ -48,7 +60,8 @@ typedef enum BreadboardDiagnosticCode
     BREADBOARD_DIAG_CODE_NONE = 0,
     BREADBOARD_DIAG_CODE_UNSUPPORTED_TARGET = 1,
     BREADBOARD_DIAG_CODE_UNSUPPORTED_CONSTRUCT = 2,
-    BREADBOARD_DIAG_CODE_INTERNAL_ERROR = 3
+    BREADBOARD_DIAG_CODE_INTERNAL_ERROR = 3,
+    BREADBOARD_DIAG_CODE_TARGET_DENIED_BY_POLICY = 4
 }
 BreadboardDiagnosticCode;
 

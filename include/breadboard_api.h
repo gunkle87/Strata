@@ -49,6 +49,26 @@ BreadboardResult breadboard_module_get_target(
     BreadboardTarget* out_target);
 
 /*
+ * breadboard_module_set_target_policy
+ *
+ * Specifies the allowed targets for this compilation session according to
+ * build/product policy. Targets outside this mask will be rejected explicitly.
+ */
+BreadboardResult breadboard_module_set_target_policy(
+    BreadboardModule* module,
+    BreadboardTargetMask allowed_mask);
+
+/*
+ * breadboard_module_query_target_availability
+ *
+ * Queries whether the given target is allowed under the current target policy.
+ */
+BreadboardResult breadboard_module_query_target_availability(
+    const BreadboardModule* module,
+    BreadboardTarget target,
+    bool* out_is_available);
+
+/*
  * breadboard_module_compile
  *
  * Compiles the accumulated structure targeting the specified backend restrictions,

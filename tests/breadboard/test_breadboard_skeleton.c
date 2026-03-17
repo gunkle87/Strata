@@ -50,6 +50,31 @@ int main(void)
     res = breadboard_module_set_target(module, (BreadboardTarget)999);
     print_result("module_set_target(INVALID)", res, BREADBOARD_ERR_INVALID_TARGET);
 
+    /* Test Target Policy Gating */
+    res = breadboard_module_set_target_policy(module, BREADBOARD_TARGET_MASK_TEMPORAL);
+    print_result("module_set_target_policy(TEMPORAL only)", res, BREADBOARD_OK);
+
+    bool is_available = true;
+    res = breadboard_module_query_target_availability(module, BREADBOARD_TARGET_FAST_4STATE, &is_available);
+    print_result("module_query_target_availability(FAST_4STATE)", res, BREADBOARD_OK);
+    if (is_available) { printf("[FAIL] FAST_4STATE should be denied\n"); exit(1); }
+
+    res = breadboard_module_query_target_availability(module, BREADBOARD_TARGET_TEMPORAL, &is_available);
+    print_result("module_query_target_availability(TEMPORAL)", res, BREADBOARD_OK);
+    if (!is_available) { printf("[FAIL] TEMPORAL should be allowed\n"); exit(1); }
+
+    /* Try to compile with a denied target (FAST_4STATE is active, but policy is TEMPORAL only) */
+    BreadboardCompileOptions opts_compile_denied = { .allow_placeholders = true, .deny_approximation = false, .strict_projection = false };
+    BreadboardArtifactDraft* draft = NULL;
+    res = breadboard_module_compile(module, &opts_compile_denied, &draft);
+    print_result("module_compile(denied target)", res, BREADBOARD_ERR_COMPILE_FAILED);
+
+    res = breadboard_module_query_target_availability(module, (BreadboardTarget)999, &is_available);
+    print_result("module_query_target_availability(INVALID)", res, BREADBOARD_ERR_INVALID_TARGET);
+
+    res = breadboard_module_set_target_policy(module, BREADBOARD_TARGET_MASK_ALL | (1u << 31));
+    print_result("module_set_target_policy(INVALID_MASK)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
     /* Restore to temporal target just to be sure */
     breadboard_module_set_target(module, BREADBOARD_TARGET_TEMPORAL);
 
@@ -76,7 +101,6 @@ int main(void)
     }
 
     /* 4. Test compilation refusal (no placeholder flag) */
-    BreadboardArtifactDraft* draft = NULL;
     BreadboardCompileOptions opts_none = { .allow_placeholders = false, .deny_approximation = false, .strict_projection = false };
     res = breadboard_module_compile(module, &opts_none, &draft);
     print_result("module_compile(no_options)", res, BREADBOARD_ERR_COMPILE_FAILED);
@@ -122,19 +146,27 @@ int main(void)
     size_t diag_count = 99;
     res = breadboard_module_get_diagnostic_count(module, &diag_count);
     print_result("module_get_diagnostic_count", res, BREADBOARD_OK);
-    /* We expect 2 diagnostics: one error from the compilation refusal, and one warning from the successful compile */
-    if (diag_count != 2)
+    /* We expect 3 diagnostics: denied target, compilation refusal without placeholders, and warning from successful compile */
+    if (diag_count != 3)
     {
-        printf("[FAIL] expected 2 diagnostics, got %zu\n", diag_count);
+        printf("[FAIL] expected 3 diagnostics, got %zu\n", diag_count);
         exit(1);
     }
 
     BreadboardDiagnostic diag;
     res = breadboard_module_get_diagnostic(module, 0, &diag);
     print_result("module_get_diagnostic(0)", res, BREADBOARD_OK);
-    if (diag.severity != BREADBOARD_DIAG_ERROR || diag.code != BREADBOARD_DIAG_CODE_UNSUPPORTED_CONSTRUCT)
+    if (diag.severity != BREADBOARD_DIAG_ERROR || diag.code != BREADBOARD_DIAG_CODE_TARGET_DENIED_BY_POLICY)
     {
         printf("[FAIL] diagnostic 0 mismatch\n");
+        exit(1);
+    }
+
+    res = breadboard_module_get_diagnostic(module, 1, &diag);
+    print_result("module_get_diagnostic(1)", res, BREADBOARD_OK);
+    if (diag.severity != BREADBOARD_DIAG_ERROR || diag.code != BREADBOARD_DIAG_CODE_UNSUPPORTED_CONSTRUCT)
+    {
+        printf("[FAIL] diagnostic 1 mismatch\n");
         exit(1);
     }
 

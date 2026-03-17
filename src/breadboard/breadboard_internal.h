@@ -14,6 +14,7 @@
 struct BreadboardModule
 {
     BreadboardTarget target;
+    BreadboardTargetMask allowed_targets;
 
     /* Diagnostic storage block */
     size_t diagnostic_capacity;

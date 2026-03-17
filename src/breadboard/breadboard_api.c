@@ -25,6 +25,7 @@ BreadboardResult breadboard_module_create(BreadboardModule** out_module)
     }
 
     mod->target = BREADBOARD_TARGET_UNSPECIFIED;
+    mod->allowed_targets = BREADBOARD_TARGET_MASK_ALL;
     mod->diagnostic_count = 0;
     mod->diagnostics = NULL;
 
@@ -63,6 +64,56 @@ BreadboardResult breadboard_module_set_target(
     }
 
     module->target = target;
+    return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_module_set_target_policy(
+    BreadboardModule* module,
+    BreadboardTargetMask allowed_mask)
+{
+    if (!module)
+    {
+        return BREADBOARD_ERR_INVALID_HANDLE;
+    }
+
+    if ((allowed_mask & ~BREADBOARD_TARGET_MASK_ALL) != 0u)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    module->allowed_targets = allowed_mask;
+    return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_module_query_target_availability(
+    const BreadboardModule* module,
+    BreadboardTarget target,
+    bool* out_is_available)
+{
+    if (!module)
+    {
+        return BREADBOARD_ERR_INVALID_HANDLE;
+    }
+
+    if (!out_is_available)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    if (target == BREADBOARD_TARGET_UNSPECIFIED)
+    {
+        *out_is_available = false;
+        return BREADBOARD_OK;
+    }
+
+    if (target != BREADBOARD_TARGET_FAST_4STATE &&
+        target != BREADBOARD_TARGET_TEMPORAL)
+    {
+        return BREADBOARD_ERR_INVALID_TARGET;
+    }
+
+    BreadboardTargetMask target_bit = (1u << target);
+    *out_is_available = ((module->allowed_targets & target_bit) != 0);
     return BREADBOARD_OK;
 }
 
@@ -106,9 +157,18 @@ BreadboardResult breadboard_module_compile(
         return BREADBOARD_ERR_INVALID_ARGUMENT;
     }
 
+    *out_draft = NULL;
+
     if (module->target == BREADBOARD_TARGET_UNSPECIFIED)
     {
         record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_UNSUPPORTED_TARGET, "Cannot compile without a specified target");
+        return BREADBOARD_ERR_COMPILE_FAILED;
+    }
+
+    BreadboardTargetMask target_bit = (1u << module->target);
+    if ((module->allowed_targets & target_bit) == 0)
+    {
+        record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_TARGET_DENIED_BY_POLICY, "Target denied by product/compile policy");
         return BREADBOARD_ERR_COMPILE_FAILED;
     }
 
