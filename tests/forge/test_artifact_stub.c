@@ -9,16 +9,50 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include "../../include/forge_api.h"
 
-/* Must match the magic bytes in forge_api.c. */
-static const unsigned char k_stub_magic[] = { 0x53, 0x54, 0x42, 0x21 };
+typedef struct TestArtifactHeader
+{
+    unsigned char magic[4];
+    unsigned short version_major;
+    unsigned short version_minor;
+    unsigned int target_backend_id;
+    unsigned int payload_size;
+}
+TestArtifactHeader;
+
+static void
+fill_stub_artifact(unsigned char *buffer, unsigned int target_backend_id)
+{
+    TestArtifactHeader header;
+    static const unsigned char stub_payload[] = { 0x53, 0x54, 0x42, 0x21 };
+
+    header.magic[0] = 0x46;
+    header.magic[1] = 0x41;
+    header.magic[2] = 0x52;
+    header.magic[3] = 0x54;
+    header.version_major = 0;
+    header.version_minor = 1;
+    header.target_backend_id = target_backend_id;
+    header.payload_size = (unsigned int)sizeof(stub_payload);
+
+    memcpy(buffer, &header, sizeof(header));
+    memcpy(buffer + sizeof(header), stub_payload, sizeof(stub_payload));
+}
 
 int main(void)
 {
     ForgeBackendId  id   = FORGE_BACKEND_ID_INVALID;
+    ForgeBackendId  other_id = FORGE_BACKEND_ID_INVALID;
     ForgeArtifact  *art  = NULL;
+    ForgeArtifactInfo info;
     ForgeResult     result;
+    unsigned char   artifact_bytes[sizeof(TestArtifactHeader) + 4];
+    unsigned char   bad_magic[sizeof(TestArtifactHeader) + 4];
+    unsigned char   backend_mismatch[sizeof(TestArtifactHeader) + 4];
+    unsigned char   unsupported_payload[sizeof(TestArtifactHeader) + 4];
+    TestArtifactHeader *bad_header;
 
     result = forge_backend_id_at(0, &id);
 
@@ -28,8 +62,18 @@ int main(void)
         return 1;
     }
 
-    /* Stub magic path: should return FORGE_OK and a non-NULL handle. */
-    result = forge_artifact_load(id, k_stub_magic, sizeof(k_stub_magic), &art);
+    result = forge_backend_id_at(1, &other_id);
+
+    if (result != FORGE_OK)
+    {
+        fprintf(stderr, "FAIL: could not get backend id at index 1: %d\n", (int)result);
+        return 1;
+    }
+
+    fill_stub_artifact(artifact_bytes, (unsigned int)id);
+
+    /* Valid header + stub payload should return FORGE_OK and a non-NULL handle. */
+    result = forge_artifact_load(id, artifact_bytes, sizeof(artifact_bytes), &art);
 
     if (result != FORGE_OK)
     {
@@ -45,6 +89,29 @@ int main(void)
         return 1;
     }
 
+    result = forge_artifact_info(art, &info);
+
+    if (result != FORGE_OK)
+    {
+        fprintf(stderr,
+            "FAIL: forge_artifact_info expected FORGE_OK, got %d\n",
+            (int)result);
+        forge_artifact_unload(art);
+        return 1;
+    }
+
+    if (info.backend_id != id ||
+        info.format_version_major != 0 ||
+        info.format_version_minor != 1 ||
+        info.payload_size != 4 ||
+        info.placeholder_flags != 1 ||
+        info.source_size != sizeof(artifact_bytes))
+    {
+        fprintf(stderr, "FAIL: forge_artifact_info returned unexpected metadata\n");
+        forge_artifact_unload(art);
+        return 1;
+    }
+
     /* Unload must succeed. */
     result = forge_artifact_unload(art);
     art = NULL;
@@ -57,7 +124,7 @@ int main(void)
 
     /* Unknown backend ID must be rejected before reaching the data check. */
     result = forge_artifact_load(
-        (ForgeBackendId)0xFFFF, k_stub_magic, sizeof(k_stub_magic), &art);
+        (ForgeBackendId)0xFFFF, artifact_bytes, sizeof(artifact_bytes), &art);
 
     if (result != FORGE_ERR_BACKEND_UNAVAILABLE)
     {
@@ -67,19 +134,52 @@ int main(void)
         return 1;
     }
 
-    /* Non-stub data with a known backend must be rejected as unsupported. */
+    memcpy(bad_magic, artifact_bytes, sizeof(artifact_bytes));
+    bad_magic[0] = 0x00;
+    result = forge_artifact_load(id, bad_magic, sizeof(bad_magic), &art);
+    if (result != FORGE_ERR_ARTIFACT_INCOMPATIBLE)
     {
-        const unsigned char bad_data[] = { 0x00, 0x01, 0x02, 0x03 };
+        fprintf(stderr,
+            "FAIL: bad magic expected FORGE_ERR_ARTIFACT_INCOMPATIBLE, got %d\n",
+            (int)result);
+        return 1;
+    }
 
-        result = forge_artifact_load(id, bad_data, sizeof(bad_data), &art);
+    memcpy(backend_mismatch, artifact_bytes, sizeof(artifact_bytes));
+    fill_stub_artifact(backend_mismatch, (unsigned int)other_id);
+    result = forge_artifact_load(id, backend_mismatch, sizeof(backend_mismatch), &art);
+    if (result != FORGE_ERR_ARTIFACT_INCOMPATIBLE)
+    {
+        fprintf(stderr,
+            "FAIL: backend mismatch expected FORGE_ERR_ARTIFACT_INCOMPATIBLE, got %d\n",
+            (int)result);
+        return 1;
+    }
 
-        if (result != FORGE_ERR_UNSUPPORTED)
-        {
-            fprintf(stderr,
-                "FAIL: non-stub data expected FORGE_ERR_UNSUPPORTED, got %d\n",
-                (int)result);
-            return 1;
-        }
+    memcpy(unsupported_payload, artifact_bytes, sizeof(artifact_bytes));
+    unsupported_payload[sizeof(TestArtifactHeader)] = 0x00;
+    unsupported_payload[sizeof(TestArtifactHeader) + 1] = 0x01;
+    unsupported_payload[sizeof(TestArtifactHeader) + 2] = 0x02;
+    unsupported_payload[sizeof(TestArtifactHeader) + 3] = 0x03;
+    result = forge_artifact_load(id, unsupported_payload, sizeof(unsupported_payload), &art);
+    if (result != FORGE_ERR_UNSUPPORTED)
+    {
+        fprintf(stderr,
+            "FAIL: unsupported payload expected FORGE_ERR_UNSUPPORTED, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    memcpy(bad_magic, artifact_bytes, sizeof(artifact_bytes));
+    bad_header = (TestArtifactHeader *)bad_magic;
+    bad_header->payload_size = 99;
+    result = forge_artifact_load(id, bad_magic, sizeof(bad_magic), &art);
+    if (result != FORGE_ERR_ARTIFACT_INCOMPATIBLE)
+    {
+        fprintf(stderr,
+            "FAIL: payload size mismatch expected FORGE_ERR_ARTIFACT_INCOMPATIBLE, got %d\n",
+            (int)result);
+        return 1;
     }
 
     printf("PASS: test_artifact_stub\n");

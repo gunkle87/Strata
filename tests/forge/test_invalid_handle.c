@@ -24,6 +24,34 @@ int main(void)
         return 1;
     }
 
+    /* forge_artifact_info: NULL artifact must return INVALID_HANDLE. */
+    {
+        ForgeArtifactInfo info;
+
+        result = forge_artifact_info(NULL, &info);
+
+        if (result != FORGE_ERR_INVALID_HANDLE)
+        {
+            fprintf(stderr,
+                "FAIL: forge_artifact_info(NULL, ...) expected FORGE_ERR_INVALID_HANDLE, "
+                "got %d\n",
+                (int)result);
+            return 1;
+        }
+    }
+
+    /* forge_artifact_info: NULL out_info must return INVALID_ARGUMENT. */
+    result = forge_artifact_info((ForgeArtifact *)0x1, NULL);
+
+    if (result != FORGE_ERR_INVALID_ARGUMENT)
+    {
+        fprintf(stderr,
+            "FAIL: forge_artifact_info(..., NULL) expected FORGE_ERR_INVALID_ARGUMENT, "
+            "got %d\n",
+            (int)result);
+        return 1;
+    }
+
     /* forge_session_create: NULL artifact must return INVALID_HANDLE. */
     {
         ForgeSession *session = NULL;
@@ -59,6 +87,34 @@ int main(void)
     {
         fprintf(stderr,
             "FAIL: forge_session_reset(NULL) expected FORGE_ERR_INVALID_HANDLE, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    /* forge_session_info: NULL session must return INVALID_HANDLE. */
+    {
+        ForgeSessionInfo info;
+
+        result = forge_session_info(NULL, &info);
+
+        if (result != FORGE_ERR_INVALID_HANDLE)
+        {
+            fprintf(stderr,
+                "FAIL: forge_session_info(NULL, ...) expected FORGE_ERR_INVALID_HANDLE, "
+                "got %d\n",
+                (int)result);
+            return 1;
+        }
+    }
+
+    /* forge_session_info: NULL out_info must return INVALID_ARGUMENT. */
+    result = forge_session_info((ForgeSession *)0x1, NULL);
+
+    if (result != FORGE_ERR_INVALID_ARGUMENT)
+    {
+        fprintf(stderr,
+            "FAIL: forge_session_info(..., NULL) expected FORGE_ERR_INVALID_ARGUMENT, "
+            "got %d\n",
             (int)result);
         return 1;
     }

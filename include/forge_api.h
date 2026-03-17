@@ -31,6 +31,35 @@
 extern "C" {
 #endif
 
+typedef enum ForgeSessionLifecycleState
+{
+    FORGE_SESSION_STATE_INVALID = 0,
+    FORGE_SESSION_STATE_READY   = 1
+
+}
+ForgeSessionLifecycleState;
+
+typedef struct ForgeArtifactInfo
+{
+    ForgeBackendId backend_id;
+    uint16_t format_version_major;
+    uint16_t format_version_minor;
+    uint32_t payload_size;
+    uint32_t placeholder_flags;
+    size_t source_size;
+
+}
+ForgeArtifactInfo;
+
+typedef struct ForgeSessionInfo
+{
+    ForgeBackendId backend_id;
+    ForgeSessionLifecycleState lifecycle_state;
+    uint32_t placeholder_state;
+
+}
+ForgeSessionInfo;
+
 /* -------------------------------------------------------------------------
  * Backend Discovery
  * ------------------------------------------------------------------------- */
@@ -90,7 +119,8 @@ ForgeResult forge_backend_capabilities(ForgeBackendId backend_id, ForgeCapabilit
  * out_artifact must not be NULL.
  * Returns FORGE_ERR_INVALID_ARGUMENT if out_artifact or data is NULL.
  * Returns FORGE_ERR_BACKEND_UNAVAILABLE if backend_id is not registered.
- * Returns FORGE_ERR_UNSUPPORTED if data/size does not pass placeholder validation.
+ * Returns FORGE_ERR_ARTIFACT_INCOMPATIBLE for malformed or wrong-target headers.
+ * Returns FORGE_ERR_UNSUPPORTED for valid headers with unimplemented payloads.
  * Returns FORGE_OK and writes *out_artifact on stub success.
  */
 ForgeResult forge_artifact_load(
@@ -98,6 +128,20 @@ ForgeResult forge_artifact_load(
     const void       *data,
     size_t            size,
     ForgeArtifact   **out_artifact);
+
+/*
+ * forge_artifact_info
+ *
+ * Fills *out_info with metadata captured at artifact load time.
+ *
+ * out_info must not be NULL.
+ * Returns FORGE_ERR_INVALID_ARGUMENT if out_info is NULL.
+ * Returns FORGE_ERR_INVALID_HANDLE if artifact is NULL.
+ * Returns FORGE_OK on success.
+ */
+ForgeResult forge_artifact_info(
+    const ForgeArtifact *artifact,
+    ForgeArtifactInfo   *out_info);
 
 /*
  * forge_artifact_unload
@@ -119,27 +163,43 @@ ForgeResult forge_artifact_unload(ForgeArtifact *artifact);
  *
  * Creates a runtime session from a loaded artifact.
  *
- * Stub behavior: returns FORGE_ERR_UNSUPPORTED as no real execution backend
- * is implemented yet. The out_session parameter is not written in this case.
+ * Stub behavior: allocates a minimal session handle bound to the loaded
+ * artifact. This validates the session lifecycle boundary without exposing
+ * any real execution controls yet.
  *
  * out_session must not be NULL.
  * Returns FORGE_ERR_INVALID_ARGUMENT if out_session is NULL.
  * Returns FORGE_ERR_INVALID_HANDLE if artifact is NULL.
- * Returns FORGE_ERR_UNSUPPORTED in this skeleton build.
+ * Returns FORGE_OK on stub session creation success.
  */
 ForgeResult forge_session_create(
     ForgeArtifact  *artifact,
     ForgeSession  **out_session);
 
 /*
+ * forge_session_info
+ *
+ * Fills *out_info with lifecycle metadata for a live session.
+ *
+ * out_info must not be NULL.
+ * Returns FORGE_ERR_INVALID_ARGUMENT if out_info is NULL.
+ * Returns FORGE_ERR_INVALID_HANDLE if session is NULL.
+ * Returns FORGE_OK on success.
+ */
+ForgeResult forge_session_info(
+    const ForgeSession *session,
+    ForgeSessionInfo   *out_info);
+
+/*
  * forge_session_reset
  *
  * Resets a live session to its initial state, preserving the loaded artifact.
  *
- * Stub behavior: returns FORGE_ERR_INVALID_HANDLE while sessions cannot be
- * created. Will return FORGE_OK once session creation is implemented.
+ * Stub behavior: resets placeholder session state only. No backend execution
+ * state exists yet in this skeleton.
  *
  * Returns FORGE_ERR_INVALID_HANDLE if session is NULL.
+ * Returns FORGE_OK on stub reset success.
  */
 ForgeResult forge_session_reset(ForgeSession *session);
 
@@ -149,8 +209,7 @@ ForgeResult forge_session_reset(ForgeSession *session);
  * Destroys a session and releases all resources it holds.
  * The handle must not be used after this call.
  *
- * Stub behavior: returns FORGE_ERR_INVALID_HANDLE while sessions cannot be
- * created.
+ * Stub behavior: releases the placeholder session object only.
  *
  * Returns FORGE_ERR_INVALID_HANDLE if session is NULL.
  * Returns FORGE_OK on success.

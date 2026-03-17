@@ -28,12 +28,25 @@ forge_fail(ForgeResult result, const char *msg)
 }
 
 /*
- * Stub magic bytes.
- * Callers pass this 4-byte sequence to trigger the stub artifact success path.
- * All other data returns FORGE_ERR_UNSUPPORTED until real decoding exists.
+ * Placeholder artifact header validation for the first Forge slice.
+ * The artifact must carry:
+ * - shared magic
+ * - format version
+ * - target backend id
+ * - payload size
+ *
+ * The payload is still stub-only. The current stub payload must be exactly
+ * the 4-byte sequence "STB!".
  */
-#define FORGE_STUB_MAGIC_LEN 4
-static const unsigned char k_stub_magic[FORGE_STUB_MAGIC_LEN] =
+#define FORGE_ARTIFACT_MAGIC_LEN 4
+#define FORGE_ARTIFACT_VERSION_MAJOR 0
+#define FORGE_ARTIFACT_VERSION_MINOR 1
+#define FORGE_STUB_PAYLOAD_LEN 4
+
+static const unsigned char k_artifact_magic[FORGE_ARTIFACT_MAGIC_LEN] =
+    { 0x46, 0x41, 0x52, 0x54 }; /* "FART" = Forge ARTifact placeholder magic */
+
+static const unsigned char k_stub_payload[FORGE_STUB_PAYLOAD_LEN] =
     { 0x53, 0x54, 0x42, 0x21 }; /* "STB!" */
 
 /* -------------------------------------------------------------------------
@@ -134,6 +147,8 @@ forge_artifact_load(
 {
     const ForgeBackendRecord *rec;
     ForgeArtifact            *art;
+    const ForgeArtifactHeader *header;
+    const unsigned char *payload;
 
     if (!out_artifact || !data)
     {
@@ -151,13 +166,48 @@ forge_artifact_load(
             "forge_artifact_load: backend_id not registered");
     }
 
+    if (size < sizeof(ForgeArtifactHeader))
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: artifact smaller than required header");
+    }
+
+    header = (const ForgeArtifactHeader *)data;
+
+    if (memcmp(header->magic, k_artifact_magic, FORGE_ARTIFACT_MAGIC_LEN) != 0)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: artifact magic mismatch");
+    }
+
+    if (header->version_major != FORGE_ARTIFACT_VERSION_MAJOR ||
+        header->version_minor != FORGE_ARTIFACT_VERSION_MINOR)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: unsupported artifact version");
+    }
+
+    if (header->target_backend_id != backend_id)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: artifact target backend mismatch");
+    }
+
+    if ((size_t)header->payload_size != size - sizeof(ForgeArtifactHeader))
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: payload size does not match artifact size");
+    }
+
+    payload = ((const unsigned char *)data) + sizeof(ForgeArtifactHeader);
+
     /*
-     * Stub success path: exactly the stub magic sequence returns a minimal
-     * ForgeArtifact marked as a stub. All other data is unsupported until
-     * real artifact decoding is implemented.
+     * Stub success path:
+     * valid shared header + exact stub payload returns a minimal ForgeArtifact.
+     * Any other payload remains unsupported until real decoding exists.
      */
-    if (size == FORGE_STUB_MAGIC_LEN &&
-        memcmp(data, k_stub_magic, FORGE_STUB_MAGIC_LEN) == 0)
+    if (header->payload_size == FORGE_STUB_PAYLOAD_LEN &&
+        memcmp(payload, k_stub_payload, FORGE_STUB_PAYLOAD_LEN) == 0)
     {
         art = (ForgeArtifact *)malloc(sizeof(ForgeArtifact));
 
@@ -168,6 +218,9 @@ forge_artifact_load(
         }
 
         art->backend_id = backend_id;
+        art->format_version_major = header->version_major;
+        art->format_version_minor = header->version_minor;
+        art->payload_size = header->payload_size;
         art->source_size = size;
         art->placeholder_flags = 1;
 
@@ -178,7 +231,35 @@ forge_artifact_load(
     }
 
     return forge_fail(FORGE_ERR_UNSUPPORTED,
-        "forge_artifact_load: artifact decoding not yet implemented");
+        "forge_artifact_load: artifact header valid but payload decoding is not implemented");
+}
+
+ForgeResult
+forge_artifact_info(
+    const ForgeArtifact *artifact,
+    ForgeArtifactInfo   *out_info)
+{
+    if (!out_info)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_artifact_info: out_info is NULL");
+    }
+
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_artifact_info: artifact is NULL");
+    }
+
+    out_info->backend_id = artifact->backend_id;
+    out_info->format_version_major = artifact->format_version_major;
+    out_info->format_version_minor = artifact->format_version_minor;
+    out_info->payload_size = artifact->payload_size;
+    out_info->placeholder_flags = artifact->placeholder_flags;
+    out_info->source_size = artifact->source_size;
+
+    forge_diag_set("");
+    return FORGE_OK;
 }
 
 ForgeResult
@@ -205,6 +286,8 @@ forge_session_create(
     ForgeArtifact  *artifact,
     ForgeSession  **out_session)
 {
+    ForgeSession *session;
+
     if (!out_session)
     {
         return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
@@ -219,8 +302,46 @@ forge_session_create(
 
     *out_session = NULL;
 
-    return forge_fail(FORGE_ERR_UNSUPPORTED,
-        "forge_session_create: runtime execution not yet implemented");
+    session = (ForgeSession *)malloc(sizeof(ForgeSession));
+
+    if (!session)
+    {
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_session_create: allocation failed");
+    }
+
+    session->artifact = artifact;
+    session->placeholder_state = 0;
+
+    *out_session = session;
+
+    forge_diag_set("");
+    return FORGE_OK;
+}
+
+ForgeResult
+forge_session_info(
+    const ForgeSession *session,
+    ForgeSessionInfo   *out_info)
+{
+    if (!out_info)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_session_info: out_info is NULL");
+    }
+
+    if (!session)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_session_info: session is NULL");
+    }
+
+    out_info->backend_id = session->artifact->backend_id;
+    out_info->lifecycle_state = FORGE_SESSION_STATE_READY;
+    out_info->placeholder_state = session->placeholder_state;
+
+    forge_diag_set("");
+    return FORGE_OK;
 }
 
 ForgeResult
@@ -232,8 +353,10 @@ forge_session_reset(ForgeSession *session)
             "forge_session_reset: session is NULL");
     }
 
-    return forge_fail(FORGE_ERR_UNSUPPORTED,
-        "forge_session_reset: runtime execution not yet implemented");
+    session->placeholder_state = 0;
+
+    forge_diag_set("");
+    return FORGE_OK;
 }
 
 ForgeResult
@@ -245,8 +368,10 @@ forge_session_free(ForgeSession *session)
             "forge_session_free: session is NULL");
     }
 
-    return forge_fail(FORGE_ERR_UNSUPPORTED,
-        "forge_session_free: runtime execution not yet implemented");
+    free(session);
+
+    forge_diag_set("");
+    return FORGE_OK;
 }
 
 /* -------------------------------------------------------------------------
