@@ -60,6 +60,24 @@ typedef struct ForgeSessionInfo
 }
 ForgeSessionInfo;
 
+typedef enum ForgeLogicValue
+{
+    FORGE_LOGIC_0 = 0,
+    FORGE_LOGIC_1 = 1,
+    FORGE_LOGIC_X = 2,
+    FORGE_LOGIC_Z = 3
+
+}
+ForgeLogicValue;
+
+typedef struct ForgeSignalValue
+{
+    uint32_t signal_id;
+    ForgeLogicValue value;
+
+}
+ForgeSignalValue;
+
 /* -------------------------------------------------------------------------
  * Backend Discovery
  * ------------------------------------------------------------------------- */
@@ -189,6 +207,45 @@ ForgeResult forge_session_create(
 ForgeResult forge_session_info(
     const ForgeSession *session,
     ForgeSessionInfo   *out_info);
+
+/*
+ * forge_apply_inputs
+ *
+ * Stages a batch of portable logic values for later common advancement.
+ *
+ * Stub behavior: validates the session and arguments, then returns
+ * FORGE_ERR_UNSUPPORTED until real runtime input mapping is implemented.
+ */
+ForgeResult forge_apply_inputs(
+    ForgeSession *session,
+    const ForgeSignalValue *values,
+    uint32_t count);
+
+/*
+ * forge_step
+ *
+ * Advances the common runtime boundary by the requested number of steps.
+ *
+ * Stub behavior: validates the session and step_count, then returns
+ * FORGE_ERR_UNSUPPORTED until real backend advancement is implemented.
+ */
+ForgeResult forge_step(
+    ForgeSession *session,
+    uint32_t step_count);
+
+/*
+ * forge_read_outputs
+ *
+ * Reads a batch of portable output values after a common advancement
+ * boundary.
+ *
+ * Stub behavior: validates the session and arguments, then returns
+ * FORGE_ERR_UNSUPPORTED until real runtime output mapping is implemented.
+ */
+ForgeResult forge_read_outputs(
+    const ForgeSession *session,
+    ForgeSignalValue   *values,
+    uint32_t count);
 
 /*
  * forge_session_reset

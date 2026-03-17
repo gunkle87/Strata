@@ -1,6 +1,6 @@
 # Makefile for Forge skeleton tests
 #
-# Builds all 6 test executables by compiling each test file directly with the
+# Builds all Forge test executables by compiling each test file directly with the
 # Forge source files. No shared library is used at this stage.
 #
 # Usage:
@@ -27,7 +27,8 @@ TESTS = \
     test_capabilities \
     test_invalid_handle \
     test_artifact_stub \
-    test_session_lifecycle
+    test_session_lifecycle \
+    test_runtime_stubs
 
 TEST_EXES = $(addsuffix .exe, $(TESTS))
 
@@ -51,6 +52,9 @@ test_artifact_stub.exe: test_artifact_stub.c $(FORGE_SRCS)
 test_session_lifecycle.exe: test_session_lifecycle.c $(FORGE_SRCS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(FORGE_SRCS)
 
+test_runtime_stubs.exe: test_runtime_stubs.c $(FORGE_SRCS)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(FORGE_SRCS)
+
 test: all
 	@echo --- Running Forge skeleton tests ---
 	@test_backend_enum.exe
@@ -59,6 +63,7 @@ test: all
 	@test_invalid_handle.exe
 	@test_artifact_stub.exe
 	@test_session_lifecycle.exe
+	@test_runtime_stubs.exe
 	@echo --- All Forge skeleton tests passed ---
 
 clean:

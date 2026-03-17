@@ -119,6 +119,110 @@ int main(void)
         return 1;
     }
 
+    /* forge_apply_inputs: NULL session must return INVALID_HANDLE. */
+    {
+        ForgeSignalValue values[1];
+
+        values[0].signal_id = 1;
+        values[0].value = FORGE_LOGIC_1;
+
+        result = forge_apply_inputs(NULL, values, 1);
+
+        if (result != FORGE_ERR_INVALID_HANDLE)
+        {
+            fprintf(stderr,
+                "FAIL: forge_apply_inputs(NULL, ...) expected FORGE_ERR_INVALID_HANDLE, "
+                "got %d\n",
+                (int)result);
+            return 1;
+        }
+    }
+
+    /* forge_apply_inputs: bad batch arguments must return INVALID_ARGUMENT. */
+    result = forge_apply_inputs((ForgeSession *)0x1, NULL, 1);
+
+    if (result != FORGE_ERR_INVALID_ARGUMENT)
+    {
+        fprintf(stderr,
+            "FAIL: forge_apply_inputs(..., NULL, 1) expected FORGE_ERR_INVALID_ARGUMENT, "
+            "got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    result = forge_apply_inputs((ForgeSession *)0x1, (const ForgeSignalValue *)0x1, 0);
+
+    if (result != FORGE_ERR_INVALID_ARGUMENT)
+    {
+        fprintf(stderr,
+            "FAIL: forge_apply_inputs(..., values, 0) expected FORGE_ERR_INVALID_ARGUMENT, "
+            "got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    /* forge_step: NULL session and zero-count must validate correctly. */
+    result = forge_step(NULL, 1);
+
+    if (result != FORGE_ERR_INVALID_HANDLE)
+    {
+        fprintf(stderr,
+            "FAIL: forge_step(NULL, 1) expected FORGE_ERR_INVALID_HANDLE, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    result = forge_step((ForgeSession *)0x1, 0);
+
+    if (result != FORGE_ERR_INVALID_ARGUMENT)
+    {
+        fprintf(stderr,
+            "FAIL: forge_step(..., 0) expected FORGE_ERR_INVALID_ARGUMENT, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    /* forge_read_outputs: NULL session and bad batch args must validate. */
+    {
+        ForgeSignalValue values[1];
+
+        values[0].signal_id = 1;
+        values[0].value = FORGE_LOGIC_X;
+
+        result = forge_read_outputs(NULL, values, 1);
+
+        if (result != FORGE_ERR_INVALID_HANDLE)
+        {
+            fprintf(stderr,
+                "FAIL: forge_read_outputs(NULL, ...) expected FORGE_ERR_INVALID_HANDLE, "
+                "got %d\n",
+                (int)result);
+            return 1;
+        }
+    }
+
+    result = forge_read_outputs((const ForgeSession *)0x1, NULL, 1);
+
+    if (result != FORGE_ERR_INVALID_ARGUMENT)
+    {
+        fprintf(stderr,
+            "FAIL: forge_read_outputs(..., NULL, 1) expected FORGE_ERR_INVALID_ARGUMENT, "
+            "got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    result = forge_read_outputs((const ForgeSession *)0x1, (ForgeSignalValue *)0x1, 0);
+
+    if (result != FORGE_ERR_INVALID_ARGUMENT)
+    {
+        fprintf(stderr,
+            "FAIL: forge_read_outputs(..., values, 0) expected FORGE_ERR_INVALID_ARGUMENT, "
+            "got %d\n",
+            (int)result);
+        return 1;
+    }
+
     /* forge_session_free: NULL session must return INVALID_HANDLE. */
     result = forge_session_free(NULL);
 

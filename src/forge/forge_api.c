@@ -345,6 +345,71 @@ forge_session_info(
 }
 
 ForgeResult
+forge_apply_inputs(
+    ForgeSession *session,
+    const ForgeSignalValue *values,
+    uint32_t count)
+{
+    if (!session)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_apply_inputs: session is NULL");
+    }
+
+    if (!values || count == 0)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_apply_inputs: values is NULL or count is zero");
+    }
+
+    return forge_fail(FORGE_ERR_UNSUPPORTED,
+        "forge_apply_inputs: runtime input mapping not yet implemented");
+}
+
+ForgeResult
+forge_step(
+    ForgeSession *session,
+    uint32_t step_count)
+{
+    if (!session)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_step: session is NULL");
+    }
+
+    if (step_count == 0)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_step: step_count is zero");
+    }
+
+    return forge_fail(FORGE_ERR_UNSUPPORTED,
+        "forge_step: runtime advancement not yet implemented");
+}
+
+ForgeResult
+forge_read_outputs(
+    const ForgeSession *session,
+    ForgeSignalValue   *values,
+    uint32_t count)
+{
+    if (!session)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_read_outputs: session is NULL");
+    }
+
+    if (!values || count == 0)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_read_outputs: values is NULL or count is zero");
+    }
+
+    return forge_fail(FORGE_ERR_UNSUPPORTED,
+        "forge_read_outputs: runtime output mapping not yet implemented");
+}
+
+ForgeResult
 forge_session_reset(ForgeSession *session)
 {
     if (!session)
