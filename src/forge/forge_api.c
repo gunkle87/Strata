@@ -348,8 +348,11 @@ forge_validate_serialized_descriptor_block(
     const StrataPlaceholderSerializedDescriptor **out_descriptors)
 {
     const StrataPlaceholderSerializedDescriptor *descriptors;
+    const StrataPlaceholderSectionEntry *descriptor_section;
+    const StrataPlaceholderSectionEntry *payload_section;
     size_t expected_descriptor_bytes;
     size_t max_descriptor_entries;
+    size_t section_table_bytes;
     size_t total_expected_size;
     size_t total_descriptor_count;
     uint32_t index;
@@ -360,7 +363,85 @@ forge_validate_serialized_descriptor_block(
             "forge_artifact_load: descriptor validation received invalid input");
     }
 
-    max_descriptor_entries = (size - sizeof(ForgeArtifactHeader)) /
+    if (header->section_count != 2u)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: unsupported placeholder section count");
+    }
+
+    section_table_bytes = strata_placeholder_section_table_bytes(
+        header->section_count);
+    if ((size_t)header->section_table_offset < sizeof(ForgeArtifactHeader) ||
+        (size_t)header->section_table_offset > size ||
+        (size_t)header->section_table_offset + section_table_bytes > size)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: section table is out of bounds");
+    }
+
+    if ((size_t)header->section_table_offset + section_table_bytes >
+        (size_t)header->descriptor_offset)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: section table overlaps descriptor block");
+    }
+
+    if ((size_t)header->section_table_offset + section_table_bytes >
+        (size_t)header->payload_offset)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: section table overlaps payload block");
+    }
+
+    if ((size_t)header->descriptor_offset < sizeof(ForgeArtifactHeader) ||
+        (size_t)header->descriptor_offset > size)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: descriptor offset is out of bounds");
+    }
+
+    if ((size_t)header->payload_offset < sizeof(ForgeArtifactHeader) ||
+        (size_t)header->payload_offset > size)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: payload offset is out of bounds");
+    }
+
+    if ((size_t)header->descriptor_offset > (size_t)header->payload_offset)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: descriptor offset exceeds payload offset");
+    }
+
+    descriptor_section = strata_placeholder_find_section_entry(
+        header,
+        STRATA_PLACEHOLDER_SECTION_DESCRIPTORS);
+    payload_section = strata_placeholder_find_section_entry(
+        header,
+        STRATA_PLACEHOLDER_SECTION_PAYLOAD);
+
+    if (!descriptor_section || !payload_section)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: required placeholder sections are missing");
+    }
+
+    if (descriptor_section->section_offset != header->descriptor_offset ||
+        descriptor_section->section_size != header->descriptor_bytes)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: descriptor section does not match header");
+    }
+
+    if (payload_section->section_offset != header->payload_offset ||
+        payload_section->section_size != header->payload_size)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: payload section does not match header");
+    }
+
+    max_descriptor_entries =
+        ((size_t)header->payload_offset - (size_t)header->descriptor_offset) /
         sizeof(StrataPlaceholderSerializedDescriptor);
     if ((size_t)header->input_descriptor_count > max_descriptor_entries ||
         (size_t)header->output_descriptor_count > max_descriptor_entries ||
@@ -398,14 +479,20 @@ forge_validate_serialized_descriptor_block(
             "forge_artifact_load: descriptor block size does not match descriptor counts");
     }
 
-    total_expected_size = sizeof(ForgeArtifactHeader) +
-        (size_t)header->descriptor_bytes +
+    if ((size_t)header->descriptor_offset + (size_t)header->descriptor_bytes >
+        (size_t)header->payload_offset)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: descriptor block overlaps payload block");
+    }
+
+    total_expected_size = (size_t)header->payload_offset +
         (size_t)header->payload_size;
 
     if (size != total_expected_size)
     {
         return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
-            "forge_artifact_load: artifact size does not match descriptor and payload blocks");
+            "forge_artifact_load: artifact size does not match declared block offsets");
     }
 
     descriptors = strata_placeholder_artifact_descriptors(header);
@@ -744,8 +831,7 @@ forge_artifact_load(
         return descriptor_result;
     }
 
-    if ((size_t)header->payload_size !=
-        size - sizeof(ForgeArtifactHeader) - (size_t)header->descriptor_bytes)
+    if ((size_t)header->payload_size != size - (size_t)header->payload_offset)
     {
         return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
             "forge_artifact_load: payload size does not match artifact size");

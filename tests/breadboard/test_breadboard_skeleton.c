@@ -163,6 +163,8 @@ int main(void)
         size_t export_size = 0;
         unsigned char export_bytes[strata_placeholder_artifact_size()];
         const StrataPlaceholderArtifactHeader* export_header;
+        const StrataPlaceholderSectionEntry* descriptor_section;
+        const StrataPlaceholderSectionEntry* payload_section;
 
         res = breadboard_artifact_draft_export_placeholder_size(draft, &export_size);
         print_result("draft_export_placeholder_size(TEMPORAL)", res, BREADBOARD_OK);
@@ -180,10 +182,29 @@ int main(void)
         print_result("draft_export_placeholder(TEMPORAL)", res, BREADBOARD_OK);
 
         export_header = (const StrataPlaceholderArtifactHeader*)export_bytes;
+        descriptor_section = strata_placeholder_find_section_entry(
+            export_header, STRATA_PLACEHOLDER_SECTION_DESCRIPTORS);
+        payload_section = strata_placeholder_find_section_entry(
+            export_header, STRATA_PLACEHOLDER_SECTION_PAYLOAD);
         if (export_header->target_backend_id != STRATA_PLACEHOLDER_BACKEND_ID_HIGHZ ||
             export_header->input_descriptor_count != 2u ||
             export_header->output_descriptor_count != 2u ||
             export_header->probe_descriptor_count != 1u ||
+            export_header->section_table_offset != sizeof(StrataPlaceholderArtifactHeader) ||
+            export_header->section_count != 2u ||
+            export_header->descriptor_offset !=
+                sizeof(StrataPlaceholderArtifactHeader) +
+                strata_placeholder_section_table_bytes(2u) ||
+            export_header->payload_offset !=
+                sizeof(StrataPlaceholderArtifactHeader) +
+                strata_placeholder_section_table_bytes(2u) +
+                export_header->descriptor_bytes ||
+            !descriptor_section ||
+            descriptor_section->section_offset != export_header->descriptor_offset ||
+            descriptor_section->section_size != export_header->descriptor_bytes ||
+            !payload_section ||
+            payload_section->section_offset != export_header->payload_offset ||
+            payload_section->section_size != export_header->payload_size ||
             export_header->payload_size != STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN ||
             export_header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_ADVANCED ||
             export_header->admission_info.requirement_flags !=
@@ -234,6 +255,8 @@ int main(void)
         size_t export_size = 0;
         unsigned char export_bytes[strata_placeholder_artifact_size()];
         const StrataPlaceholderArtifactHeader* export_header;
+        const StrataPlaceholderSectionEntry* descriptor_section;
+        const StrataPlaceholderSectionEntry* payload_section;
 
         res = breadboard_artifact_draft_export_placeholder_size(draft_fast, &export_size);
         print_result("draft_export_placeholder_size(FAST_4STATE)", res, BREADBOARD_OK);
@@ -251,10 +274,29 @@ int main(void)
         print_result("draft_export_placeholder(FAST_4STATE)", res, BREADBOARD_OK);
 
         export_header = (const StrataPlaceholderArtifactHeader*)export_bytes;
+        descriptor_section = strata_placeholder_find_section_entry(
+            export_header, STRATA_PLACEHOLDER_SECTION_DESCRIPTORS);
+        payload_section = strata_placeholder_find_section_entry(
+            export_header, STRATA_PLACEHOLDER_SECTION_PAYLOAD);
         if (export_header->target_backend_id != STRATA_PLACEHOLDER_BACKEND_ID_LXS ||
             export_header->input_descriptor_count != 2u ||
             export_header->output_descriptor_count != 2u ||
             export_header->probe_descriptor_count != 1u ||
+            export_header->section_table_offset != sizeof(StrataPlaceholderArtifactHeader) ||
+            export_header->section_count != 2u ||
+            export_header->descriptor_offset !=
+                sizeof(StrataPlaceholderArtifactHeader) +
+                strata_placeholder_section_table_bytes(2u) ||
+            export_header->payload_offset !=
+                sizeof(StrataPlaceholderArtifactHeader) +
+                strata_placeholder_section_table_bytes(2u) +
+                export_header->descriptor_bytes ||
+            !descriptor_section ||
+            descriptor_section->section_offset != export_header->descriptor_offset ||
+            descriptor_section->section_size != export_header->descriptor_bytes ||
+            !payload_section ||
+            payload_section->section_offset != export_header->payload_offset ||
+            payload_section->section_size != export_header->payload_size ||
             export_header->payload_size != STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN ||
             export_header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_BASELINE ||
             export_header->admission_info.requirement_flags !=

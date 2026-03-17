@@ -69,10 +69,10 @@ handoff. It should be treated as scaffolding rather than the long-term artifact
 contract.
 
 The current placeholder handoff now carries an explicit coarse admission
-manifest and a serialized descriptor block in the shared placeholder header
-in addition to the payload class. That keeps the temporary contract
-self-describing while still remaining a scaffolding format rather than the
-final Strata artifact layout.
+manifest, a serialized descriptor block, and a tiny section directory in the
+shared placeholder header in addition to the payload class. That keeps the
+temporary contract self-describing while still remaining a scaffolding format
+rather than the final Strata artifact layout.
 
 ## Current Stub Limitations
 

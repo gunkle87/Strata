@@ -156,6 +156,8 @@ main(void)
     BreadboardDescriptor breadboard_probe;
     ForgeResult result;
     const StrataPlaceholderArtifactHeader *header;
+    const StrataPlaceholderSectionEntry *descriptor_section;
+    const StrataPlaceholderSectionEntry *payload_section;
 
     lxs_id = find_backend_id_by_name("LXS");
     highz_id = find_backend_id_by_name("HighZ");
@@ -187,10 +189,29 @@ main(void)
     }
 
     header = (const StrataPlaceholderArtifactHeader *)bytes;
+    descriptor_section = strata_placeholder_find_section_entry(
+        header, STRATA_PLACEHOLDER_SECTION_DESCRIPTORS);
+    payload_section = strata_placeholder_find_section_entry(
+        header, STRATA_PLACEHOLDER_SECTION_PAYLOAD);
     if (header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_BASELINE ||
         header->input_descriptor_count != 2u ||
         header->output_descriptor_count != 2u ||
         header->probe_descriptor_count != 1u ||
+        header->section_table_offset != sizeof(StrataPlaceholderArtifactHeader) ||
+        header->section_count != 2u ||
+        header->descriptor_offset !=
+            sizeof(StrataPlaceholderArtifactHeader) +
+            strata_placeholder_section_table_bytes(2u) ||
+        header->payload_offset !=
+            sizeof(StrataPlaceholderArtifactHeader) +
+            strata_placeholder_section_table_bytes(2u) +
+            header->descriptor_bytes ||
+        !descriptor_section ||
+        descriptor_section->section_offset != header->descriptor_offset ||
+        descriptor_section->section_size != header->descriptor_bytes ||
+        !payload_section ||
+        payload_section->section_offset != header->payload_offset ||
+        payload_section->section_size != header->payload_size ||
         header->admission_info.requirement_flags != STRATA_PLACEHOLDER_REQUIREMENT_NONE)
     {
         free(bytes);
@@ -274,10 +295,29 @@ main(void)
     }
 
     header = (const StrataPlaceholderArtifactHeader *)bytes;
+    descriptor_section = strata_placeholder_find_section_entry(
+        header, STRATA_PLACEHOLDER_SECTION_DESCRIPTORS);
+    payload_section = strata_placeholder_find_section_entry(
+        header, STRATA_PLACEHOLDER_SECTION_PAYLOAD);
     if (header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_ADVANCED ||
         header->input_descriptor_count != 2u ||
         header->output_descriptor_count != 2u ||
         header->probe_descriptor_count != 1u ||
+        header->section_table_offset != sizeof(StrataPlaceholderArtifactHeader) ||
+        header->section_count != 2u ||
+        header->descriptor_offset !=
+            sizeof(StrataPlaceholderArtifactHeader) +
+            strata_placeholder_section_table_bytes(2u) ||
+        header->payload_offset !=
+            sizeof(StrataPlaceholderArtifactHeader) +
+            strata_placeholder_section_table_bytes(2u) +
+            header->descriptor_bytes ||
+        !descriptor_section ||
+        descriptor_section->section_offset != header->descriptor_offset ||
+        descriptor_section->section_size != header->descriptor_bytes ||
+        !payload_section ||
+        payload_section->section_offset != header->payload_offset ||
+        payload_section->section_size != header->payload_size ||
         header->admission_info.requirement_flags !=
             STRATA_PLACEHOLDER_REQUIREMENT_ADVANCED_CONTROL ||
         !header->admission_info.requires_advanced_controls)

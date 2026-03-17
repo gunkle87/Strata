@@ -16,7 +16,7 @@
 
 #define STRATA_PLACEHOLDER_ARTIFACT_MAGIC_LEN 4u
 #define STRATA_PLACEHOLDER_ARTIFACT_VERSION_MAJOR 0u
-#define STRATA_PLACEHOLDER_ARTIFACT_VERSION_MINOR 3u
+#define STRATA_PLACEHOLDER_ARTIFACT_VERSION_MINOR 5u
 #define STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN 4u
 #define STRATA_PLACEHOLDER_DESCRIPTOR_NAME_CAPACITY 32u
 
@@ -46,8 +46,12 @@ typedef struct StrataPlaceholderArtifactHeader
     uint32_t input_descriptor_count;
     uint32_t output_descriptor_count;
     uint32_t probe_descriptor_count;
+    uint32_t section_table_offset;
+    uint32_t section_count;
     uint32_t descriptor_bytes;
+    uint32_t descriptor_offset;
     uint32_t payload_size;
+    uint32_t payload_offset;
     uint32_t payload_kind;
     StrataPlaceholderAdmissionInfo admission_info;
 }
@@ -61,6 +65,22 @@ typedef enum StrataPlaceholderPayloadKind
     STRATA_PLACEHOLDER_PAYLOAD_NATIVE   = 3
 }
 StrataPlaceholderPayloadKind;
+
+typedef enum StrataPlaceholderSectionKind
+{
+    STRATA_PLACEHOLDER_SECTION_INVALID     = 0,
+    STRATA_PLACEHOLDER_SECTION_DESCRIPTORS = 1,
+    STRATA_PLACEHOLDER_SECTION_PAYLOAD     = 2
+}
+StrataPlaceholderSectionKind;
+
+typedef struct StrataPlaceholderSectionEntry
+{
+    uint32_t section_kind;
+    uint32_t section_offset;
+    uint32_t section_size;
+}
+StrataPlaceholderSectionEntry;
 
 typedef struct StrataPlaceholderDescriptorSpec
 {
@@ -132,12 +152,19 @@ strata_placeholder_descriptor_bytes_for_counts(
 }
 
 static inline size_t
+strata_placeholder_section_table_bytes(uint32_t section_count)
+{
+    return (size_t)section_count * sizeof(StrataPlaceholderSectionEntry);
+}
+
+static inline size_t
 strata_placeholder_artifact_size_for_counts(
     uint32_t input_count,
     uint32_t output_count,
     uint32_t probe_count)
 {
     return sizeof(StrataPlaceholderArtifactHeader) +
+        strata_placeholder_section_table_bytes(2u) +
         strata_placeholder_descriptor_bytes_for_counts(
             input_count,
             output_count,
@@ -343,31 +370,78 @@ strata_placeholder_fill_default_serialized_descriptors(
     }
 }
 
-static inline const StrataPlaceholderSerializedDescriptor*
-strata_placeholder_artifact_descriptors(
-    const StrataPlaceholderArtifactHeader* header)
+static inline const uint8_t*
+strata_placeholder_find_section_data(
+    const StrataPlaceholderArtifactHeader* header,
+    StrataPlaceholderSectionKind section_kind)
 {
+    const StrataPlaceholderSectionEntry* sections;
+    uint32_t index;
+
     if (!header)
     {
         return NULL;
     }
 
+    sections = (const StrataPlaceholderSectionEntry*)
+        (((const uint8_t*)header) + header->section_table_offset);
+
+    for (index = 0u; index < header->section_count; ++index)
+    {
+        if (sections[index].section_kind == (uint32_t)section_kind)
+        {
+            return
+                (((const uint8_t*)header) + sections[index].section_offset);
+        }
+    }
+
+    return NULL;
+}
+
+static inline const StrataPlaceholderSectionEntry*
+strata_placeholder_find_section_entry(
+    const StrataPlaceholderArtifactHeader* header,
+    StrataPlaceholderSectionKind section_kind)
+{
+    const StrataPlaceholderSectionEntry* sections;
+    uint32_t index;
+
+    if (!header)
+    {
+        return NULL;
+    }
+
+    sections = (const StrataPlaceholderSectionEntry*)
+        (((const uint8_t*)header) + header->section_table_offset);
+
+    for (index = 0u; index < header->section_count; ++index)
+    {
+        if (sections[index].section_kind == (uint32_t)section_kind)
+        {
+            return &sections[index];
+        }
+    }
+
+    return NULL;
+}
+
+static inline const StrataPlaceholderSerializedDescriptor*
+strata_placeholder_artifact_descriptors(
+    const StrataPlaceholderArtifactHeader* header)
+{
     return (const StrataPlaceholderSerializedDescriptor*)
-        (((const uint8_t*)header) + sizeof(StrataPlaceholderArtifactHeader));
+        strata_placeholder_find_section_data(
+        header,
+        STRATA_PLACEHOLDER_SECTION_DESCRIPTORS);
 }
 
 static inline const uint8_t*
 strata_placeholder_artifact_payload(
     const StrataPlaceholderArtifactHeader* header)
 {
-    if (!header)
-    {
-        return NULL;
-    }
-
-    return ((const uint8_t*)header) +
-        sizeof(StrataPlaceholderArtifactHeader) +
-        header->descriptor_bytes;
+    return strata_placeholder_find_section_data(
+        header,
+        STRATA_PLACEHOLDER_SECTION_PAYLOAD);
 }
 
 static inline int
@@ -384,8 +458,10 @@ strata_placeholder_artifact_write_with_descriptors(
     size_t* out_size)
 {
     StrataPlaceholderArtifactHeader header;
+    StrataPlaceholderSectionEntry sections[2];
     const uint8_t* payload_bytes;
     size_t descriptor_bytes;
+    size_t section_table_bytes;
     size_t required_size;
 
     if (!buffer || !out_size || !admission_info || !descriptors ||
@@ -405,7 +481,9 @@ strata_placeholder_artifact_write_with_descriptors(
         input_descriptor_count,
         output_descriptor_count,
         probe_descriptor_count);
+    section_table_bytes = strata_placeholder_section_table_bytes(2u);
     required_size = sizeof(StrataPlaceholderArtifactHeader) +
+        section_table_bytes +
         descriptor_bytes +
         STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN;
 
@@ -421,18 +499,34 @@ strata_placeholder_artifact_write_with_descriptors(
     header.input_descriptor_count = input_descriptor_count;
     header.output_descriptor_count = output_descriptor_count;
     header.probe_descriptor_count = probe_descriptor_count;
+    header.section_table_offset = (uint32_t)sizeof(StrataPlaceholderArtifactHeader);
+    header.section_count = 2u;
     header.descriptor_bytes = (uint32_t)descriptor_bytes;
+    header.descriptor_offset = (uint32_t)(sizeof(StrataPlaceholderArtifactHeader) +
+        section_table_bytes);
     header.payload_size = STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN;
+    header.payload_offset = (uint32_t)(header.descriptor_offset + descriptor_bytes);
     header.payload_kind = (uint32_t)payload_kind;
     header.admission_info = *admission_info;
 
+    sections[0].section_kind = STRATA_PLACEHOLDER_SECTION_DESCRIPTORS;
+    sections[0].section_offset = header.descriptor_offset;
+    sections[0].section_size = header.descriptor_bytes;
+    sections[1].section_kind = STRATA_PLACEHOLDER_SECTION_PAYLOAD;
+    sections[1].section_offset = header.payload_offset;
+    sections[1].section_size = header.payload_size;
+
     memcpy(buffer, &header, sizeof(header));
     memcpy(
-        ((uint8_t*)buffer) + sizeof(header),
+        ((uint8_t*)buffer) + header.section_table_offset,
+        sections,
+        section_table_bytes);
+    memcpy(
+        ((uint8_t*)buffer) + header.descriptor_offset,
         descriptors,
         descriptor_bytes);
     memcpy(
-        ((uint8_t*)buffer) + sizeof(header) + descriptor_bytes,
+        ((uint8_t*)buffer) + header.payload_offset,
         payload_bytes,
         STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN);
 
