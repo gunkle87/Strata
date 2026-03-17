@@ -186,16 +186,62 @@ int main(void)
         exit(1);
     }
 
-    /* 12. Out of bounds checking */
+    /* 12. Lookup by ID and Name successful checks */
+    BreadboardDescriptor lookup_desc;
+
+    /* Input lookup success */
+    res = breadboard_draft_input_descriptor_by_id(draft, 100, &lookup_desc);
+    print_result("draft_input_descriptor_by_id(100)", res, BREADBOARD_OK);
+    if (lookup_desc.id != 100 || lookup_desc.class_type != BREADBOARD_DESC_INPUT) { printf("[FAIL] Lookup mismatch\n"); exit(1); }
+
+    res = breadboard_draft_input_descriptor_by_name(draft, "placeholder_in_1", &lookup_desc);
+    print_result("draft_input_descriptor_by_name('placeholder_in_1')", res, BREADBOARD_OK);
+    if (lookup_desc.id != 101 || lookup_desc.class_type != BREADBOARD_DESC_INPUT) { printf("[FAIL] Lookup mismatch\n"); exit(1); }
+
+    /* Output lookup success */
+    res = breadboard_draft_output_descriptor_by_id(draft, 201, &lookup_desc);
+    print_result("draft_output_descriptor_by_id(201)", res, BREADBOARD_OK);
+    if (lookup_desc.id != 201 || lookup_desc.class_type != BREADBOARD_DESC_OUTPUT) { printf("[FAIL] Lookup mismatch\n"); exit(1); }
+
+    res = breadboard_draft_output_descriptor_by_name(draft, "placeholder_out_0", &lookup_desc);
+    print_result("draft_output_descriptor_by_name('placeholder_out_0')", res, BREADBOARD_OK);
+    if (lookup_desc.id != 200 || lookup_desc.class_type != BREADBOARD_DESC_OUTPUT) { printf("[FAIL] Lookup mismatch\n"); exit(1); }
+
+    /* Probe lookup success */
+    res = breadboard_draft_probe_descriptor_by_id(draft, 300, &lookup_desc);
+    print_result("draft_probe_descriptor_by_id(300)", res, BREADBOARD_OK);
+    if (lookup_desc.id != 300 || lookup_desc.class_type != BREADBOARD_DESC_PROBE) { printf("[FAIL] Lookup mismatch\n"); exit(1); }
+
+    res = breadboard_draft_probe_descriptor_by_name(draft, "placeholder_probe_0", &lookup_desc);
+    print_result("draft_probe_descriptor_by_name('placeholder_probe_0')", res, BREADBOARD_OK);
+    if (lookup_desc.id != 300 || lookup_desc.class_type != BREADBOARD_DESC_PROBE) { printf("[FAIL] Lookup mismatch\n"); exit(1); }
+
+    /* 13. Lookup by ID and Name failure paths */
+    res = breadboard_draft_input_descriptor_by_id(draft, 999, &lookup_desc);
+    print_result("draft_input_descriptor_by_id(999)", res, BREADBOARD_ERR_NOT_FOUND);
+
+    res = breadboard_draft_output_descriptor_by_name(draft, "missing_name", &lookup_desc);
+    print_result("draft_output_descriptor_by_name('missing_name')", res, BREADBOARD_ERR_NOT_FOUND);
+
+    res = breadboard_draft_probe_descriptor_by_id(draft, 100, &lookup_desc); /* ID exists but wrong class */
+    print_result("draft_probe_descriptor_by_id(100)", res, BREADBOARD_ERR_NOT_FOUND);
+
+    /* 14. Out of bounds checking */
     res = breadboard_draft_input_descriptor_at(draft, 99, &desc);
     print_result("draft_input_descriptor_at(99)", res, BREADBOARD_ERR_OUT_OF_BOUNDS);
 
-    /* 13. Invalid handles / argument paths */
+    /* 15. Invalid handles / argument paths */
     res = breadboard_draft_output_descriptor_count(NULL, &out_count);
     print_result("draft_output_descriptor_count(NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
 
     res = breadboard_draft_probe_descriptor_at(draft, 0, NULL);
     print_result("draft_probe_descriptor_at(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+    res = breadboard_draft_input_descriptor_by_id(NULL, 100, &lookup_desc);
+    print_result("draft_input_descriptor_by_id(NULL, ...)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+    res = breadboard_draft_output_descriptor_by_name(draft, NULL, &lookup_desc);
+    print_result("draft_output_descriptor_by_name(..., NULL, ...)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
 
     /* 14. Free up */
     breadboard_artifact_draft_free(draft);

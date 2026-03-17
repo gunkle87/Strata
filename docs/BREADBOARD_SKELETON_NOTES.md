@@ -25,8 +25,13 @@ The following core public types define the compiler contract:
 ## Query API
 The `BreadboardArtifactDraft` now supports a set of query functionalities to expose structured descriptors:
 - `breadboard_draft_input_descriptor_count`, `breadboard_draft_input_descriptor_at`
+- `breadboard_draft_input_descriptor_by_id`, `breadboard_draft_input_descriptor_by_name`
 - `breadboard_draft_output_descriptor_count`, `breadboard_draft_output_descriptor_at`
+- `breadboard_draft_output_descriptor_by_id`, `breadboard_draft_output_descriptor_by_name`
 - `breadboard_draft_probe_descriptor_count`, `breadboard_draft_probe_descriptor_at`
+- `breadboard_draft_probe_descriptor_by_id`, `breadboard_draft_probe_descriptor_by_name`
+
+These queries are deterministic and operate entirely draft-side, keeping lookup mapping explicit without relying on runtime session mechanisms. Lookup failures explicitly yield `BREADBOARD_ERR_NOT_FOUND`.
 
 ## Current Stub Limitations
 

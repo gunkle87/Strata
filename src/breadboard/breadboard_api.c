@@ -1,6 +1,7 @@
 #include "breadboard_api.h"
 #include "breadboard_internal.h"
 #include <stdlib.h>
+#include <string.h>
 
 /*
  * breadboard_api.c
@@ -399,4 +400,136 @@ BreadboardResult breadboard_draft_probe_descriptor_at(
 
     *out_descriptor = draft->probes[index];
     return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_draft_input_descriptor_by_id(
+    const BreadboardArtifactDraft* draft,
+    uint64_t id,
+    BreadboardDescriptor* out_descriptor)
+{
+    if (!draft || !out_descriptor)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    for (size_t i = 0; i < draft->input_count; i++)
+    {
+        if (draft->inputs[i].id == id)
+        {
+            *out_descriptor = draft->inputs[i];
+            return BREADBOARD_OK;
+        }
+    }
+
+    return BREADBOARD_ERR_NOT_FOUND;
+}
+
+BreadboardResult breadboard_draft_input_descriptor_by_name(
+    const BreadboardArtifactDraft* draft,
+    const char* name,
+    BreadboardDescriptor* out_descriptor)
+{
+    if (!draft || !name || !out_descriptor)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    for (size_t i = 0; i < draft->input_count; i++)
+    {
+        if (draft->inputs[i].name && strcmp(draft->inputs[i].name, name) == 0)
+        {
+            *out_descriptor = draft->inputs[i];
+            return BREADBOARD_OK;
+        }
+    }
+
+    return BREADBOARD_ERR_NOT_FOUND;
+}
+
+BreadboardResult breadboard_draft_output_descriptor_by_id(
+    const BreadboardArtifactDraft* draft,
+    uint64_t id,
+    BreadboardDescriptor* out_descriptor)
+{
+    if (!draft || !out_descriptor)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    for (size_t i = 0; i < draft->output_count; i++)
+    {
+        if (draft->outputs[i].id == id)
+        {
+            *out_descriptor = draft->outputs[i];
+            return BREADBOARD_OK;
+        }
+    }
+
+    return BREADBOARD_ERR_NOT_FOUND;
+}
+
+BreadboardResult breadboard_draft_output_descriptor_by_name(
+    const BreadboardArtifactDraft* draft,
+    const char* name,
+    BreadboardDescriptor* out_descriptor)
+{
+    if (!draft || !name || !out_descriptor)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    for (size_t i = 0; i < draft->output_count; i++)
+    {
+        if (draft->outputs[i].name && strcmp(draft->outputs[i].name, name) == 0)
+        {
+            *out_descriptor = draft->outputs[i];
+            return BREADBOARD_OK;
+        }
+    }
+
+    return BREADBOARD_ERR_NOT_FOUND;
+}
+
+BreadboardResult breadboard_draft_probe_descriptor_by_id(
+    const BreadboardArtifactDraft* draft,
+    uint64_t id,
+    BreadboardDescriptor* out_descriptor)
+{
+    if (!draft || !out_descriptor)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    for (size_t i = 0; i < draft->probe_count; i++)
+    {
+        if (draft->probes[i].id == id)
+        {
+            *out_descriptor = draft->probes[i];
+            return BREADBOARD_OK;
+        }
+    }
+
+    return BREADBOARD_ERR_NOT_FOUND;
+}
+
+BreadboardResult breadboard_draft_probe_descriptor_by_name(
+    const BreadboardArtifactDraft* draft,
+    const char* name,
+    BreadboardDescriptor* out_descriptor)
+{
+    if (!draft || !name || !out_descriptor)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    for (size_t i = 0; i < draft->probe_count; i++)
+    {
+        if (draft->probes[i].name && strcmp(draft->probes[i].name, name) == 0)
+        {
+            *out_descriptor = draft->probes[i];
+            return BREADBOARD_OK;
+        }
+    }
+
+    return BREADBOARD_ERR_NOT_FOUND;
 }

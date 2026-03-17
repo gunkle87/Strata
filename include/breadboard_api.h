@@ -182,6 +182,66 @@ BreadboardResult breadboard_draft_probe_descriptor_at(
     size_t index,
     BreadboardDescriptor* out_descriptor);
 
+/*
+ * breadboard_draft_input_descriptor_by_id
+ *
+ * Retrieves a specific input descriptor exported by the draft by exact ID.
+ */
+BreadboardResult breadboard_draft_input_descriptor_by_id(
+    const BreadboardArtifactDraft* draft,
+    uint64_t id,
+    BreadboardDescriptor* out_descriptor);
+
+/*
+ * breadboard_draft_input_descriptor_by_name
+ *
+ * Retrieves a specific input descriptor exported by the draft by exact name.
+ */
+BreadboardResult breadboard_draft_input_descriptor_by_name(
+    const BreadboardArtifactDraft* draft,
+    const char* name,
+    BreadboardDescriptor* out_descriptor);
+
+/*
+ * breadboard_draft_output_descriptor_by_id
+ *
+ * Retrieves a specific output descriptor exported by the draft by exact ID.
+ */
+BreadboardResult breadboard_draft_output_descriptor_by_id(
+    const BreadboardArtifactDraft* draft,
+    uint64_t id,
+    BreadboardDescriptor* out_descriptor);
+
+/*
+ * breadboard_draft_output_descriptor_by_name
+ *
+ * Retrieves a specific output descriptor exported by the draft by exact name.
+ */
+BreadboardResult breadboard_draft_output_descriptor_by_name(
+    const BreadboardArtifactDraft* draft,
+    const char* name,
+    BreadboardDescriptor* out_descriptor);
+
+/*
+ * breadboard_draft_probe_descriptor_by_id
+ *
+ * Retrieves a specific probe descriptor exported by the draft by exact ID.
+ */
+BreadboardResult breadboard_draft_probe_descriptor_by_id(
+    const BreadboardArtifactDraft* draft,
+    uint64_t id,
+    BreadboardDescriptor* out_descriptor);
+
+/*
+ * breadboard_draft_probe_descriptor_by_name
+ *
+ * Retrieves a specific probe descriptor exported by the draft by exact name.
+ */
+BreadboardResult breadboard_draft_probe_descriptor_by_name(
+    const BreadboardArtifactDraft* draft,
+    const char* name,
+    BreadboardDescriptor* out_descriptor);
+
 #ifdef __cplusplus
 }
 #endif

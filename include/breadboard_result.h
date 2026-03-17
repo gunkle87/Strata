@@ -32,7 +32,10 @@ typedef enum BreadboardResult
     BREADBOARD_ERR_INTERNAL = 6,
 
     /* The index provided for a list lookup was out of range. */
-    BREADBOARD_ERR_OUT_OF_BOUNDS = 7
+    BREADBOARD_ERR_OUT_OF_BOUNDS = 7,
+
+    /* A requested descriptor ID or name was not found. */
+    BREADBOARD_ERR_NOT_FOUND = 8
 
 }
 BreadboardResult;
