@@ -39,6 +39,20 @@ typedef enum BreadboardDiagnosticSeverity
 BreadboardDiagnosticSeverity;
 
 /*
+ * BreadboardDiagnosticCode
+ *
+ * Specific diagnostic identity codes for known failure or warning conditions.
+ */
+typedef enum BreadboardDiagnosticCode
+{
+    BREADBOARD_DIAG_CODE_NONE = 0,
+    BREADBOARD_DIAG_CODE_UNSUPPORTED_TARGET = 1,
+    BREADBOARD_DIAG_CODE_UNSUPPORTED_CONSTRUCT = 2,
+    BREADBOARD_DIAG_CODE_INTERNAL_ERROR = 3
+}
+BreadboardDiagnosticCode;
+
+/*
  * BreadboardDiagnostic
  *
  * A single diagnostic message emitted during compilation.
@@ -46,10 +60,39 @@ BreadboardDiagnosticSeverity;
 typedef struct BreadboardDiagnostic
 {
     BreadboardDiagnosticSeverity severity;
+    BreadboardDiagnosticCode code;
     const char* message;
     /* Optional: source locus or stable ID references could be added here later */
 }
 BreadboardDiagnostic;
+
+/*
+ * BreadboardDescriptorClass
+ *
+ * Represents the fundamental runtime-visible classification of an exported object.
+ */
+typedef enum BreadboardDescriptorClass
+{
+    BREADBOARD_DESC_INPUT  = 1,
+    BREADBOARD_DESC_OUTPUT = 2,
+    BREADBOARD_DESC_PROBE  = 3
+}
+BreadboardDescriptorClass;
+
+/*
+ * BreadboardDescriptor
+ *
+ * A deterministic placeholder or real descriptor representing an exported object.
+ */
+typedef struct BreadboardDescriptor
+{
+    uint64_t id;
+    const char* name;
+    uint32_t width;
+    BreadboardDescriptorClass class_type;
+    bool is_placeholder;
+}
+BreadboardDescriptor;
 
 /*
  * BreadboardCompileOptions
@@ -61,9 +104,39 @@ typedef struct BreadboardCompileOptions
     /* If true, explicitly allow compilation even if some constructs are unsupported. */
     bool allow_placeholders;
 
-    /* Other flags like strict_projection, deny_approximation, etc., can follow. */
+    /* If true, explicitly deny execution-time approximation or semantic loss. */
+    bool deny_approximation;
+
+    /* If true, explicitly enforce strict state projection rules. */
+    bool strict_projection;
 }
 BreadboardCompileOptions;
+
+/*
+ * BreadboardTargetInfo
+ *
+ * Information about a specified compiler target.
+ */
+typedef struct BreadboardTargetInfo
+{
+    BreadboardTarget target;
+    /* Target capabilities could be added here later. */
+}
+BreadboardTargetInfo;
+
+/*
+ * BreadboardDraftInfo
+ *
+ * Metadata surface describing a constructed compilation artifact draft.
+ */
+typedef struct BreadboardDraftInfo
+{
+    BreadboardTarget target;
+    bool has_placeholders;
+    size_t approximate_size_bytes;
+}
+BreadboardDraftInfo;
+
 
 /*
  * BreadboardModule

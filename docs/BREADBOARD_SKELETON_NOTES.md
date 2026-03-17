@@ -10,18 +10,30 @@ The `Breadboard` boundary has been established as a structural compilation layer
 
 The following core public types define the compiler contract:
 - `BreadboardTarget`: Specifies backend-targeted compilation intent (e.g., fast 4-state, temporal).
+- `BreadboardDescriptorClass`: Enumerates the runtime-visible structural classifications (input, output, probe).
+- `BreadboardDescriptor`: Defines the layout of a deterministic identifier describing an exported object's shape, purpose, and stability.
 - `BreadboardResult`: Provides standard compilation status and error codes.
-- `BreadboardCompileOptions`: Knobs for compilation strictness (currently provides `allow_placeholders`).
-- `BreadboardDiagnostic`: Carries message and severity for structural and semantic checks.
-- `BreadboardModule` (Opaque handle): Ingests structure and tracks compiler state.
+- `BreadboardCompileOptions`: Knobs for compilation strictness (provides `allow_placeholders`, `deny_approximation`, `strict_projection`).
+- `BreadboardDiagnosticSeverity`: Severity scale for emitted compiler diagnostics.
+- `BreadboardDiagnosticCode`: Identifiers for specific compiler structural and semantic checks.
+- `BreadboardDiagnostic`: Carries message, code, and severity for diagnostics.
+- `BreadboardTargetInfo`: Metadata defining the target backend and capabilities.
+- `BreadboardDraftInfo`: Metadata describing an artifact draft containing its target, size structure, and generation properties.
+- `BreadboardModule` (Opaque handle): Ingests structure and tracks compiler state, stores recorded diagnostics.
 - `BreadboardArtifactDraft` (Opaque handle): The executable handoff artifact intended for Forge load validation.
+
+## Query API
+The `BreadboardArtifactDraft` now supports a set of query functionalities to expose structured descriptors:
+- `breadboard_draft_input_descriptor_count`, `breadboard_draft_input_descriptor_at`
+- `breadboard_draft_output_descriptor_count`, `breadboard_draft_output_descriptor_at`
+- `breadboard_draft_probe_descriptor_count`, `breadboard_draft_probe_descriptor_at`
 
 ## Current Stub Limitations
 
 As this is purely a scaffolding and contract task:
 1. **Compilation**: `breadboard_module_compile` does not run any real lowering, recognition, or validation passes.
-2. **Placeholders**: The compiler explicitly rejects compilation with `BREADBOARD_ERR_UNSUPPORTED` unless `allow_placeholders=true` is set via compile options. If set, an empty artifact draft is returned to explicitly plumb the happy path.
-3. **Diagnostics**: `breadboard_module_get_diagnostic_count` aggressively returns 0, and `breadboard_module_get_diagnostic` returns `BREADBOARD_ERR_UNSUPPORTED` for any requested index as no structural faults are currently emitted.
+2. **Placeholders**: The compiler explicitly rejects compilation with `BREADBOARD_ERR_COMPILE_FAILED` recording a diagnostic unless `allow_placeholders=true` is set. If allowed, an artifact is returned that deterministically exposes 2 dummy inputs, 2 dummy outputs, and 1 dummy probe descriptor, serving to establish standard runtime discovery.
+3. **Diagnostics**: `breadboard_module_get_diagnostic_count` and `breadboard_module_get_diagnostic` now reflect the internally recorded array of diagnostics resulting from module compilation and API usage.
 4. **No Structural Import**: There are not yet APIs for actually feeding components, graphs, or netlists into the `BreadboardModule`.
 
 These limitations ensure no real processing occurs and prevents arbitrary runtime behavior from appearing prematurely within Breadboard before the actual compiler paths are built.

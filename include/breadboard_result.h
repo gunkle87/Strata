@@ -29,7 +29,10 @@ typedef enum BreadboardResult
     BREADBOARD_ERR_UNSUPPORTED = 5,
 
     /* An internal compiler error that should not occur under normal conditions. */
-    BREADBOARD_ERR_INTERNAL = 6
+    BREADBOARD_ERR_INTERNAL = 6,
+
+    /* The index provided for a list lookup was out of range. */
+    BREADBOARD_ERR_OUT_OF_BOUNDS = 7
 
 }
 BreadboardResult;

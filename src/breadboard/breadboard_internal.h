@@ -16,6 +16,7 @@ struct BreadboardModule
     BreadboardTarget target;
 
     /* Diagnostic storage block */
+    size_t diagnostic_capacity;
     size_t diagnostic_count;
     BreadboardDiagnostic* diagnostics;
 
@@ -25,8 +26,19 @@ struct BreadboardModule
 struct BreadboardArtifactDraft
 {
     BreadboardTarget target;
+    BreadboardDraftInfo info;
 
-    /* Future: target compatibility rules, descriptor tables, payload block */
+    /* Placeholder descriptors exposed when allow_placeholders was true */
+    size_t input_count;
+    BreadboardDescriptor* inputs;
+
+    size_t output_count;
+    BreadboardDescriptor* outputs;
+
+    size_t probe_count;
+    BreadboardDescriptor* probes;
+
+    /* Future: target compatibility rules, real descriptor tables, payload block */
 };
 
 #endif /* BREADBOARD_INTERNAL_H */
