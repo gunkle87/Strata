@@ -3,6 +3,53 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef struct BreadboardPlaceholderArtifactHeader
+{
+    unsigned char magic[4];
+    uint16_t version_major;
+    uint16_t version_minor;
+    uint32_t target_backend_id;
+    uint32_t payload_size;
+}
+BreadboardPlaceholderArtifactHeader;
+
+#define BREADBOARD_PLACEHOLDER_ARTIFACT_MAGIC_LEN 4u
+#define BREADBOARD_PLACEHOLDER_ARTIFACT_VERSION_MAJOR 0u
+#define BREADBOARD_PLACEHOLDER_ARTIFACT_VERSION_MINOR 1u
+#define BREADBOARD_PLACEHOLDER_PAYLOAD_LEN 4u
+
+static const unsigned char k_placeholder_artifact_magic[BREADBOARD_PLACEHOLDER_ARTIFACT_MAGIC_LEN] =
+    { 0x46, 0x41, 0x52, 0x54 }; /* "FART" */
+
+static const unsigned char k_placeholder_basic_payload[BREADBOARD_PLACEHOLDER_PAYLOAD_LEN] =
+    { 0x53, 0x54, 0x42, 0x21 }; /* "STB!" */
+
+static const unsigned char k_placeholder_advanced_payload[BREADBOARD_PLACEHOLDER_PAYLOAD_LEN] =
+    { 0x41, 0x44, 0x56, 0x21 }; /* "ADV!" */
+
+static BreadboardResult
+resolve_placeholder_backend_id(
+    BreadboardTarget target,
+    uint32_t* out_backend_id)
+{
+    if (!out_backend_id)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    switch (target)
+    {
+        case BREADBOARD_TARGET_FAST_4STATE:
+            *out_backend_id = 1u;
+            return BREADBOARD_OK;
+        case BREADBOARD_TARGET_TEMPORAL:
+            *out_backend_id = 2u;
+            return BREADBOARD_OK;
+        default:
+            return BREADBOARD_ERR_UNSUPPORTED;
+    }
+}
+
 /*
  * breadboard_api.c
  *
@@ -385,6 +432,82 @@ BreadboardResult breadboard_draft_query_admission_info(
     }
 
     *out_info = draft->admission_info;
+    return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_artifact_draft_export_placeholder_size(
+    const BreadboardArtifactDraft* draft,
+    size_t* out_size)
+{
+    if (!draft || !out_size)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    if (!draft->admission_info.is_placeholder)
+    {
+        return BREADBOARD_ERR_UNSUPPORTED;
+    }
+
+    *out_size = sizeof(BreadboardPlaceholderArtifactHeader) +
+        BREADBOARD_PLACEHOLDER_PAYLOAD_LEN;
+    return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_artifact_draft_export_placeholder(
+    const BreadboardArtifactDraft* draft,
+    void* buffer,
+    size_t buffer_size,
+    size_t* out_size)
+{
+    BreadboardPlaceholderArtifactHeader header;
+    const unsigned char* payload;
+    size_t required_size;
+    uint32_t target_backend_id;
+
+    if (!draft || !buffer || !out_size)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    if (!draft->admission_info.is_placeholder)
+    {
+        return BREADBOARD_ERR_UNSUPPORTED;
+    }
+
+    required_size = sizeof(BreadboardPlaceholderArtifactHeader) +
+        BREADBOARD_PLACEHOLDER_PAYLOAD_LEN;
+
+    if (buffer_size < required_size)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    if (resolve_placeholder_backend_id(draft->target, &target_backend_id) != BREADBOARD_OK)
+    {
+        return BREADBOARD_ERR_UNSUPPORTED;
+    }
+
+    memcpy(header.magic, k_placeholder_artifact_magic, sizeof(header.magic));
+    header.version_major = BREADBOARD_PLACEHOLDER_ARTIFACT_VERSION_MAJOR;
+    header.version_minor = BREADBOARD_PLACEHOLDER_ARTIFACT_VERSION_MINOR;
+    header.target_backend_id = target_backend_id;
+    header.payload_size = BREADBOARD_PLACEHOLDER_PAYLOAD_LEN;
+
+    if (draft->admission_info.requires_advanced_controls)
+    {
+        payload = k_placeholder_advanced_payload;
+    }
+    else
+    {
+        payload = k_placeholder_basic_payload;
+    }
+
+    memcpy(buffer, &header, sizeof(header));
+    memcpy(((unsigned char*)buffer) + sizeof(header), payload,
+        BREADBOARD_PLACEHOLDER_PAYLOAD_LEN);
+
+    *out_size = required_size;
     return BREADBOARD_OK;
 }
 

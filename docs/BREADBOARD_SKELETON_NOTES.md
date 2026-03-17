@@ -38,8 +38,13 @@ These queries are deterministic and operate entirely draft-side, keeping lookup 
 The draft also supports:
 - `breadboard_artifact_draft_query_info`
 - `breadboard_draft_query_admission_info`
+- `breadboard_artifact_draft_export_placeholder_size`
+- `breadboard_artifact_draft_export_placeholder`
 
 The first is a coarse stable draft summary. The second is the newer admission-oriented surface.
+The export helpers provide a temporary placeholder handoff into the current
+Forge stub artifact loader for vertical integration tests. They are explicitly
+not the final Strata artifact format.
 
 ## Draft Admission Metadata
 Drafts generated using the placeholder allowance (`allow_placeholders=true`) provide explicit admission-oriented metadata via `breadboard_draft_query_admission_info`. The exposed metadata represents coarse placeholder capabilities:
@@ -49,6 +54,20 @@ Drafts generated using the placeholder allowance (`allow_placeholders=true`) pro
 
 This allows the Breadboard scaffolding to emit drafts which explicitly answer early admission-style questions without pretending to encode real backend binary structures.
 
+## Temporary Placeholder Export
+
+Breadboard can now export a placeholder draft into a temporary Forge-compatible
+stub artifact byte stream. This export path:
+- requires a placeholder draft
+- derives the placeholder backend ID from the draft target using the current
+  temporary handoff contract
+- maps FAST_4STATE placeholder drafts to the baseline stub payload
+- maps TEMPORAL placeholder drafts to the advanced-controls stub payload
+
+This export path exists only to validate the first Breadboard -> Forge vertical
+handoff. It should be treated as scaffolding rather than the long-term artifact
+contract.
+
 ## Current Stub Limitations
 
 As this is purely a scaffolding and contract task:
@@ -57,7 +76,8 @@ As this is purely a scaffolding and contract task:
 3. **Draft Metadata**: Both `BreadboardDraftInfo` and `BreadboardDraftAdmissionInfo` are placeholder-oriented summaries. They are intentionally coarse and should not be interpreted as real lowering facts.
 4. **Placeholders**: The compiler explicitly rejects compilation with `BREADBOARD_ERR_COMPILE_FAILED` recording a diagnostic unless `allow_placeholders=true` is set. If allowed, a draft is returned that deterministically exposes 2 dummy inputs, 2 dummy outputs, and 1 dummy probe descriptor, serving to establish standard runtime discovery.
 5. **Diagnostics**: `breadboard_module_get_diagnostic_count` and `breadboard_module_get_diagnostic` now reflect the internally recorded array of diagnostics resulting from module compilation and API usage.
-6. **No Structural Import**: There are not yet APIs for actually feeding components, graphs, or netlists into the `BreadboardModule`.
+6. **Temporary Artifact Handoff**: The export helpers produce only the current temporary Forge-compatible placeholder bytes. They do not define the final Strata artifact format.
+7. **No Structural Import**: There are not yet APIs for actually feeding components, graphs, or netlists into the `BreadboardModule`.
 
 These limitations ensure no real processing occurs and prevents arbitrary runtime behavior from appearing prematurely within Breadboard before the actual compiler paths are built.
 

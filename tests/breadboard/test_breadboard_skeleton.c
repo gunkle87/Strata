@@ -2,6 +2,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+typedef struct PlaceholderArtifactHeader
+{
+    unsigned char magic[4];
+    unsigned short version_major;
+    unsigned short version_minor;
+    unsigned int target_backend_id;
+    unsigned int payload_size;
+}
+PlaceholderArtifactHeader;
+
 /*
  * test_breadboard_skeleton.c
  *
@@ -158,6 +168,35 @@ int main(void)
         exit(1);
     }
 
+    {
+        size_t export_size = 0;
+        unsigned char export_bytes[sizeof(PlaceholderArtifactHeader) + 4];
+        const PlaceholderArtifactHeader* export_header;
+
+        res = breadboard_artifact_draft_export_placeholder_size(draft, &export_size);
+        print_result("draft_export_placeholder_size(TEMPORAL)", res, BREADBOARD_OK);
+        if (export_size != sizeof(export_bytes))
+        {
+            printf("[FAIL] export size mismatch for TEMPORAL\n");
+            exit(1);
+        }
+
+        res = breadboard_artifact_draft_export_placeholder(
+            draft,
+            export_bytes,
+            sizeof(export_bytes),
+            &export_size);
+        print_result("draft_export_placeholder(TEMPORAL)", res, BREADBOARD_OK);
+
+        export_header = (const PlaceholderArtifactHeader*)export_bytes;
+        if (export_header->target_backend_id != 2u || export_header->payload_size != 4u ||
+            export_bytes[sizeof(PlaceholderArtifactHeader)] != 0x41)
+        {
+            printf("[FAIL] exported TEMPORAL placeholder bytes mismatch\n");
+            exit(1);
+        }
+    }
+
     /* 8c. Artifact admission info check (FAST_4STATE) */
     breadboard_module_set_target_policy(module, BREADBOARD_TARGET_MASK_ALL);
     breadboard_module_set_target(module, BREADBOARD_TARGET_FAST_4STATE);
@@ -186,6 +225,35 @@ int main(void)
     {
         printf("[FAIL] admission info mismatch for FAST_4STATE\n");
         exit(1);
+    }
+
+    {
+        size_t export_size = 0;
+        unsigned char export_bytes[sizeof(PlaceholderArtifactHeader) + 4];
+        const PlaceholderArtifactHeader* export_header;
+
+        res = breadboard_artifact_draft_export_placeholder_size(draft_fast, &export_size);
+        print_result("draft_export_placeholder_size(FAST_4STATE)", res, BREADBOARD_OK);
+        if (export_size != sizeof(export_bytes))
+        {
+            printf("[FAIL] export size mismatch for FAST_4STATE\n");
+            exit(1);
+        }
+
+        res = breadboard_artifact_draft_export_placeholder(
+            draft_fast,
+            export_bytes,
+            sizeof(export_bytes),
+            &export_size);
+        print_result("draft_export_placeholder(FAST_4STATE)", res, BREADBOARD_OK);
+
+        export_header = (const PlaceholderArtifactHeader*)export_bytes;
+        if (export_header->target_backend_id != 1u || export_header->payload_size != 4u ||
+            export_bytes[sizeof(PlaceholderArtifactHeader)] != 0x53)
+        {
+            printf("[FAIL] exported FAST_4STATE placeholder bytes mismatch\n");
+            exit(1);
+        }
     }
 
     breadboard_module_set_target_policy(module, BREADBOARD_TARGET_MASK_TEMPORAL);
@@ -335,6 +403,20 @@ int main(void)
 
     res = breadboard_artifact_draft_query_info(draft, NULL);
     print_result("draft_query_info(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+    {
+        size_t export_size = 0;
+        unsigned char export_bytes[sizeof(PlaceholderArtifactHeader) + 4];
+
+        res = breadboard_artifact_draft_export_placeholder_size(NULL, &export_size);
+        print_result("draft_export_placeholder_size(NULL, ...)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+        res = breadboard_artifact_draft_export_placeholder(draft, NULL, sizeof(export_bytes), &export_size);
+        print_result("draft_export_placeholder(NULL buffer)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+        res = breadboard_artifact_draft_export_placeholder(draft, export_bytes, sizeof(export_bytes) - 1u, &export_size);
+        print_result("draft_export_placeholder(short buffer)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+    }
 
     /* 16. Free up */
     breadboard_artifact_draft_free(draft_fast);

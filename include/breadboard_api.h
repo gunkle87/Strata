@@ -146,6 +146,32 @@ BreadboardResult breadboard_draft_query_admission_info(
     BreadboardDraftAdmissionInfo* out_info);
 
 /*
+ * breadboard_artifact_draft_export_placeholder_size
+ *
+ * Returns the exact byte size required to export the current placeholder draft
+ * into the temporary Forge-compatible stub artifact format.
+ */
+BreadboardResult breadboard_artifact_draft_export_placeholder_size(
+    const BreadboardArtifactDraft* draft,
+    size_t* out_size);
+
+/*
+ * breadboard_artifact_draft_export_placeholder
+ *
+ * Exports the current placeholder draft into the temporary Forge-compatible
+ * stub artifact format using the backend identity implied by the draft target
+ * and the current temporary handoff contract.
+ *
+ * This is a temporary handoff path for scaffolding and tests. It is not the
+ * final Strata artifact format.
+ */
+BreadboardResult breadboard_artifact_draft_export_placeholder(
+    const BreadboardArtifactDraft* draft,
+    void* buffer,
+    size_t buffer_size,
+    size_t* out_size);
+
+/*
  * breadboard_module_query_target_info
  *
  * Retrieves information about the current target capabilities.
