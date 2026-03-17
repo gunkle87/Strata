@@ -49,6 +49,77 @@ static const unsigned char k_artifact_magic[FORGE_ARTIFACT_MAGIC_LEN] =
 
 static const unsigned char k_stub_payload[FORGE_STUB_PAYLOAD_LEN] =
     { 0x53, 0x54, 0x42, 0x21 }; /* "STB!" */
+static const unsigned char k_advanced_payload[FORGE_STUB_PAYLOAD_LEN] =
+    { 0x41, 0x44, 0x56, 0x21 }; /* "ADV!" */
+static const unsigned char k_native_payload[FORGE_STUB_PAYLOAD_LEN] =
+    { 0x4E, 0x41, 0x54, 0x21 }; /* "NAT!" */
+
+static uint32_t
+forge_extension_mask_for_family(ForgeExtensionFamily extension_family)
+{
+    switch (extension_family)
+    {
+        case FORGE_EXT_PERFORMANCE_PROFILE:
+            return 1u << 0;
+        case FORGE_EXT_TEMPORAL_CONTROL:
+            return 1u << 1;
+        case FORGE_EXT_NATIVE_STATE_READ:
+            return 1u << 2;
+        case FORGE_EXT_RUNTIME_DIAGNOSTICS:
+            return 1u << 3;
+        default:
+            return 0u;
+    }
+}
+
+static ForgeResult
+forge_validate_artifact_requirements(
+    const ForgeEffectiveProfile *profile,
+    ForgeBackendClass backend_class,
+    uint32_t required_extension_mask,
+    uint32_t requires_advanced_controls,
+    uint32_t requires_native_state_read,
+    uint32_t requires_native_inputs)
+{
+    if (!profile)
+    {
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_artifact_load: effective profile unavailable");
+    }
+
+    if ((required_extension_mask & ~profile->allowed_extension_mask) != 0u)
+    {
+        return forge_fail(FORGE_ERR_FORBIDDEN,
+            "forge_artifact_load: artifact requires extension family denied by active profile");
+    }
+
+    if (requires_advanced_controls && !profile->allow_advanced_controls)
+    {
+        return forge_fail(FORGE_ERR_FORBIDDEN,
+            "forge_artifact_load: artifact requires advanced controls denied by active profile");
+    }
+
+    if (requires_native_state_read && !profile->allow_native_state_read)
+    {
+        return forge_fail(FORGE_ERR_FORBIDDEN,
+            "forge_artifact_load: artifact requires native state read denied by active profile");
+    }
+
+    if (requires_native_inputs && !profile->allow_native_inputs)
+    {
+        return forge_fail(FORGE_ERR_FORBIDDEN,
+            "forge_artifact_load: artifact requires native inputs denied by active profile");
+    }
+
+    if ((requires_advanced_controls || requires_native_state_read || requires_native_inputs) &&
+        backend_class != FORGE_BACKEND_CLASS_TEMPORAL)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: artifact requirements are incompatible with selected backend");
+    }
+
+    return FORGE_OK;
+}
 
 static const ForgeInternalDescriptor k_placeholder_output_descriptors[] =
 {
@@ -466,6 +537,11 @@ forge_artifact_load(
     const ForgeArtifactHeader *header;
     const unsigned char *payload;
     ForgeEffectiveProfile profile;
+    uint32_t required_extension_mask;
+    uint32_t requires_advanced_controls;
+    uint32_t requires_native_state_read;
+    uint32_t requires_native_inputs;
+    ForgeResult requirement_result;
 
     if (!out_artifact || !data)
     {
@@ -525,15 +601,55 @@ forge_artifact_load(
     }
 
     payload = ((const unsigned char *)data) + sizeof(ForgeArtifactHeader);
+    required_extension_mask = 0u;
+    requires_advanced_controls = 0u;
+    requires_native_state_read = 0u;
+    requires_native_inputs = 0u;
 
     /*
      * Stub success path:
-     * valid shared header + exact stub payload returns a minimal ForgeArtifact.
+     * valid shared header + one of the recognized placeholder payload classes
+     * returns a minimal ForgeArtifact with coarse admission metadata.
      * Any other payload remains unsupported until real decoding exists.
      */
-    if (header->payload_size == FORGE_STUB_PAYLOAD_LEN &&
-        memcmp(payload, k_stub_payload, FORGE_STUB_PAYLOAD_LEN) == 0)
+    if (header->payload_size == FORGE_STUB_PAYLOAD_LEN)
     {
+        if (memcmp(payload, k_stub_payload, FORGE_STUB_PAYLOAD_LEN) == 0)
+        {
+            /* Baseline placeholder artifact: no special requirements. */
+        }
+        else if (memcmp(payload, k_advanced_payload, FORGE_STUB_PAYLOAD_LEN) == 0)
+        {
+            required_extension_mask =
+                forge_extension_mask_for_family(FORGE_EXT_TEMPORAL_CONTROL);
+            requires_advanced_controls = 1u;
+        }
+        else if (memcmp(payload, k_native_payload, FORGE_STUB_PAYLOAD_LEN) == 0)
+        {
+            required_extension_mask =
+                forge_extension_mask_for_family(FORGE_EXT_NATIVE_STATE_READ);
+            requires_native_state_read = 1u;
+            requires_native_inputs = 1u;
+        }
+        else
+        {
+            return forge_fail(FORGE_ERR_UNSUPPORTED,
+                "forge_artifact_load: artifact header valid but payload decoding is not implemented");
+        }
+
+        requirement_result = forge_validate_artifact_requirements(
+            &profile,
+            rec->info.backend_class,
+            required_extension_mask,
+            requires_advanced_controls,
+            requires_native_state_read,
+            requires_native_inputs);
+
+        if (requirement_result != FORGE_OK)
+        {
+            return requirement_result;
+        }
+
         art = (ForgeArtifact *)malloc(sizeof(ForgeArtifact));
 
         if (!art)
@@ -548,6 +664,10 @@ forge_artifact_load(
         art->payload_size = header->payload_size;
         art->source_size = size;
         art->placeholder_flags = 1;
+        art->required_extension_mask = required_extension_mask;
+        art->requires_advanced_controls = requires_advanced_controls;
+        art->requires_native_state_read = requires_native_state_read;
+        art->requires_native_inputs = requires_native_inputs;
         art->effective_profile = profile;
 
         *out_artifact = art;
@@ -582,6 +702,10 @@ forge_artifact_info(
     out_info->format_version_minor = artifact->format_version_minor;
     out_info->payload_size = artifact->payload_size;
     out_info->placeholder_flags = artifact->placeholder_flags;
+    out_info->required_extension_mask = artifact->required_extension_mask;
+    out_info->requires_advanced_controls = artifact->requires_advanced_controls;
+    out_info->requires_native_state_read = artifact->requires_native_state_read;
+    out_info->requires_native_inputs = artifact->requires_native_inputs;
     out_info->source_size = artifact->source_size;
 
     forge_diag_set("");

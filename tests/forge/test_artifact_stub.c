@@ -105,6 +105,10 @@ int main(void)
         info.format_version_minor != 1 ||
         info.payload_size != 4 ||
         info.placeholder_flags != 1 ||
+        info.required_extension_mask != 0u ||
+        info.requires_advanced_controls != 0u ||
+        info.requires_native_state_read != 0u ||
+        info.requires_native_inputs != 0u ||
         info.source_size != sizeof(artifact_bytes))
     {
         fprintf(stderr, "FAIL: forge_artifact_info returned unexpected metadata\n");

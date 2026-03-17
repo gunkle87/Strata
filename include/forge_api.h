@@ -66,6 +66,10 @@ typedef struct ForgeArtifactInfo
     uint16_t format_version_minor;
     uint32_t payload_size;
     uint32_t placeholder_flags;
+    uint32_t required_extension_mask;
+    uint32_t requires_advanced_controls;
+    uint32_t requires_native_state_read;
+    uint32_t requires_native_inputs;
     size_t source_size;
 
 }

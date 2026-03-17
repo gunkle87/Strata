@@ -28,6 +28,7 @@ TESTS = \
     test_capabilities \
     test_invalid_handle \
     test_artifact_stub \
+    test_artifact_admission_policy \
     test_session_lifecycle \
     test_runtime_stubs \
     test_descriptor_stubs \
@@ -52,6 +53,9 @@ test_invalid_handle.exe: test_invalid_handle.c $(FORGE_SRCS)
 test_artifact_stub.exe: test_artifact_stub.c $(FORGE_SRCS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(FORGE_SRCS)
 
+test_artifact_admission_policy.exe: test_artifact_admission_policy.c $(FORGE_SRCS)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(FORGE_SRCS)
+
 test_session_lifecycle.exe: test_session_lifecycle.c $(FORGE_SRCS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(FORGE_SRCS)
 
@@ -71,6 +75,7 @@ test: all
 	@test_capabilities.exe
 	@test_invalid_handle.exe
 	@test_artifact_stub.exe
+	@test_artifact_admission_policy.exe
 	@test_session_lifecycle.exe
 	@test_runtime_stubs.exe
 	@test_descriptor_stubs.exe
