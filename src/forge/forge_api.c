@@ -49,6 +49,82 @@ static const unsigned char k_artifact_magic[FORGE_ARTIFACT_MAGIC_LEN] =
 static const unsigned char k_stub_payload[FORGE_STUB_PAYLOAD_LEN] =
     { 0x53, 0x54, 0x42, 0x21 }; /* "STB!" */
 
+static const ForgeDescriptor k_placeholder_output_descriptors[] =
+{
+    { 1u, "out0", 1u, FORGE_DESCRIPTOR_CLASS_OUTPUT, 1u },
+    { 2u, "out1", 1u, FORGE_DESCRIPTOR_CLASS_OUTPUT, 1u }
+};
+
+static const ForgeDescriptor k_placeholder_probe_descriptors[] =
+{
+    { 1001u, "probe_step_count", 64u, FORGE_DESCRIPTOR_CLASS_PROBE, 1u }
+};
+
+static uint32_t
+forge_descriptor_array_count(const ForgeDescriptor *descriptors, uint32_t count)
+{
+    (void)descriptors;
+    return count;
+}
+
+static ForgeResult
+forge_descriptor_find_by_id(
+    const ForgeDescriptor *descriptors,
+    uint32_t               count,
+    uint32_t               descriptor_id,
+    ForgeDescriptor       *out_descriptor,
+    const char            *null_descriptor_msg,
+    const char            *not_found_msg)
+{
+    uint32_t index;
+
+    if (!out_descriptor)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT, null_descriptor_msg);
+    }
+
+    for (index = 0; index < count; ++index)
+    {
+        if (descriptors[index].id == descriptor_id)
+        {
+            *out_descriptor = descriptors[index];
+            forge_diag_set("");
+            return FORGE_OK;
+        }
+    }
+
+    return forge_fail(FORGE_ERR_OUT_OF_BOUNDS, not_found_msg);
+}
+
+static ForgeResult
+forge_descriptor_find_by_name(
+    const ForgeDescriptor *descriptors,
+    uint32_t               count,
+    const char            *name,
+    ForgeDescriptor       *out_descriptor,
+    const char            *null_argument_msg,
+    const char            *not_found_msg)
+{
+    uint32_t index;
+
+    if (!name || !out_descriptor)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT, null_argument_msg);
+    }
+
+    for (index = 0; index < count; ++index)
+    {
+        if (strcmp(descriptors[index].name, name) == 0)
+        {
+            *out_descriptor = descriptors[index];
+            forge_diag_set("");
+            return FORGE_OK;
+        }
+    }
+
+    return forge_fail(FORGE_ERR_OUT_OF_BOUNDS, not_found_msg);
+}
+
 /* -------------------------------------------------------------------------
  * Backend Discovery
  * ------------------------------------------------------------------------- */
@@ -407,6 +483,238 @@ forge_read_outputs(
 
     return forge_fail(FORGE_ERR_UNSUPPORTED,
         "forge_read_outputs: runtime output mapping not yet implemented");
+}
+
+ForgeResult
+forge_output_descriptor_count(
+    const ForgeArtifact *artifact,
+    uint32_t            *out_count)
+{
+    if (!out_count)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_output_descriptor_count: out_count is NULL");
+    }
+
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_output_descriptor_count: artifact is NULL");
+    }
+
+    *out_count = forge_descriptor_array_count(
+        k_placeholder_output_descriptors,
+        (uint32_t)(sizeof(k_placeholder_output_descriptors) /
+        sizeof(k_placeholder_output_descriptors[0])));
+
+    forge_diag_set("");
+    return FORGE_OK;
+}
+
+ForgeResult
+forge_output_descriptor_at(
+    const ForgeArtifact *artifact,
+    uint32_t             index,
+    ForgeDescriptor     *out_descriptor)
+{
+    uint32_t count;
+
+    if (!out_descriptor)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_output_descriptor_at: out_descriptor is NULL");
+    }
+
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_output_descriptor_at: artifact is NULL");
+    }
+
+    count = (uint32_t)(sizeof(k_placeholder_output_descriptors) /
+        sizeof(k_placeholder_output_descriptors[0]));
+
+    if (index >= count)
+    {
+        return forge_fail(FORGE_ERR_OUT_OF_BOUNDS,
+            "forge_output_descriptor_at: index out of bounds");
+    }
+
+    *out_descriptor = k_placeholder_output_descriptors[index];
+
+    forge_diag_set("");
+    return FORGE_OK;
+}
+
+ForgeResult
+forge_output_descriptor_by_id(
+    const ForgeArtifact *artifact,
+    uint32_t             descriptor_id,
+    ForgeDescriptor     *out_descriptor)
+{
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_output_descriptor_by_id: artifact is NULL");
+    }
+
+    return forge_descriptor_find_by_id(
+        k_placeholder_output_descriptors,
+        (uint32_t)(sizeof(k_placeholder_output_descriptors) /
+        sizeof(k_placeholder_output_descriptors[0])),
+        descriptor_id,
+        out_descriptor,
+        "forge_output_descriptor_by_id: out_descriptor is NULL",
+        "forge_output_descriptor_by_id: descriptor_id not found");
+}
+
+ForgeResult
+forge_output_descriptor_by_name(
+    const ForgeArtifact *artifact,
+    const char          *name,
+    ForgeDescriptor     *out_descriptor)
+{
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_output_descriptor_by_name: artifact is NULL");
+    }
+
+    return forge_descriptor_find_by_name(
+        k_placeholder_output_descriptors,
+        (uint32_t)(sizeof(k_placeholder_output_descriptors) /
+        sizeof(k_placeholder_output_descriptors[0])),
+        name,
+        out_descriptor,
+        "forge_output_descriptor_by_name: name or out_descriptor is NULL",
+        "forge_output_descriptor_by_name: descriptor name not found");
+}
+
+ForgeResult
+forge_probe_descriptor_count(
+    const ForgeArtifact *artifact,
+    uint32_t            *out_count)
+{
+    if (!out_count)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_probe_descriptor_count: out_count is NULL");
+    }
+
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_probe_descriptor_count: artifact is NULL");
+    }
+
+    *out_count = forge_descriptor_array_count(
+        k_placeholder_probe_descriptors,
+        (uint32_t)(sizeof(k_placeholder_probe_descriptors) /
+        sizeof(k_placeholder_probe_descriptors[0])));
+
+    forge_diag_set("");
+    return FORGE_OK;
+}
+
+ForgeResult
+forge_probe_descriptor_at(
+    const ForgeArtifact *artifact,
+    uint32_t             index,
+    ForgeDescriptor     *out_descriptor)
+{
+    uint32_t count;
+
+    if (!out_descriptor)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_probe_descriptor_at: out_descriptor is NULL");
+    }
+
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_probe_descriptor_at: artifact is NULL");
+    }
+
+    count = (uint32_t)(sizeof(k_placeholder_probe_descriptors) /
+        sizeof(k_placeholder_probe_descriptors[0]));
+
+    if (index >= count)
+    {
+        return forge_fail(FORGE_ERR_OUT_OF_BOUNDS,
+            "forge_probe_descriptor_at: index out of bounds");
+    }
+
+    *out_descriptor = k_placeholder_probe_descriptors[index];
+
+    forge_diag_set("");
+    return FORGE_OK;
+}
+
+ForgeResult
+forge_probe_descriptor_by_id(
+    const ForgeArtifact *artifact,
+    uint32_t             descriptor_id,
+    ForgeDescriptor     *out_descriptor)
+{
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_probe_descriptor_by_id: artifact is NULL");
+    }
+
+    return forge_descriptor_find_by_id(
+        k_placeholder_probe_descriptors,
+        (uint32_t)(sizeof(k_placeholder_probe_descriptors) /
+        sizeof(k_placeholder_probe_descriptors[0])),
+        descriptor_id,
+        out_descriptor,
+        "forge_probe_descriptor_by_id: out_descriptor is NULL",
+        "forge_probe_descriptor_by_id: descriptor_id not found");
+}
+
+ForgeResult
+forge_probe_descriptor_by_name(
+    const ForgeArtifact *artifact,
+    const char          *name,
+    ForgeDescriptor     *out_descriptor)
+{
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_probe_descriptor_by_name: artifact is NULL");
+    }
+
+    return forge_descriptor_find_by_name(
+        k_placeholder_probe_descriptors,
+        (uint32_t)(sizeof(k_placeholder_probe_descriptors) /
+        sizeof(k_placeholder_probe_descriptors[0])),
+        name,
+        out_descriptor,
+        "forge_probe_descriptor_by_name: name or out_descriptor is NULL",
+        "forge_probe_descriptor_by_name: descriptor name not found");
+}
+
+ForgeResult
+forge_read_probes(
+    const ForgeSession *session,
+    ForgeProbeValue    *values,
+    uint32_t            count)
+{
+    if (!session)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_read_probes: session is NULL");
+    }
+
+    if (!values || count == 0)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_read_probes: values is NULL or count is zero");
+    }
+
+    return forge_fail(FORGE_ERR_UNSUPPORTED,
+        "forge_read_probes: runtime probe mapping not yet implemented");
 }
 
 ForgeResult

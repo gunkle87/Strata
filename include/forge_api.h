@@ -78,6 +78,35 @@ typedef struct ForgeSignalValue
 }
 ForgeSignalValue;
 
+typedef enum ForgeDescriptorClass
+{
+    FORGE_DESCRIPTOR_CLASS_INVALID = 0,
+    FORGE_DESCRIPTOR_CLASS_INPUT   = 1,
+    FORGE_DESCRIPTOR_CLASS_OUTPUT  = 2,
+    FORGE_DESCRIPTOR_CLASS_PROBE   = 3
+
+}
+ForgeDescriptorClass;
+
+typedef struct ForgeDescriptor
+{
+    uint32_t id;
+    const char *name;
+    uint32_t width;
+    ForgeDescriptorClass descriptor_class;
+    uint32_t placeholder_flags;
+
+}
+ForgeDescriptor;
+
+typedef struct ForgeProbeValue
+{
+    uint32_t probe_id;
+    uint64_t value;
+
+}
+ForgeProbeValue;
+
 /* -------------------------------------------------------------------------
  * Backend Discovery
  * ------------------------------------------------------------------------- */
@@ -246,6 +275,79 @@ ForgeResult forge_read_outputs(
     const ForgeSession *session,
     ForgeSignalValue   *values,
     uint32_t count);
+
+/*
+ * forge_output_descriptor_count
+ *
+ * Returns the number of portable output descriptors exposed by the loaded
+ * artifact.
+ */
+ForgeResult forge_output_descriptor_count(
+    const ForgeArtifact *artifact,
+    uint32_t            *out_count);
+
+/*
+ * forge_output_descriptor_at
+ *
+ * Returns the portable output descriptor at the given zero-based index.
+ */
+ForgeResult forge_output_descriptor_at(
+    const ForgeArtifact *artifact,
+    uint32_t             index,
+    ForgeDescriptor     *out_descriptor);
+
+ForgeResult forge_output_descriptor_by_id(
+    const ForgeArtifact *artifact,
+    uint32_t             descriptor_id,
+    ForgeDescriptor     *out_descriptor);
+
+ForgeResult forge_output_descriptor_by_name(
+    const ForgeArtifact *artifact,
+    const char          *name,
+    ForgeDescriptor     *out_descriptor);
+
+/*
+ * forge_probe_descriptor_count
+ *
+ * Returns the number of portable probe descriptors exposed by the loaded
+ * artifact.
+ */
+ForgeResult forge_probe_descriptor_count(
+    const ForgeArtifact *artifact,
+    uint32_t            *out_count);
+
+/*
+ * forge_probe_descriptor_at
+ *
+ * Returns the portable probe descriptor at the given zero-based index.
+ */
+ForgeResult forge_probe_descriptor_at(
+    const ForgeArtifact *artifact,
+    uint32_t             index,
+    ForgeDescriptor     *out_descriptor);
+
+ForgeResult forge_probe_descriptor_by_id(
+    const ForgeArtifact *artifact,
+    uint32_t             descriptor_id,
+    ForgeDescriptor     *out_descriptor);
+
+ForgeResult forge_probe_descriptor_by_name(
+    const ForgeArtifact *artifact,
+    const char          *name,
+    ForgeDescriptor     *out_descriptor);
+
+/*
+ * forge_read_probes
+ *
+ * Reads a batch of portable probe values after a common advancement boundary.
+ *
+ * Stub behavior: validates the session and arguments, then returns
+ * FORGE_ERR_UNSUPPORTED until real runtime probe mapping is implemented.
+ */
+ForgeResult forge_read_probes(
+    const ForgeSession *session,
+    ForgeProbeValue    *values,
+    uint32_t            count);
 
 /*
  * forge_session_reset

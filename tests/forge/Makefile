@@ -28,7 +28,8 @@ TESTS = \
     test_invalid_handle \
     test_artifact_stub \
     test_session_lifecycle \
-    test_runtime_stubs
+    test_runtime_stubs \
+    test_descriptor_stubs
 
 TEST_EXES = $(addsuffix .exe, $(TESTS))
 
@@ -55,6 +56,9 @@ test_session_lifecycle.exe: test_session_lifecycle.c $(FORGE_SRCS)
 test_runtime_stubs.exe: test_runtime_stubs.c $(FORGE_SRCS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(FORGE_SRCS)
 
+test_descriptor_stubs.exe: test_descriptor_stubs.c $(FORGE_SRCS)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(FORGE_SRCS)
+
 test: all
 	@echo --- Running Forge skeleton tests ---
 	@test_backend_enum.exe
@@ -64,6 +68,7 @@ test: all
 	@test_artifact_stub.exe
 	@test_session_lifecycle.exe
 	@test_runtime_stubs.exe
+	@test_descriptor_stubs.exe
 	@echo --- All Forge skeleton tests passed ---
 
 clean:
