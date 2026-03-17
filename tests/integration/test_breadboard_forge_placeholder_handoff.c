@@ -10,6 +10,7 @@
 #include <string.h>
 #include "../../include/breadboard_api.h"
 #include "../../include/forge_api.h"
+#include "../../include/strata_placeholder_artifact.h"
 
 static ForgeBackendId
 find_backend_id_by_name(const char *name)

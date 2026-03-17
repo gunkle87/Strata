@@ -10,36 +10,21 @@
 #include <stdio.h>
 #include <string.h>
 #include "../../include/forge_api.h"
-
-typedef struct TestArtifactHeader
-{
-    unsigned char magic[4];
-    unsigned short version_major;
-    unsigned short version_minor;
-    unsigned int target_backend_id;
-    unsigned int payload_size;
-}
-TestArtifactHeader;
+#include "../../include/strata_placeholder_artifact.h"
 
 static void
 fill_stub_artifact(
     unsigned char *buffer,
     unsigned int target_backend_id,
-    const unsigned char payload[4])
+    StrataPlaceholderPayloadKind payload_kind)
 {
-    TestArtifactHeader header;
-
-    header.magic[0] = 0x46;
-    header.magic[1] = 0x41;
-    header.magic[2] = 0x52;
-    header.magic[3] = 0x54;
-    header.version_major = 0;
-    header.version_minor = 1;
-    header.target_backend_id = target_backend_id;
-    header.payload_size = 4u;
-
-    memcpy(buffer, &header, sizeof(header));
-    memcpy(buffer + sizeof(header), payload, 4u);
+    size_t out_size;
+    (void)strata_placeholder_artifact_write(
+        buffer,
+        strata_placeholder_artifact_size(),
+        target_backend_id,
+        payload_kind,
+        &out_size);
 }
 
 static ForgeBackendId
@@ -76,15 +61,12 @@ find_backend_id_by_name(const char *name)
 int
 main(void)
 {
-    static const unsigned char k_basic_payload[4] = { 0x53, 0x54, 0x42, 0x21 };
-    static const unsigned char k_advanced_payload[4] = { 0x41, 0x44, 0x56, 0x21 };
-    static const unsigned char k_native_payload[4] = { 0x4E, 0x41, 0x54, 0x21 };
     ForgeBackendId lxs_id;
     ForgeBackendId highz_id;
     ForgeArtifact *artifact;
     ForgeArtifactInfo info;
     ForgeResult result;
-    unsigned char artifact_bytes[sizeof(TestArtifactHeader) + 4];
+    unsigned char artifact_bytes[sizeof(StrataPlaceholderArtifactHeader) + 4];
 
     if (forge_install_product_profile(FORGE_PRODUCT_PROFILE_UNRESTRICTED) != FORGE_OK)
     {
@@ -101,7 +83,10 @@ main(void)
         return 1;
     }
 
-    fill_stub_artifact(artifact_bytes, (unsigned int)highz_id, k_advanced_payload);
+    fill_stub_artifact(
+        artifact_bytes,
+        (unsigned int)highz_id,
+        STRATA_PLACEHOLDER_PAYLOAD_ADVANCED);
     artifact = NULL;
     result = forge_artifact_load(highz_id, artifact_bytes, sizeof(artifact_bytes), &artifact);
 
@@ -143,7 +128,10 @@ main(void)
         return 1;
     }
 
-    fill_stub_artifact(artifact_bytes, (unsigned int)highz_id, k_advanced_payload);
+    fill_stub_artifact(
+        artifact_bytes,
+        (unsigned int)highz_id,
+        STRATA_PLACEHOLDER_PAYLOAD_ADVANCED);
     artifact = NULL;
     result = forge_artifact_load(highz_id, artifact_bytes, sizeof(artifact_bytes), &artifact);
 
@@ -154,7 +142,10 @@ main(void)
         return 1;
     }
 
-    fill_stub_artifact(artifact_bytes, (unsigned int)highz_id, k_native_payload);
+    fill_stub_artifact(
+        artifact_bytes,
+        (unsigned int)highz_id,
+        STRATA_PLACEHOLDER_PAYLOAD_NATIVE);
     artifact = NULL;
     result = forge_artifact_load(highz_id, artifact_bytes, sizeof(artifact_bytes), &artifact);
 
@@ -171,7 +162,10 @@ main(void)
         return 1;
     }
 
-    fill_stub_artifact(artifact_bytes, (unsigned int)lxs_id, k_advanced_payload);
+    fill_stub_artifact(
+        artifact_bytes,
+        (unsigned int)lxs_id,
+        STRATA_PLACEHOLDER_PAYLOAD_ADVANCED);
     artifact = NULL;
     result = forge_artifact_load(lxs_id, artifact_bytes, sizeof(artifact_bytes), &artifact);
 
@@ -182,7 +176,10 @@ main(void)
         return 1;
     }
 
-    fill_stub_artifact(artifact_bytes, (unsigned int)lxs_id, k_basic_payload);
+    fill_stub_artifact(
+        artifact_bytes,
+        (unsigned int)lxs_id,
+        STRATA_PLACEHOLDER_PAYLOAD_BASELINE);
     artifact = NULL;
     result = forge_artifact_load(lxs_id, artifact_bytes, sizeof(artifact_bytes), &artifact);
 

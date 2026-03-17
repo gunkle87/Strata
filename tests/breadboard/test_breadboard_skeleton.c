@@ -1,16 +1,7 @@
 #include "breadboard_api.h"
+#include "../../include/strata_placeholder_artifact.h"
 #include <stdio.h>
 #include <stdlib.h>
-
-typedef struct PlaceholderArtifactHeader
-{
-    unsigned char magic[4];
-    unsigned short version_major;
-    unsigned short version_minor;
-    unsigned int target_backend_id;
-    unsigned int payload_size;
-}
-PlaceholderArtifactHeader;
 
 /*
  * test_breadboard_skeleton.c
@@ -170,8 +161,8 @@ int main(void)
 
     {
         size_t export_size = 0;
-        unsigned char export_bytes[sizeof(PlaceholderArtifactHeader) + 4];
-        const PlaceholderArtifactHeader* export_header;
+        unsigned char export_bytes[sizeof(StrataPlaceholderArtifactHeader) + 4];
+        const StrataPlaceholderArtifactHeader* export_header;
 
         res = breadboard_artifact_draft_export_placeholder_size(draft, &export_size);
         print_result("draft_export_placeholder_size(TEMPORAL)", res, BREADBOARD_OK);
@@ -188,9 +179,12 @@ int main(void)
             &export_size);
         print_result("draft_export_placeholder(TEMPORAL)", res, BREADBOARD_OK);
 
-        export_header = (const PlaceholderArtifactHeader*)export_bytes;
-        if (export_header->target_backend_id != 2u || export_header->payload_size != 4u ||
-            export_bytes[sizeof(PlaceholderArtifactHeader)] != 0x41)
+        export_header = (const StrataPlaceholderArtifactHeader*)export_bytes;
+        if (export_header->target_backend_id != STRATA_PLACEHOLDER_BACKEND_ID_HIGHZ ||
+            export_header->payload_size != STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN ||
+            !strata_placeholder_payload_matches(
+                export_bytes + sizeof(StrataPlaceholderArtifactHeader),
+                STRATA_PLACEHOLDER_PAYLOAD_ADVANCED))
         {
             printf("[FAIL] exported TEMPORAL placeholder bytes mismatch\n");
             exit(1);
@@ -229,8 +223,8 @@ int main(void)
 
     {
         size_t export_size = 0;
-        unsigned char export_bytes[sizeof(PlaceholderArtifactHeader) + 4];
-        const PlaceholderArtifactHeader* export_header;
+        unsigned char export_bytes[sizeof(StrataPlaceholderArtifactHeader) + 4];
+        const StrataPlaceholderArtifactHeader* export_header;
 
         res = breadboard_artifact_draft_export_placeholder_size(draft_fast, &export_size);
         print_result("draft_export_placeholder_size(FAST_4STATE)", res, BREADBOARD_OK);
@@ -247,9 +241,12 @@ int main(void)
             &export_size);
         print_result("draft_export_placeholder(FAST_4STATE)", res, BREADBOARD_OK);
 
-        export_header = (const PlaceholderArtifactHeader*)export_bytes;
-        if (export_header->target_backend_id != 1u || export_header->payload_size != 4u ||
-            export_bytes[sizeof(PlaceholderArtifactHeader)] != 0x53)
+        export_header = (const StrataPlaceholderArtifactHeader*)export_bytes;
+        if (export_header->target_backend_id != STRATA_PLACEHOLDER_BACKEND_ID_LXS ||
+            export_header->payload_size != STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN ||
+            !strata_placeholder_payload_matches(
+                export_bytes + sizeof(StrataPlaceholderArtifactHeader),
+                STRATA_PLACEHOLDER_PAYLOAD_BASELINE))
         {
             printf("[FAIL] exported FAST_4STATE placeholder bytes mismatch\n");
             exit(1);
@@ -406,7 +403,7 @@ int main(void)
 
     {
         size_t export_size = 0;
-        unsigned char export_bytes[sizeof(PlaceholderArtifactHeader) + 4];
+        unsigned char export_bytes[sizeof(StrataPlaceholderArtifactHeader) + 4];
 
         res = breadboard_artifact_draft_export_placeholder_size(NULL, &export_size);
         print_result("draft_export_placeholder_size(NULL, ...)", res, BREADBOARD_ERR_INVALID_ARGUMENT);

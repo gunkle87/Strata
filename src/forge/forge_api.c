@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../../include/forge_api.h"
+#include "../../include/strata_placeholder_artifact.h"
 #include "../common/forge_diagnostic.h"
 #include "forge_internal.h"
 #include "forge_policy.h"
@@ -36,23 +37,9 @@ forge_fail(ForgeResult result, const char *msg)
  * - target backend id
  * - payload size
  *
- * The payload is still stub-only. The current stub payload must be exactly
- * the 4-byte sequence "STB!".
+ * The payload is still placeholder-only and is governed by the temporary
+ * shared placeholder handoff contract.
  */
-#define FORGE_ARTIFACT_MAGIC_LEN 4
-#define FORGE_ARTIFACT_VERSION_MAJOR 0
-#define FORGE_ARTIFACT_VERSION_MINOR 1
-#define FORGE_STUB_PAYLOAD_LEN 4
-
-static const unsigned char k_artifact_magic[FORGE_ARTIFACT_MAGIC_LEN] =
-    { 0x46, 0x41, 0x52, 0x54 }; /* "FART" = Forge ARTifact placeholder magic */
-
-static const unsigned char k_stub_payload[FORGE_STUB_PAYLOAD_LEN] =
-    { 0x53, 0x54, 0x42, 0x21 }; /* "STB!" */
-static const unsigned char k_advanced_payload[FORGE_STUB_PAYLOAD_LEN] =
-    { 0x41, 0x44, 0x56, 0x21 }; /* "ADV!" */
-static const unsigned char k_native_payload[FORGE_STUB_PAYLOAD_LEN] =
-    { 0x4E, 0x41, 0x54, 0x21 }; /* "NAT!" */
 
 static uint32_t
 forge_extension_mask_for_family(ForgeExtensionFamily extension_family)
@@ -575,14 +562,16 @@ forge_artifact_load(
 
     header = (const ForgeArtifactHeader *)data;
 
-    if (memcmp(header->magic, k_artifact_magic, FORGE_ARTIFACT_MAGIC_LEN) != 0)
+    if (memcmp(header->magic,
+        k_strata_placeholder_artifact_magic,
+        STRATA_PLACEHOLDER_ARTIFACT_MAGIC_LEN) != 0)
     {
         return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
             "forge_artifact_load: artifact magic mismatch");
     }
 
-    if (header->version_major != FORGE_ARTIFACT_VERSION_MAJOR ||
-        header->version_minor != FORGE_ARTIFACT_VERSION_MINOR)
+    if (header->version_major != STRATA_PLACEHOLDER_ARTIFACT_VERSION_MAJOR ||
+        header->version_minor != STRATA_PLACEHOLDER_ARTIFACT_VERSION_MINOR)
     {
         return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
             "forge_artifact_load: unsupported artifact version");
@@ -612,19 +601,22 @@ forge_artifact_load(
      * returns a minimal ForgeArtifact with coarse admission metadata.
      * Any other payload remains unsupported until real decoding exists.
      */
-    if (header->payload_size == FORGE_STUB_PAYLOAD_LEN)
+    if (header->payload_size == STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN)
     {
-        if (memcmp(payload, k_stub_payload, FORGE_STUB_PAYLOAD_LEN) == 0)
+        if (strata_placeholder_payload_matches(
+            payload, STRATA_PLACEHOLDER_PAYLOAD_BASELINE))
         {
             /* Baseline placeholder artifact: no special requirements. */
         }
-        else if (memcmp(payload, k_advanced_payload, FORGE_STUB_PAYLOAD_LEN) == 0)
+        else if (strata_placeholder_payload_matches(
+            payload, STRATA_PLACEHOLDER_PAYLOAD_ADVANCED))
         {
             required_extension_mask =
                 forge_extension_mask_for_family(FORGE_EXT_TEMPORAL_CONTROL);
             requires_advanced_controls = 1u;
         }
-        else if (memcmp(payload, k_native_payload, FORGE_STUB_PAYLOAD_LEN) == 0)
+        else if (strata_placeholder_payload_matches(
+            payload, STRATA_PLACEHOLDER_PAYLOAD_NATIVE))
         {
             required_extension_mask =
                 forge_extension_mask_for_family(FORGE_EXT_NATIVE_STATE_READ);

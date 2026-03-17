@@ -4,18 +4,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "../../include/strata_placeholder_artifact.h"
 #include "forge_policy.h"
 #include "forge_types.h"
 
-typedef struct ForgeArtifactHeader
-{
-    uint8_t magic[4];
-    uint16_t version_major;
-    uint16_t version_minor;
-    uint32_t target_backend_id;
-    uint32_t payload_size;
-}
-ForgeArtifactHeader;
+typedef StrataPlaceholderArtifactHeader ForgeArtifactHeader;
 
 struct ForgeArtifact
 {

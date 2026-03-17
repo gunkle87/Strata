@@ -8,34 +8,18 @@
 #include <stdio.h>
 #include <string.h>
 #include "../../include/forge_api.h"
-
-typedef struct TestArtifactHeader
-{
-    unsigned char magic[4];
-    unsigned short version_major;
-    unsigned short version_minor;
-    unsigned int target_backend_id;
-    unsigned int payload_size;
-}
-TestArtifactHeader;
+#include "../../include/strata_placeholder_artifact.h"
 
 static void
 fill_stub_artifact(unsigned char *buffer, unsigned int target_backend_id)
 {
-    TestArtifactHeader header;
-    static const unsigned char stub_payload[] = { 0x53, 0x54, 0x42, 0x21 };
-
-    header.magic[0] = 0x46;
-    header.magic[1] = 0x41;
-    header.magic[2] = 0x52;
-    header.magic[3] = 0x54;
-    header.version_major = 0;
-    header.version_minor = 1;
-    header.target_backend_id = target_backend_id;
-    header.payload_size = (unsigned int)sizeof(stub_payload);
-
-    memcpy(buffer, &header, sizeof(header));
-    memcpy(buffer + sizeof(header), stub_payload, sizeof(stub_payload));
+    size_t out_size;
+    (void)strata_placeholder_artifact_write(
+        buffer,
+        strata_placeholder_artifact_size(),
+        target_backend_id,
+        STRATA_PLACEHOLDER_PAYLOAD_BASELINE,
+        &out_size);
 }
 
 int main(void)
@@ -44,7 +28,7 @@ int main(void)
     ForgeArtifact *artifact = NULL;
     ForgeSession *session = NULL;
     ForgeSignalValue values[2];
-    unsigned char artifact_bytes[sizeof(TestArtifactHeader) + 4];
+    unsigned char artifact_bytes[sizeof(StrataPlaceholderArtifactHeader) + 4];
     ForgeResult result;
 
     result = forge_backend_id_at(0, &id);
