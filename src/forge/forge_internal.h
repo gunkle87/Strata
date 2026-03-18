@@ -18,6 +18,8 @@ struct ForgeArtifact
     uint32_t source_target_value;
     uint32_t source_has_placeholders;
     uint64_t source_approximate_size_bytes;
+    uint64_t source_module_id;
+    char source_module_name[STRATA_PLACEHOLDER_MODULE_NAME_CAPACITY];
     uint32_t payload_size;
     uint32_t input_descriptor_count;
     uint32_t output_descriptor_count;

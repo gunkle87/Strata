@@ -75,6 +75,84 @@ copy_placeholder_descriptors(
     }
 }
 
+static BreadboardResult
+copy_module_identity(
+    uint64_t module_id,
+    const char* module_name,
+    uint64_t* out_module_id,
+    char out_module_name[STRATA_PLACEHOLDER_MODULE_NAME_CAPACITY])
+{
+    size_t name_len;
+
+    if (!out_module_id || !out_module_name)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    *out_module_id = module_id;
+    memset(out_module_name, 0, STRATA_PLACEHOLDER_MODULE_NAME_CAPACITY);
+
+    if (!module_name)
+    {
+        return BREADBOARD_OK;
+    }
+
+    name_len = strlen(module_name);
+    if (name_len >= STRATA_PLACEHOLDER_MODULE_NAME_CAPACITY)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    memcpy(out_module_name, module_name, name_len);
+    return BREADBOARD_OK;
+}
+
+static BreadboardResult
+validate_requirement_profile(
+    BreadboardTarget target,
+    const BreadboardRequirementProfile* profile)
+{
+    if (!profile)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    if (profile->requires_advanced_controls &&
+        (profile->requires_native_state_read || profile->requires_native_inputs))
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    if (target == BREADBOARD_TARGET_FAST_4STATE &&
+        (profile->requires_advanced_controls ||
+         profile->requires_native_state_read ||
+         profile->requires_native_inputs))
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    return BREADBOARD_OK;
+}
+
+static void
+fill_default_requirement_profile(
+    BreadboardTarget target,
+    BreadboardRequirementProfile* out_profile)
+{
+    if (!out_profile)
+    {
+        return;
+    }
+
+    memset(out_profile, 0, sizeof(*out_profile));
+
+    if (target == BREADBOARD_TARGET_TEMPORAL)
+    {
+        out_profile->extension_flags = 1u;
+        out_profile->requires_advanced_controls = true;
+    }
+}
+
 static void
 free_descriptor_array(
     BreadboardDescriptor* descriptors,
@@ -435,6 +513,49 @@ BreadboardResult breadboard_module_add_probe_descriptor(
         BREADBOARD_DESC_PROBE);
 }
 
+BreadboardResult breadboard_module_set_identity(
+    BreadboardModule* module,
+    const BreadboardModuleIdentity* identity)
+{
+    if (!module)
+    {
+        return BREADBOARD_ERR_INVALID_HANDLE;
+    }
+
+    if (!identity)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    return copy_module_identity(
+        identity->module_id,
+        identity->module_name,
+        &module->module_id,
+        module->module_name);
+}
+
+BreadboardResult breadboard_module_set_requirement_profile(
+    BreadboardModule* module,
+    const BreadboardRequirementProfile* profile)
+{
+    BreadboardResult result;
+
+    if (!module)
+    {
+        return BREADBOARD_ERR_INVALID_HANDLE;
+    }
+
+    result = validate_requirement_profile(module->target, profile);
+    if (result != BREADBOARD_OK)
+    {
+        return result;
+    }
+
+    module->requirement_profile = *profile;
+    module->has_requirement_profile = true;
+    return BREADBOARD_OK;
+}
+
 /* Helper to record a diagnostic */
 static BreadboardResult record_diagnostic(
     BreadboardModule* module,
@@ -480,6 +601,15 @@ BreadboardResult breadboard_module_compile(
     if (module->target == BREADBOARD_TARGET_UNSPECIFIED)
     {
         record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_UNSUPPORTED_TARGET, "Cannot compile without a specified target");
+        return BREADBOARD_ERR_COMPILE_FAILED;
+    }
+
+    if (module->has_requirement_profile &&
+        validate_requirement_profile(
+            module->target,
+            &module->requirement_profile) != BREADBOARD_OK)
+    {
+        record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_UNSUPPORTED_CONSTRUCT, "Declared requirement profile is incompatible with the current target");
         return BREADBOARD_ERR_COMPILE_FAILED;
     }
 
@@ -580,6 +710,16 @@ BreadboardResult breadboard_module_compile(
 
     /* Copy target expectation and admission logic to the draft */
     draft->target = module->target;
+    if (copy_module_identity(
+            module->module_id,
+            module->module_name,
+            &draft->source_module_id,
+            draft->source_module_name) != BREADBOARD_OK)
+    {
+        breadboard_artifact_draft_free(draft);
+        record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_INTERNAL_ERROR, "Failed to copy module identity into draft");
+        return BREADBOARD_ERR_INTERNAL;
+    }
     draft->info.target = module->target;
     draft->info.has_placeholders =
         (module->input_count == 0u && module->output_count == 0u && module->probe_count == 0u);
@@ -587,28 +727,37 @@ BreadboardResult breadboard_module_compile(
         (uint32_t)draft->input_count,
         (uint32_t)draft->output_count,
         (uint32_t)draft->probe_count);
+    draft->info.source_module_id = draft->source_module_id;
+    draft->info.source_module_name = draft->source_module_name;
     draft->admission_info.target = module->target;
     draft->admission_info.is_placeholder = true;
     draft->admission_info.approximate_size_bytes = draft->info.approximate_size_bytes;
 
-    if (module->target == BREADBOARD_TARGET_FAST_4STATE)
+    if (module->has_requirement_profile)
     {
-        draft->admission_info.requires_advanced_controls = false;
-        draft->admission_info.native_only_behavior = false;
-        draft->admission_info.extension_flags = 0;
-    }
-    else if (module->target == BREADBOARD_TARGET_TEMPORAL)
-    {
-        draft->admission_info.requires_advanced_controls = true;
-        draft->admission_info.native_only_behavior = true;
-        draft->admission_info.extension_flags = 1;
+        draft->admission_info.extension_flags = module->requirement_profile.extension_flags;
+        draft->admission_info.requires_advanced_controls =
+            module->requirement_profile.requires_advanced_controls;
+        draft->admission_info.requires_native_state_read =
+            module->requirement_profile.requires_native_state_read;
+        draft->admission_info.requires_native_inputs =
+            module->requirement_profile.requires_native_inputs;
     }
     else
     {
-        draft->admission_info.requires_advanced_controls = false;
-        draft->admission_info.native_only_behavior = false;
-        draft->admission_info.extension_flags = 0;
+        BreadboardRequirementProfile default_profile;
+        fill_default_requirement_profile(module->target, &default_profile);
+        draft->admission_info.extension_flags = default_profile.extension_flags;
+        draft->admission_info.requires_advanced_controls =
+            default_profile.requires_advanced_controls;
+        draft->admission_info.requires_native_state_read =
+            default_profile.requires_native_state_read;
+        draft->admission_info.requires_native_inputs =
+            default_profile.requires_native_inputs;
     }
+    draft->admission_info.native_only_behavior =
+        (draft->admission_info.requires_native_state_read ||
+         draft->admission_info.requires_native_inputs);
 
     /* Record a warning that placeholders were emitted */
     record_diagnostic(module, BREADBOARD_DIAG_WARNING, BREADBOARD_DIAG_CODE_NONE, "Draft emitted with placeholder structures");
@@ -790,7 +939,12 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
         return BREADBOARD_ERR_UNSUPPORTED;
     }
 
-    if (draft->admission_info.requires_advanced_controls)
+    if (draft->admission_info.requires_native_state_read ||
+        draft->admission_info.requires_native_inputs)
+    {
+        payload_kind = STRATA_PLACEHOLDER_PAYLOAD_NATIVE;
+    }
+    else if (draft->admission_info.requires_advanced_controls)
     {
         payload_kind = STRATA_PLACEHOLDER_PAYLOAD_ADVANCED;
     }
@@ -808,6 +962,12 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
     draft_summary.has_placeholders = draft->info.has_placeholders ? 1u : 0u;
     draft_summary.approximate_size_bytes =
         (uint64_t)draft->info.approximate_size_bytes;
+    draft_summary.source_module_id = draft->source_module_id;
+    memset(draft_summary.source_module_name, 0, sizeof(draft_summary.source_module_name));
+    memcpy(
+        draft_summary.source_module_name,
+        draft->source_module_name,
+        sizeof(draft_summary.source_module_name) - 1u);
 
     total_descriptor_count = draft->input_count +
         draft->output_count +

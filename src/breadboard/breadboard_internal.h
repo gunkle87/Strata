@@ -2,6 +2,7 @@
 #define BREADBOARD_INTERNAL_H
 
 #include "breadboard_types.h"
+#include "../../include/strata_placeholder_artifact.h"
 #include <stddef.h>
 
 /*
@@ -15,6 +16,10 @@ struct BreadboardModule
 {
     BreadboardTarget target;
     BreadboardTargetMask allowed_targets;
+    uint64_t module_id;
+    char module_name[STRATA_PLACEHOLDER_MODULE_NAME_CAPACITY];
+    BreadboardRequirementProfile requirement_profile;
+    bool has_requirement_profile;
 
     size_t input_count;
     BreadboardDescriptor* inputs;
@@ -36,6 +41,8 @@ struct BreadboardModule
 struct BreadboardArtifactDraft
 {
     BreadboardTarget target;
+    uint64_t source_module_id;
+    char source_module_name[STRATA_PLACEHOLDER_MODULE_NAME_CAPACITY];
     BreadboardDraftInfo info;
     BreadboardDraftAdmissionInfo admission_info;
 

@@ -121,6 +121,35 @@ typedef struct BreadboardDescriptorSpec
 BreadboardDescriptorSpec;
 
 /*
+ * BreadboardModuleIdentity
+ *
+ * Optional authored identity metadata for a module. This is coarse source-side
+ * information that can be propagated through temporary draft/export surfaces.
+ */
+typedef struct BreadboardModuleIdentity
+{
+    uint64_t module_id;
+    const char* module_name;
+}
+BreadboardModuleIdentity;
+
+/*
+ * BreadboardRequirementProfile
+ *
+ * Optional coarse authored requirement profile for a module. This remains
+ * placeholder-oriented scaffolding, but allows module authors to declare which
+ * temporary admission class a draft should carry.
+ */
+typedef struct BreadboardRequirementProfile
+{
+    uint32_t extension_flags;
+    bool requires_advanced_controls;
+    bool requires_native_state_read;
+    bool requires_native_inputs;
+}
+BreadboardRequirementProfile;
+
+/*
  * BreadboardCompileOptions
  *
  * Configuration knobs for adjusting structural compilation behavior.
@@ -161,6 +190,8 @@ typedef struct BreadboardDraftInfo
     BreadboardTarget target;
     bool has_placeholders;
     size_t approximate_size_bytes;
+    uint64_t source_module_id;
+    const char* source_module_name;
 }
 BreadboardDraftInfo;
 
@@ -177,6 +208,8 @@ typedef struct BreadboardDraftAdmissionInfo
     size_t approximate_size_bytes;
     uint32_t extension_flags;
     bool requires_advanced_controls;
+    bool requires_native_state_read;
+    bool requires_native_inputs;
     bool native_only_behavior;
 }
 BreadboardDraftAdmissionInfo;

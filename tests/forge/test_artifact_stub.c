@@ -52,6 +52,7 @@ int main(void)
     unsigned char   bad_descriptor_class[strata_placeholder_artifact_size()];
     unsigned char   bad_descriptor_name[strata_placeholder_artifact_size()];
     unsigned char   bad_section_table[strata_placeholder_artifact_size()];
+    unsigned char   bad_summary_name[strata_placeholder_artifact_size()];
     StrataPlaceholderArtifactHeader *bad_header;
     StrataPlaceholderSectionEntry *sections;
     StrataPlaceholderSerializedDescriptor *bad_descriptors;
@@ -104,10 +105,12 @@ int main(void)
 
     if (info.backend_id != id ||
         info.format_version_major != 0 ||
-        info.format_version_minor != 7 ||
+        info.format_version_minor != 8 ||
         info.source_target_value != 1u ||
         info.source_has_placeholders != 1u ||
         info.source_approximate_size_bytes != 1024u ||
+        info.source_module_id != 0u ||
+        strcmp(info.source_module_name, "") != 0 ||
         info.payload_size != 4 ||
         info.placeholder_flags != 1 ||
         info.required_extension_mask != 0u ||
@@ -256,6 +259,22 @@ int main(void)
     {
         fprintf(stderr,
             "FAIL: unterminated descriptor name expected FORGE_ERR_ARTIFACT_INCOMPATIBLE, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    memcpy(bad_summary_name, artifact_bytes, sizeof(artifact_bytes));
+    bad_header = (StrataPlaceholderArtifactHeader *)bad_summary_name;
+    memset(
+        ((StrataPlaceholderDraftSummary*)
+            strata_placeholder_artifact_draft_summary(bad_header))->source_module_name,
+        'B',
+        STRATA_PLACEHOLDER_MODULE_NAME_CAPACITY);
+    result = forge_artifact_load(id, bad_summary_name, sizeof(bad_summary_name), &art);
+    if (result != FORGE_ERR_ARTIFACT_INCOMPATIBLE)
+    {
+        fprintf(stderr,
+            "FAIL: unterminated draft summary name expected FORGE_ERR_ARTIFACT_INCOMPATIBLE, got %d\n",
             (int)result);
         return 1;
     }

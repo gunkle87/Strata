@@ -69,6 +69,28 @@ BreadboardResult breadboard_module_query_target_availability(
     bool* out_is_available);
 
 /*
+ * breadboard_module_set_identity
+ *
+ * Sets optional authored source identity metadata on the module. This source
+ * metadata can be propagated into draft summaries and temporary export
+ * handoff artifacts.
+ */
+BreadboardResult breadboard_module_set_identity(
+    BreadboardModule* module,
+    const BreadboardModuleIdentity* identity);
+
+/*
+ * breadboard_module_set_requirement_profile
+ *
+ * Sets an optional coarse authored requirement profile for the module. This
+ * profile feeds draft admission metadata and the temporary placeholder handoff
+ * payload class.
+ */
+BreadboardResult breadboard_module_set_requirement_profile(
+    BreadboardModule* module,
+    const BreadboardRequirementProfile* profile);
+
+/*
  * breadboard_module_add_input_descriptor
  *
  * Declares a draft-visible input descriptor on the module.

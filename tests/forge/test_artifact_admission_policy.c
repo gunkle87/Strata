@@ -119,6 +119,8 @@ main(void)
     if (info.source_target_value != 2u ||
         info.source_has_placeholders != 1u ||
         info.source_approximate_size_bytes != 1024u ||
+        info.source_module_id != 0u ||
+        strcmp(info.source_module_name, "") != 0 ||
         !info.requires_advanced_controls ||
         info.requires_native_state_read ||
         info.requires_native_inputs ||
@@ -230,6 +232,8 @@ main(void)
     if (info.source_target_value != 1u ||
         info.source_has_placeholders != 1u ||
         info.source_approximate_size_bytes != 1024u ||
+        info.source_module_id != 0u ||
+        strcmp(info.source_module_name, "") != 0 ||
         info.required_extension_mask != 0u ||
         info.requires_advanced_controls != 0u ||
         info.requires_native_state_read != 0u ||

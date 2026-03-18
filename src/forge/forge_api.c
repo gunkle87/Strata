@@ -535,6 +535,15 @@ forge_validate_serialized_descriptor_block(
             "forge_artifact_load: draft summary target does not match backend");
     }
 
+    if (!memchr(
+            draft_summary->source_module_name,
+            '\0',
+            sizeof(draft_summary->source_module_name)))
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: draft summary module name is not terminated");
+    }
+
     max_descriptor_entries =
         ((size_t)header->payload_offset - (size_t)header->descriptor_offset) /
         sizeof(StrataPlaceholderSerializedDescriptor);
@@ -998,6 +1007,12 @@ forge_artifact_load(
         art->source_target_value = draft_summary->source_target_value;
         art->source_has_placeholders = draft_summary->has_placeholders;
         art->source_approximate_size_bytes = draft_summary->approximate_size_bytes;
+        art->source_module_id = draft_summary->source_module_id;
+        memset(art->source_module_name, 0, sizeof(art->source_module_name));
+        memcpy(
+            art->source_module_name,
+            draft_summary->source_module_name,
+            sizeof(art->source_module_name) - 1u);
         art->payload_size = header->payload_size;
         art->input_descriptor_count = header->input_descriptor_count;
         art->output_descriptor_count = header->output_descriptor_count;
@@ -1061,6 +1076,8 @@ forge_artifact_info(
     out_info->source_target_value = artifact->source_target_value;
     out_info->source_has_placeholders = artifact->source_has_placeholders;
     out_info->source_approximate_size_bytes = artifact->source_approximate_size_bytes;
+    out_info->source_module_id = artifact->source_module_id;
+    out_info->source_module_name = artifact->source_module_name;
     out_info->payload_size = artifact->payload_size;
     out_info->placeholder_flags = artifact->placeholder_flags;
     out_info->required_extension_mask = artifact->required_extension_mask;

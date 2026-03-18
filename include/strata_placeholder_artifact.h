@@ -16,9 +16,10 @@
 
 #define STRATA_PLACEHOLDER_ARTIFACT_MAGIC_LEN 4u
 #define STRATA_PLACEHOLDER_ARTIFACT_VERSION_MAJOR 0u
-#define STRATA_PLACEHOLDER_ARTIFACT_VERSION_MINOR 7u
+#define STRATA_PLACEHOLDER_ARTIFACT_VERSION_MINOR 8u
 #define STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN 4u
 #define STRATA_PLACEHOLDER_DESCRIPTOR_NAME_CAPACITY 32u
+#define STRATA_PLACEHOLDER_MODULE_NAME_CAPACITY 64u
 
 #define STRATA_PLACEHOLDER_BACKEND_ID_INVALID 0u
 #define STRATA_PLACEHOLDER_BACKEND_ID_LXS 1u
@@ -42,6 +43,8 @@ typedef struct StrataPlaceholderDraftSummary
     uint32_t source_target_value;
     uint32_t has_placeholders;
     uint64_t approximate_size_bytes;
+    uint64_t source_module_id;
+    char source_module_name[STRATA_PLACEHOLDER_MODULE_NAME_CAPACITY];
 }
 StrataPlaceholderDraftSummary;
 
@@ -309,6 +312,8 @@ strata_placeholder_expected_draft_summary_for_backend(
 
     out_summary->has_placeholders = 1u;
     out_summary->approximate_size_bytes = 1024u;
+    out_summary->source_module_id = 0u;
+    memset(out_summary->source_module_name, 0, sizeof(out_summary->source_module_name));
 
     switch (backend_id)
     {

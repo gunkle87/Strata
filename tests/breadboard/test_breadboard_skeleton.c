@@ -30,6 +30,7 @@ int main(void)
 
     BreadboardModule* module = NULL;
     BreadboardResult res;
+    BreadboardModuleIdentity module_identity = { 0x1234u, "temporal_demo" };
 
     /* 1. Test create */
     res = breadboard_module_create(&module);
@@ -44,6 +45,9 @@ int main(void)
     /* 2. Test invalid arguments */
     res = breadboard_module_create(NULL);
     print_result("module_create(NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+    res = breadboard_module_set_identity(module, &module_identity);
+    print_result("module_set_identity", res, BREADBOARD_OK);
 
     /* 3. Test target selection */
     res = breadboard_module_set_target(module, BREADBOARD_TARGET_FAST_4STATE);
@@ -140,7 +144,9 @@ int main(void)
     print_result("draft_query_info", res, BREADBOARD_OK);
     if (draft_info.target != BREADBOARD_TARGET_TEMPORAL ||
         !draft_info.has_placeholders ||
-        draft_info.approximate_size_bytes != strata_placeholder_artifact_size())
+        draft_info.approximate_size_bytes != strata_placeholder_artifact_size() ||
+        draft_info.source_module_id != module_identity.module_id ||
+        strcmp(draft_info.source_module_name, module_identity.module_name) != 0)
     {
         printf("[FAIL] draft info mismatch for TEMPORAL\n");
         exit(1);
@@ -153,7 +159,9 @@ int main(void)
     if (admission_info.target != BREADBOARD_TARGET_TEMPORAL || 
         !admission_info.is_placeholder ||
         !admission_info.requires_advanced_controls ||
-        !admission_info.native_only_behavior ||
+        admission_info.requires_native_state_read ||
+        admission_info.requires_native_inputs ||
+        admission_info.native_only_behavior ||
         admission_info.extension_flags != 1)
     {
         printf("[FAIL] admission info mismatch for TEMPORAL\n");
@@ -241,6 +249,8 @@ int main(void)
             export_draft_summary->source_target_value != BREADBOARD_TARGET_TEMPORAL ||
             export_draft_summary->has_placeholders != 1u ||
             export_draft_summary->approximate_size_bytes != strata_placeholder_artifact_size() ||
+            export_draft_summary->source_module_id != module_identity.module_id ||
+            strcmp(export_draft_summary->source_module_name, module_identity.module_name) != 0 ||
             export_header->admission_info.requirement_flags !=
                 STRATA_PLACEHOLDER_REQUIREMENT_ADVANCED_CONTROL ||
             !export_header->admission_info.requires_advanced_controls ||
@@ -266,7 +276,9 @@ int main(void)
     print_result("draft_query_info(FAST_4STATE)", res, BREADBOARD_OK);
     if (draft_info.target != BREADBOARD_TARGET_FAST_4STATE ||
         !draft_info.has_placeholders ||
-        draft_info.approximate_size_bytes != strata_placeholder_artifact_size())
+        draft_info.approximate_size_bytes != strata_placeholder_artifact_size() ||
+        draft_info.source_module_id != module_identity.module_id ||
+        strcmp(draft_info.source_module_name, module_identity.module_name) != 0)
     {
         printf("[FAIL] draft info mismatch for FAST_4STATE\n");
         exit(1);
@@ -278,6 +290,8 @@ int main(void)
     if (admission_info_fast.target != BREADBOARD_TARGET_FAST_4STATE || 
         !admission_info_fast.is_placeholder ||
         admission_info_fast.requires_advanced_controls ||
+        admission_info_fast.requires_native_state_read ||
+        admission_info_fast.requires_native_inputs ||
         admission_info_fast.native_only_behavior ||
         admission_info_fast.extension_flags != 0)
     {
@@ -366,6 +380,8 @@ int main(void)
             export_draft_summary->source_target_value != BREADBOARD_TARGET_FAST_4STATE ||
             export_draft_summary->has_placeholders != 1u ||
             export_draft_summary->approximate_size_bytes != strata_placeholder_artifact_size() ||
+            export_draft_summary->source_module_id != module_identity.module_id ||
+            strcmp(export_draft_summary->source_module_name, module_identity.module_name) != 0 ||
             export_header->admission_info.requirement_flags !=
                 STRATA_PLACEHOLDER_REQUIREMENT_NONE ||
             export_header->admission_info.requires_advanced_controls ||
@@ -496,11 +512,14 @@ int main(void)
         BreadboardDescriptorSpec input_spec = { 1000u, "user_in", 4u };
         BreadboardDescriptorSpec output_spec = { 2000u, "user_out", 2u };
         BreadboardDescriptorSpec probe_spec = { 3000u, "user_probe", 1u };
+        BreadboardModuleIdentity authored_identity = { 0xBEEFu, "authored_temporal" };
 
         res = breadboard_module_create(&authored_module);
         print_result("authored module_create", res, BREADBOARD_OK);
         res = breadboard_module_set_target(authored_module, BREADBOARD_TARGET_TEMPORAL);
         print_result("authored module_set_target", res, BREADBOARD_OK);
+        res = breadboard_module_set_identity(authored_module, &authored_identity);
+        print_result("authored module_set_identity", res, BREADBOARD_OK);
         res = breadboard_module_add_input_descriptor(authored_module, &input_spec);
         print_result("authored add_input", res, BREADBOARD_OK);
         res = breadboard_module_add_output_descriptor(authored_module, &output_spec);
@@ -515,7 +534,9 @@ int main(void)
         if (draft_info.target != BREADBOARD_TARGET_TEMPORAL ||
             draft_info.has_placeholders ||
             draft_info.approximate_size_bytes !=
-                strata_placeholder_artifact_size_for_counts(1u, 1u, 1u))
+                strata_placeholder_artifact_size_for_counts(1u, 1u, 1u) ||
+            draft_info.source_module_id != authored_identity.module_id ||
+            strcmp(draft_info.source_module_name, authored_identity.module_name) != 0)
         {
             printf("[FAIL] authored draft info mismatch\n");
             exit(1);
@@ -569,6 +590,58 @@ int main(void)
         breadboard_module_free(authored_module);
     }
 
+    /* 12c. Authored requirement profile should drive native placeholder payloads */
+    {
+        BreadboardModule* native_module = NULL;
+        BreadboardArtifactDraft* native_draft = NULL;
+        BreadboardRequirementProfile native_profile = {
+            1u, false, true, true
+        };
+        size_t export_size = 0;
+        unsigned char export_bytes[strata_placeholder_artifact_size()];
+        const StrataPlaceholderArtifactHeader* export_header;
+
+        res = breadboard_module_create(&native_module);
+        print_result("native module_create", res, BREADBOARD_OK);
+        res = breadboard_module_set_target(native_module, BREADBOARD_TARGET_TEMPORAL);
+        print_result("native module_set_target", res, BREADBOARD_OK);
+        res = breadboard_module_set_requirement_profile(native_module, &native_profile);
+        print_result("native module_set_requirement_profile", res, BREADBOARD_OK);
+        res = breadboard_module_compile(native_module, &opts_allow, &native_draft);
+        print_result("native module_compile", res, BREADBOARD_OK);
+
+        res = breadboard_draft_query_admission_info(native_draft, &admission_info);
+        print_result("native draft_query_admission_info", res, BREADBOARD_OK);
+        if (admission_info.requires_advanced_controls ||
+            !admission_info.requires_native_state_read ||
+            !admission_info.requires_native_inputs ||
+            !admission_info.native_only_behavior)
+        {
+            printf("[FAIL] native authored requirement profile mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_artifact_draft_export_placeholder_size(native_draft, &export_size);
+        print_result("native draft_export_placeholder_size", res, BREADBOARD_OK);
+        res = breadboard_artifact_draft_export_placeholder(
+            native_draft,
+            export_bytes,
+            sizeof(export_bytes),
+            &export_size);
+        print_result("native draft_export_placeholder", res, BREADBOARD_OK);
+        export_header = (const StrataPlaceholderArtifactHeader*)export_bytes;
+        if (export_header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_NATIVE ||
+            !export_header->admission_info.requires_native_state_read ||
+            !export_header->admission_info.requires_native_inputs)
+        {
+            printf("[FAIL] native payload export mismatch\n");
+            exit(1);
+        }
+
+        breadboard_artifact_draft_free(native_draft);
+        breadboard_module_free(native_module);
+    }
+
     /* 13. Lookup by ID and Name failure paths */
     res = breadboard_draft_input_descriptor_by_id(draft, 999, &lookup_desc);
     print_result("draft_input_descriptor_by_id(999)", res, BREADBOARD_ERR_NOT_FOUND);
@@ -607,6 +680,18 @@ int main(void)
 
     res = breadboard_artifact_draft_query_info(draft, NULL);
     print_result("draft_query_info(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+    {
+        BreadboardRequirementProfile invalid_profile = { 0u, false, true, true };
+        BreadboardModule* fast_module = NULL;
+        res = breadboard_module_create(&fast_module);
+        print_result("fast module_create(for invalid profile)", res, BREADBOARD_OK);
+        res = breadboard_module_set_target(fast_module, BREADBOARD_TARGET_FAST_4STATE);
+        print_result("fast module_set_target(for invalid profile)", res, BREADBOARD_OK);
+        res = breadboard_module_set_requirement_profile(fast_module, &invalid_profile);
+        print_result("module_set_requirement_profile(invalid FAST profile)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        breadboard_module_free(fast_module);
+    }
 
     {
         size_t export_size = 0;

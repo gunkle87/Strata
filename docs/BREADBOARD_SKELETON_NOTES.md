@@ -14,6 +14,8 @@ The following core public types define the compiler contract:
 - `BreadboardDescriptorClass`: Enumerates the runtime-visible structural classifications (input, output, probe).
 - `BreadboardDescriptor`: Defines the layout of a deterministic identifier describing an exported object's shape, purpose, and stability.
 - `BreadboardDescriptorSpec`: Defines an authored draft-visible descriptor declaration for module inputs, outputs, and probes.
+- `BreadboardModuleIdentity`: Defines optional authored source identity metadata for a module.
+- `BreadboardRequirementProfile`: Defines an optional coarse authored requirement profile for temporary admission-class selection.
 - `BreadboardResult`: Provides standard compilation status and error codes.
 - `BreadboardCompileOptions`: Knobs for compilation strictness (provides `allow_placeholders`, `deny_approximation`, `strict_projection`).
 - `BreadboardDiagnosticSeverity`: Severity scale for emitted compiler diagnostics.
@@ -46,6 +48,8 @@ Modules now also support explicit authored descriptor declaration through:
 - `breadboard_module_add_input_descriptor`
 - `breadboard_module_add_output_descriptor`
 - `breadboard_module_add_probe_descriptor`
+- `breadboard_module_set_identity`
+- `breadboard_module_set_requirement_profile`
 
 The first is a coarse stable draft summary. The second is the newer admission-oriented surface.
 The export helpers provide a temporary placeholder handoff into the current
@@ -57,6 +61,7 @@ Drafts generated using the placeholder allowance (`allow_placeholders=true`) pro
 - **`requires_advanced_controls`**: Set to true when the target implies structural capabilities beyond baseline native limits (e.g. `TEMPORAL` placeholders).
 - **`native_only_behavior`**: Coarse placeholder signal that the draft assumes target-native behavior beyond the common baseline.
 - **`extension_flags`**: Placeholder bit flags acting as a temporary proxy for future extension-family requirements. These are not yet real backend registry masks.
+- **`requires_native_state_read` / `requires_native_inputs`**: Explicit temporary admission flags used when authored requirement profiles declare a native-class placeholder draft.
 
 This allows the Breadboard scaffolding to emit drafts which explicitly answer early admission-style questions without pretending to encode real backend binary structures.
 
@@ -73,9 +78,30 @@ This is still scaffolding, but it is a more truthful form of scaffolding:
   placeholder artifact
 - Forge descriptor queries then reflect the authored descriptor block rather
   than always reflecting the built-in placeholder tuple set
+- authored source identity can now be carried with the draft and surfaced back
+  out through Forge artifact metadata
 
 If no authored descriptors are declared, the older fixed placeholder descriptor
 fallback remains in place.
+
+## Authored Requirement Profiles
+
+Breadboard modules can now optionally declare a coarse authored requirement
+profile before compilation. This profile remains temporary scaffolding, but it
+lets the draft carry a more honest placeholder admission class than target-only
+defaults.
+
+The current placeholder-oriented classes are:
+- baseline
+- advanced-controls
+- native
+
+Current behavior:
+- FAST_4STATE defaults to the baseline placeholder class
+- TEMPORAL defaults to the advanced-controls placeholder class
+- TEMPORAL modules may now explicitly declare a native requirement profile,
+  which drives native-class draft admission metadata and a native placeholder
+  payload during Forge handoff
 
 ## Temporary Placeholder Export
 
@@ -96,6 +122,12 @@ The current placeholder handoff now carries:
 - a coarse draft summary block
 - a serialized descriptor block
 - a tiny typed section directory with admission, draft-summary, descriptor, and payload sections
+
+The draft summary block now includes:
+- source target value
+- placeholder-vs-authored coarse status
+- approximate artifact size
+- optional authored module identity (`module_id`, `module_name`)
 
 That keeps the temporary contract self-describing while still remaining a
 scaffolding format rather than the final Strata artifact layout.
