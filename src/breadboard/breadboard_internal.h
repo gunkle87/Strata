@@ -66,6 +66,10 @@ struct BreadboardArtifactDraft
     uint64_t source_module_id;
     char source_module_name[STRATA_PLACEHOLDER_MODULE_NAME_CAPACITY];
     BreadboardStructureSummary structure_summary;
+    size_t component_count;
+    BreadboardComponentInstance* components;
+    size_t connection_count;
+    BreadboardConnection* connections;
     BreadboardDraftInfo info;
     BreadboardDraftAdmissionInfo admission_info;
 

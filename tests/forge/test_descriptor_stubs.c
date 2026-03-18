@@ -41,6 +41,8 @@ int main(void)
     ForgeArtifact *artifact = NULL;
     ForgeSession *session = NULL;
     ForgeDescriptor descriptor;
+    ForgeStructureComponent component;
+    ForgeStructureConnection connection;
     ForgeProbeValue probe_values[1];
     unsigned char artifact_bytes[strata_placeholder_artifact_size()];
     uint32_t count;
@@ -282,6 +284,50 @@ int main(void)
     {
         fprintf(stderr,
             "FAIL: forge_probe_descriptor_by_name expected FORGE_ERR_OUT_OF_BOUNDS, got %d\n",
+            (int)result);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_structure_component_count(artifact, &count);
+
+    if (result != FORGE_OK || count != 0u)
+    {
+        fprintf(stderr,
+            "FAIL: forge_structure_component_count expected FORGE_OK and count 0, got %d / %u\n",
+            (int)result, count);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_structure_connection_count(artifact, &count);
+
+    if (result != FORGE_OK || count != 0u)
+    {
+        fprintf(stderr,
+            "FAIL: forge_structure_connection_count expected FORGE_OK and count 0, got %d / %u\n",
+            (int)result, count);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_structure_component_at(artifact, 0u, &component);
+
+    if (result != FORGE_ERR_OUT_OF_BOUNDS)
+    {
+        fprintf(stderr,
+            "FAIL: forge_structure_component_at expected FORGE_ERR_OUT_OF_BOUNDS, got %d\n",
+            (int)result);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_structure_connection_at(artifact, 0u, &connection);
+
+    if (result != FORGE_ERR_OUT_OF_BOUNDS)
+    {
+        fprintf(stderr,
+            "FAIL: forge_structure_connection_at expected FORGE_ERR_OUT_OF_BOUNDS, got %d\n",
             (int)result);
         forge_artifact_unload(artifact);
         return 1;

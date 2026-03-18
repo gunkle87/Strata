@@ -236,6 +236,89 @@ free_component_array(
 }
 
 static int
+copy_component_array(
+    BreadboardComponentInstance** out_components,
+    const BreadboardComponentInstance* components,
+    size_t count)
+{
+    BreadboardComponentInstance* copy;
+    size_t index;
+
+    if (!out_components)
+    {
+        return 0;
+    }
+
+    *out_components = NULL;
+
+    if (count == 0u)
+    {
+        return 1;
+    }
+
+    if (!components)
+    {
+        return 0;
+    }
+
+    copy = (BreadboardComponentInstance*)calloc(count, sizeof(BreadboardComponentInstance));
+    if (!copy)
+    {
+        return 0;
+    }
+
+    for (index = 0u; index < count; ++index)
+    {
+        copy[index].id = components[index].id;
+        copy[index].is_stateful = components[index].is_stateful;
+        if (!copy_descriptor_name(components[index].kind_name, &copy[index].kind_name))
+        {
+            free_component_array(copy, index);
+            return 0;
+        }
+    }
+
+    *out_components = copy;
+    return 1;
+}
+
+static int
+copy_connection_array(
+    BreadboardConnection** out_connections,
+    const BreadboardConnection* connections,
+    size_t count)
+{
+    BreadboardConnection* copy;
+
+    if (!out_connections)
+    {
+        return 0;
+    }
+
+    *out_connections = NULL;
+
+    if (count == 0u)
+    {
+        return 1;
+    }
+
+    if (!connections)
+    {
+        return 0;
+    }
+
+    copy = (BreadboardConnection*)calloc(count, sizeof(BreadboardConnection));
+    if (!copy)
+    {
+        return 0;
+    }
+
+    memcpy(copy, connections, count * sizeof(BreadboardConnection));
+    *out_connections = copy;
+    return 1;
+}
+
+static int
 copy_declared_descriptors(
     BreadboardDescriptor** out_descriptors,
     const BreadboardDescriptor* descriptors,
@@ -483,6 +566,64 @@ serialize_breadboard_descriptors(
         }
 
         memcpy(out_descriptors[index].name, descriptors[index].name, copy_len);
+    }
+}
+
+static void
+serialize_breadboard_components(
+    StrataPlaceholderSerializedComponent* out_components,
+    const BreadboardComponentInstance* components,
+    size_t count)
+{
+    size_t index;
+    size_t copy_len;
+
+    if (!out_components || !components)
+    {
+        return;
+    }
+
+    for (index = 0u; index < count; ++index)
+    {
+        out_components[index].id = components[index].id;
+        out_components[index].stateful_flags =
+            components[index].is_stateful ? 1u : 0u;
+        memset(out_components[index].kind_name, 0, sizeof(out_components[index].kind_name));
+
+        if (!components[index].kind_name)
+        {
+            continue;
+        }
+
+        copy_len = strlen(components[index].kind_name);
+        if (copy_len >= sizeof(out_components[index].kind_name))
+        {
+            copy_len = sizeof(out_components[index].kind_name) - 1u;
+        }
+
+        memcpy(out_components[index].kind_name, components[index].kind_name, copy_len);
+    }
+}
+
+static void
+serialize_breadboard_connections(
+    StrataPlaceholderSerializedConnection* out_connections,
+    const BreadboardConnection* connections,
+    size_t count)
+{
+    size_t index;
+
+    if (!out_connections || !connections)
+    {
+        return;
+    }
+
+    for (index = 0u; index < count; ++index)
+    {
+        out_connections[index].source_component_id =
+            connections[index].source_component_id;
+        out_connections[index].sink_component_id =
+            connections[index].sink_component_id;
     }
 }
 
@@ -906,6 +1047,22 @@ BreadboardResult breadboard_module_compile(
 
     if (module->component_count != 0u || module->connection_count != 0u)
     {
+        draft->component_count = module->component_count;
+        if (!copy_component_array(&draft->components, module->components, draft->component_count))
+        {
+            breadboard_artifact_draft_free(draft);
+            record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_INTERNAL_ERROR, "Failed to copy declared components");
+            return BREADBOARD_ERR_INTERNAL;
+        }
+
+        draft->connection_count = module->connection_count;
+        if (!copy_connection_array(&draft->connections, module->connections, draft->connection_count))
+        {
+            breadboard_artifact_draft_free(draft);
+            record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_INTERNAL_ERROR, "Failed to copy declared connections");
+            return BREADBOARD_ERR_INTERNAL;
+        }
+
         draft->structure_summary.declared_component_count =
             (uint32_t)module->component_count;
         draft->structure_summary.declared_connection_count =
@@ -925,10 +1082,12 @@ BreadboardResult breadboard_module_compile(
     draft->info.target = module->target;
     draft->info.has_placeholders =
         (module->input_count == 0u && module->output_count == 0u && module->probe_count == 0u);
-    draft->info.approximate_size_bytes = strata_placeholder_artifact_size_for_counts(
+    draft->info.approximate_size_bytes = strata_placeholder_artifact_size_for_layout(
         (uint32_t)draft->input_count,
         (uint32_t)draft->output_count,
-        (uint32_t)draft->probe_count);
+        (uint32_t)draft->probe_count,
+        (uint32_t)draft->component_count,
+        (uint32_t)draft->connection_count);
     draft->info.source_module_id = draft->source_module_id;
     draft->info.source_module_name = draft->source_module_name;
     draft->info.declared_component_count =
@@ -991,6 +1150,8 @@ void breadboard_artifact_draft_free(BreadboardArtifactDraft* draft)
 {
     if (draft)
     {
+        free_component_array(draft->components, draft->component_count);
+        free(draft->connections);
         free_descriptor_array(draft->inputs, draft->input_count);
         free_descriptor_array(draft->outputs, draft->output_count);
         free_descriptor_array(draft->probes, draft->probe_count);
@@ -1101,10 +1262,12 @@ BreadboardResult breadboard_artifact_draft_export_placeholder_size(
         return BREADBOARD_ERR_UNSUPPORTED;
     }
 
-    *out_size = strata_placeholder_artifact_size_for_counts(
+    *out_size = strata_placeholder_artifact_size_for_layout(
         (uint32_t)draft->input_count,
         (uint32_t)draft->output_count,
-        (uint32_t)draft->probe_count);
+        (uint32_t)draft->probe_count,
+        (uint32_t)draft->component_count,
+        (uint32_t)draft->connection_count);
     return BREADBOARD_OK;
 }
 
@@ -1121,6 +1284,8 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
     StrataPlaceholderDraftSummary draft_summary;
     size_t total_descriptor_count;
     StrataPlaceholderSerializedDescriptor* serialized_descriptors;
+    StrataPlaceholderSerializedComponent* serialized_components;
+    StrataPlaceholderSerializedConnection* serialized_connections;
 
     if (!draft || !buffer || !out_size)
     {
@@ -1132,10 +1297,12 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
         return BREADBOARD_ERR_UNSUPPORTED;
     }
 
-    required_size = strata_placeholder_artifact_size_for_counts(
+    required_size = strata_placeholder_artifact_size_for_layout(
         (uint32_t)draft->input_count,
         (uint32_t)draft->output_count,
-        (uint32_t)draft->probe_count);
+        (uint32_t)draft->probe_count,
+        (uint32_t)draft->component_count,
+        (uint32_t)draft->connection_count);
 
     if (buffer_size < required_size)
     {
@@ -1194,6 +1361,43 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
         return BREADBOARD_ERR_INTERNAL;
     }
 
+    serialized_components = NULL;
+    serialized_connections = NULL;
+    if (draft->component_count != 0u)
+    {
+        serialized_components = (StrataPlaceholderSerializedComponent*)calloc(
+            draft->component_count,
+            sizeof(StrataPlaceholderSerializedComponent));
+        if (!serialized_components)
+        {
+            free(serialized_descriptors);
+            return BREADBOARD_ERR_INTERNAL;
+        }
+
+        serialize_breadboard_components(
+            serialized_components,
+            draft->components,
+            draft->component_count);
+    }
+
+    if (draft->connection_count != 0u)
+    {
+        serialized_connections = (StrataPlaceholderSerializedConnection*)calloc(
+            draft->connection_count,
+            sizeof(StrataPlaceholderSerializedConnection));
+        if (!serialized_connections)
+        {
+            free(serialized_components);
+            free(serialized_descriptors);
+            return BREADBOARD_ERR_INTERNAL;
+        }
+
+        serialize_breadboard_connections(
+            serialized_connections,
+            draft->connections,
+            draft->connection_count);
+    }
+
     serialize_breadboard_descriptors(
         serialized_descriptors,
         draft->inputs,
@@ -1214,16 +1418,24 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
         payload_kind,
         &admission_info,
         &draft_summary,
+        serialized_components,
+        (uint32_t)draft->component_count,
+        serialized_connections,
+        (uint32_t)draft->connection_count,
         serialized_descriptors,
         (uint32_t)draft->input_count,
         (uint32_t)draft->output_count,
         (uint32_t)draft->probe_count,
         out_size))
     {
+        free(serialized_connections);
+        free(serialized_components);
         free(serialized_descriptors);
         return BREADBOARD_ERR_INTERNAL;
     }
 
+    free(serialized_connections);
+    free(serialized_components);
     free(serialized_descriptors);
     return BREADBOARD_OK;
 }

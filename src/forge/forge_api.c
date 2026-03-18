@@ -197,6 +197,31 @@ forge_artifact_probe_descriptors(const ForgeArtifact *artifact)
         artifact->output_descriptor_count;
 }
 
+static ForgeStructureComponent
+forge_structure_component_from_serialized(
+    const StrataPlaceholderSerializedComponent *component_data)
+{
+    ForgeStructureComponent component;
+
+    component.id = component_data->id;
+    component.kind_name = component_data->kind_name;
+    component.stateful_flags = component_data->stateful_flags;
+
+    return component;
+}
+
+static ForgeStructureConnection
+forge_structure_connection_from_serialized(
+    const StrataPlaceholderSerializedConnection *connection_data)
+{
+    ForgeStructureConnection connection;
+
+    connection.source_component_id = connection_data->source_component_id;
+    connection.sink_component_id = connection_data->sink_component_id;
+
+    return connection;
+}
+
 static ForgeResult
 forge_descriptor_filtered_at(
     const ForgeEffectiveProfile *profile,
@@ -347,29 +372,41 @@ forge_validate_serialized_descriptor_block(
     size_t size,
     const StrataPlaceholderAdmissionInfo **out_admission_info,
     const StrataPlaceholderDraftSummary **out_draft_summary,
+    const StrataPlaceholderStructureSummary **out_structure_summary,
+    const StrataPlaceholderSerializedComponent **out_components,
+    const StrataPlaceholderSerializedConnection **out_connections,
     const StrataPlaceholderSerializedDescriptor **out_descriptors)
 {
     const StrataPlaceholderAdmissionInfo *admission_info;
     const StrataPlaceholderSectionEntry *admission_section;
     const StrataPlaceholderDraftSummary *draft_summary;
     const StrataPlaceholderSectionEntry *draft_summary_section;
+    const StrataPlaceholderStructureSummary *structure_summary;
+    const StrataPlaceholderSectionEntry *structure_section;
+    const StrataPlaceholderSerializedComponent *components;
+    const StrataPlaceholderSerializedConnection *connections;
     const StrataPlaceholderSerializedDescriptor *descriptors;
     const StrataPlaceholderSectionEntry *descriptor_section;
     const StrataPlaceholderSectionEntry *payload_section;
     size_t expected_descriptor_bytes;
+    size_t expected_structure_bytes;
     size_t max_descriptor_entries;
     size_t section_table_bytes;
     size_t total_expected_size;
     size_t total_descriptor_count;
     uint32_t index;
+    uint32_t connection_index;
+    uint32_t component_index;
+    int endpoint_found;
 
-    if (!header || !out_admission_info || !out_draft_summary || !out_descriptors)
+    if (!header || !out_admission_info || !out_draft_summary ||
+        !out_structure_summary || !out_components || !out_connections || !out_descriptors)
     {
         return forge_fail(FORGE_ERR_INTERNAL,
             "forge_artifact_load: descriptor validation received invalid input");
     }
 
-    if (header->section_count != 4u)
+    if (header->section_count != 5u)
     {
         return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
             "forge_artifact_load: unsupported placeholder section count");
@@ -422,6 +459,9 @@ forge_validate_serialized_descriptor_block(
     descriptor_section = strata_placeholder_find_section_entry(
         header,
         STRATA_PLACEHOLDER_SECTION_DESCRIPTORS);
+    structure_section = strata_placeholder_find_section_entry(
+        header,
+        STRATA_PLACEHOLDER_SECTION_STRUCTURE);
     payload_section = strata_placeholder_find_section_entry(
         header,
         STRATA_PLACEHOLDER_SECTION_PAYLOAD);
@@ -432,7 +472,8 @@ forge_validate_serialized_descriptor_block(
         header,
         STRATA_PLACEHOLDER_SECTION_ADMISSION);
 
-    if (!admission_section || !draft_summary_section || !descriptor_section || !payload_section)
+    if (!admission_section || !draft_summary_section || !structure_section ||
+        !descriptor_section || !payload_section)
     {
         return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
             "forge_artifact_load: required placeholder sections are missing");
@@ -488,10 +529,41 @@ forge_validate_serialized_descriptor_block(
     }
 
     if ((size_t)draft_summary_section->section_offset + draft_summary_section->section_size >
+        (size_t)structure_section->section_offset)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: draft summary section overlaps structure section");
+    }
+
+    if ((size_t)structure_section->section_offset < sizeof(ForgeArtifactHeader) ||
+        (size_t)structure_section->section_offset > size ||
+        (size_t)structure_section->section_offset + structure_section->section_size > size)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: structure section is out of bounds");
+    }
+
+    structure_summary = strata_placeholder_artifact_structure_summary(header);
+    if (!structure_summary)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: structure section data is missing");
+    }
+
+    expected_structure_bytes = strata_placeholder_structure_bytes_for_counts(
+        structure_summary->component_count,
+        structure_summary->connection_count);
+    if (structure_section->section_size != expected_structure_bytes)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: structure section size does not match structure counts");
+    }
+
+    if ((size_t)structure_section->section_offset + structure_section->section_size >
         (size_t)header->descriptor_offset)
     {
         return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
-            "forge_artifact_load: draft summary section overlaps descriptor block");
+            "forge_artifact_load: structure section overlaps descriptor block");
     }
 
     if (descriptor_section->section_offset != header->descriptor_offset ||
@@ -600,6 +672,60 @@ forge_validate_serialized_descriptor_block(
     }
 
     descriptors = strata_placeholder_artifact_descriptors(header);
+    components = strata_placeholder_artifact_components(header);
+    connections = strata_placeholder_artifact_connections(header);
+
+    for (index = 0u; index < structure_summary->component_count; ++index)
+    {
+        if (memchr(components[index].kind_name, '\0', sizeof(components[index].kind_name)) == NULL)
+        {
+            return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+                "forge_artifact_load: component structure block is malformed");
+        }
+    }
+
+    for (connection_index = 0u;
+         connection_index < structure_summary->connection_count;
+         ++connection_index)
+    {
+        endpoint_found = 0;
+        for (component_index = 0u;
+             component_index < structure_summary->component_count;
+             ++component_index)
+        {
+            if (components[component_index].id ==
+                connections[connection_index].source_component_id)
+            {
+                endpoint_found = 1;
+                break;
+            }
+        }
+
+        if (!endpoint_found)
+        {
+            return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+                "forge_artifact_load: connection source does not match a declared component");
+        }
+
+        endpoint_found = 0;
+        for (component_index = 0u;
+             component_index < structure_summary->component_count;
+             ++component_index)
+        {
+            if (components[component_index].id ==
+                connections[connection_index].sink_component_id)
+            {
+                endpoint_found = 1;
+                break;
+            }
+        }
+
+        if (!endpoint_found)
+        {
+            return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+                "forge_artifact_load: connection sink does not match a declared component");
+        }
+    }
 
     for (index = 0u; index < header->input_descriptor_count; ++index)
     {
@@ -637,6 +763,9 @@ forge_validate_serialized_descriptor_block(
 
     *out_admission_info = admission_info;
     *out_draft_summary = draft_summary;
+    *out_structure_summary = structure_summary;
+    *out_components = components;
+    *out_connections = connections;
     *out_descriptors = descriptors;
     return FORGE_OK;
 }
@@ -866,6 +995,9 @@ forge_artifact_load(
     const ForgeArtifactHeader *header;
     const StrataPlaceholderAdmissionInfo *admission_info;
     const StrataPlaceholderDraftSummary *draft_summary;
+    const StrataPlaceholderStructureSummary *structure_summary;
+    const StrataPlaceholderSerializedComponent *serialized_components;
+    const StrataPlaceholderSerializedConnection *serialized_connections;
     const StrataPlaceholderSerializedDescriptor *serialized_descriptors;
     const unsigned char *payload;
     ForgeEffectiveProfile profile;
@@ -935,6 +1067,9 @@ forge_artifact_load(
         size,
         &admission_info,
         &draft_summary,
+        &structure_summary,
+        &serialized_components,
+        &serialized_connections,
         &serialized_descriptors);
     if (descriptor_result != FORGE_OK)
     {
@@ -1029,7 +1164,11 @@ forge_artifact_load(
         art->requires_advanced_controls = requires_advanced_controls;
         art->requires_native_state_read = requires_native_state_read;
         art->requires_native_inputs = requires_native_inputs;
+        art->structure_component_count = structure_summary->component_count;
+        art->structure_connection_count = structure_summary->connection_count;
         art->descriptors = NULL;
+        art->components = NULL;
+        art->connections = NULL;
         art->effective_profile = profile;
 
         if (header->descriptor_bytes != 0u)
@@ -1047,6 +1186,47 @@ forge_artifact_load(
                 art->descriptors,
                 serialized_descriptors,
                 (size_t)header->descriptor_bytes);
+        }
+
+        if (structure_summary->component_count != 0u)
+        {
+            art->components = (StrataPlaceholderSerializedComponent*)malloc(
+                (size_t)structure_summary->component_count *
+                sizeof(StrataPlaceholderSerializedComponent));
+            if (!art->components)
+            {
+                free(art->descriptors);
+                free(art);
+                return forge_fail(FORGE_ERR_INTERNAL,
+                    "forge_artifact_load: structure component allocation failed");
+            }
+
+            memcpy(
+                art->components,
+                serialized_components,
+                (size_t)structure_summary->component_count *
+                sizeof(StrataPlaceholderSerializedComponent));
+        }
+
+        if (structure_summary->connection_count != 0u)
+        {
+            art->connections = (StrataPlaceholderSerializedConnection*)malloc(
+                (size_t)structure_summary->connection_count *
+                sizeof(StrataPlaceholderSerializedConnection));
+            if (!art->connections)
+            {
+                free(art->components);
+                free(art->descriptors);
+                free(art);
+                return forge_fail(FORGE_ERR_INTERNAL,
+                    "forge_artifact_load: structure connection allocation failed");
+            }
+
+            memcpy(
+                art->connections,
+                serialized_connections,
+                (size_t)structure_summary->connection_count *
+                sizeof(StrataPlaceholderSerializedConnection));
         }
 
         *out_artifact = art;
@@ -1114,6 +1294,14 @@ forge_artifact_unload(ForgeArtifact *artifact)
     if (artifact->descriptors)
     {
         free(artifact->descriptors);
+    }
+    if (artifact->components)
+    {
+        free(artifact->components);
+    }
+    if (artifact->connections)
+    {
+        free(artifact->connections);
     }
     free(artifact);
 
@@ -1646,6 +1834,110 @@ forge_probe_descriptor_by_name(
         out_descriptor,
         "forge_probe_descriptor_by_name: name or out_descriptor is NULL",
         "forge_probe_descriptor_by_name: descriptor name not found");
+}
+
+ForgeResult
+forge_structure_component_count(
+    const ForgeArtifact *artifact,
+    uint32_t            *out_count)
+{
+    if (!out_count)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_structure_component_count: out_count is NULL");
+    }
+
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_structure_component_count: artifact is NULL");
+    }
+
+    *out_count = artifact->structure_component_count;
+    forge_diag_set("");
+    return FORGE_OK;
+}
+
+ForgeResult
+forge_structure_component_at(
+    const ForgeArtifact      *artifact,
+    uint32_t                  index,
+    ForgeStructureComponent  *out_component)
+{
+    if (!out_component)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_structure_component_at: out_component is NULL");
+    }
+
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_structure_component_at: artifact is NULL");
+    }
+
+    if (index >= artifact->structure_component_count)
+    {
+        return forge_fail(FORGE_ERR_OUT_OF_BOUNDS,
+            "forge_structure_component_at: index out of bounds");
+    }
+
+    *out_component = forge_structure_component_from_serialized(
+        &artifact->components[index]);
+    forge_diag_set("");
+    return FORGE_OK;
+}
+
+ForgeResult
+forge_structure_connection_count(
+    const ForgeArtifact *artifact,
+    uint32_t            *out_count)
+{
+    if (!out_count)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_structure_connection_count: out_count is NULL");
+    }
+
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_structure_connection_count: artifact is NULL");
+    }
+
+    *out_count = artifact->structure_connection_count;
+    forge_diag_set("");
+    return FORGE_OK;
+}
+
+ForgeResult
+forge_structure_connection_at(
+    const ForgeArtifact       *artifact,
+    uint32_t                   index,
+    ForgeStructureConnection  *out_connection)
+{
+    if (!out_connection)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_structure_connection_at: out_connection is NULL");
+    }
+
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_structure_connection_at: artifact is NULL");
+    }
+
+    if (index >= artifact->structure_connection_count)
+    {
+        return forge_fail(FORGE_ERR_OUT_OF_BOUNDS,
+            "forge_structure_connection_at: index out of bounds");
+    }
+
+    *out_connection = forge_structure_connection_from_serialized(
+        &artifact->connections[index]);
+    forge_diag_set("");
+    return FORGE_OK;
 }
 
 ForgeResult

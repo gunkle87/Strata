@@ -180,6 +180,7 @@ int main(void)
         const StrataPlaceholderArtifactHeader* export_header;
         const StrataPlaceholderSectionEntry* admission_section;
         const StrataPlaceholderSectionEntry* draft_summary_section;
+        const StrataPlaceholderSectionEntry* structure_section;
         const StrataPlaceholderSectionEntry* descriptor_section;
         const StrataPlaceholderSectionEntry* payload_section;
         const StrataPlaceholderAdmissionInfo* export_admission_info;
@@ -205,6 +206,8 @@ int main(void)
             export_header, STRATA_PLACEHOLDER_SECTION_ADMISSION);
         draft_summary_section = strata_placeholder_find_section_entry(
             export_header, STRATA_PLACEHOLDER_SECTION_DRAFT_SUMMARY);
+        structure_section = strata_placeholder_find_section_entry(
+            export_header, STRATA_PLACEHOLDER_SECTION_STRUCTURE);
         descriptor_section = strata_placeholder_find_section_entry(
             export_header, STRATA_PLACEHOLDER_SECTION_DESCRIPTORS);
         payload_section = strata_placeholder_find_section_entry(
@@ -216,28 +219,37 @@ int main(void)
             export_header->output_descriptor_count != 2u ||
             export_header->probe_descriptor_count != 1u ||
             export_header->section_table_offset != sizeof(StrataPlaceholderArtifactHeader) ||
-            export_header->section_count != 4u ||
+            export_header->section_count != 5u ||
             !admission_section ||
             admission_section->section_offset !=
                 sizeof(StrataPlaceholderArtifactHeader) +
-                strata_placeholder_section_table_bytes(4u) ||
+                strata_placeholder_section_table_bytes(5u) ||
             admission_section->section_size != sizeof(StrataPlaceholderAdmissionInfo) ||
             !draft_summary_section ||
             draft_summary_section->section_offset !=
                 sizeof(StrataPlaceholderArtifactHeader) +
-                strata_placeholder_section_table_bytes(4u) +
+                strata_placeholder_section_table_bytes(5u) +
                 sizeof(StrataPlaceholderAdmissionInfo) ||
             draft_summary_section->section_size != sizeof(StrataPlaceholderDraftSummary) ||
-            export_header->descriptor_offset !=
+            !structure_section ||
+            structure_section->section_offset !=
                 sizeof(StrataPlaceholderArtifactHeader) +
-                strata_placeholder_section_table_bytes(4u) +
+                strata_placeholder_section_table_bytes(5u) +
                 sizeof(StrataPlaceholderAdmissionInfo) +
                 sizeof(StrataPlaceholderDraftSummary) ||
-            export_header->payload_offset !=
+            structure_section->section_size != sizeof(StrataPlaceholderStructureSummary) ||
+            export_header->descriptor_offset !=
                 sizeof(StrataPlaceholderArtifactHeader) +
-                strata_placeholder_section_table_bytes(4u) +
+                strata_placeholder_section_table_bytes(5u) +
                 sizeof(StrataPlaceholderAdmissionInfo) +
                 sizeof(StrataPlaceholderDraftSummary) +
+                sizeof(StrataPlaceholderStructureSummary) ||
+            export_header->payload_offset !=
+                sizeof(StrataPlaceholderArtifactHeader) +
+                strata_placeholder_section_table_bytes(5u) +
+                sizeof(StrataPlaceholderAdmissionInfo) +
+                sizeof(StrataPlaceholderDraftSummary) +
+                sizeof(StrataPlaceholderStructureSummary) +
                 export_header->descriptor_bytes ||
             !descriptor_section ||
             descriptor_section->section_offset != export_header->descriptor_offset ||
@@ -317,6 +329,7 @@ int main(void)
         const StrataPlaceholderArtifactHeader* export_header;
         const StrataPlaceholderSectionEntry* admission_section;
         const StrataPlaceholderSectionEntry* draft_summary_section;
+        const StrataPlaceholderSectionEntry* structure_section;
         const StrataPlaceholderSectionEntry* descriptor_section;
         const StrataPlaceholderSectionEntry* payload_section;
         const StrataPlaceholderAdmissionInfo* export_admission_info;
@@ -342,6 +355,8 @@ int main(void)
             export_header, STRATA_PLACEHOLDER_SECTION_ADMISSION);
         draft_summary_section = strata_placeholder_find_section_entry(
             export_header, STRATA_PLACEHOLDER_SECTION_DRAFT_SUMMARY);
+        structure_section = strata_placeholder_find_section_entry(
+            export_header, STRATA_PLACEHOLDER_SECTION_STRUCTURE);
         descriptor_section = strata_placeholder_find_section_entry(
             export_header, STRATA_PLACEHOLDER_SECTION_DESCRIPTORS);
         payload_section = strata_placeholder_find_section_entry(
@@ -353,28 +368,37 @@ int main(void)
             export_header->output_descriptor_count != 2u ||
             export_header->probe_descriptor_count != 1u ||
             export_header->section_table_offset != sizeof(StrataPlaceholderArtifactHeader) ||
-            export_header->section_count != 4u ||
+            export_header->section_count != 5u ||
             !admission_section ||
             admission_section->section_offset !=
                 sizeof(StrataPlaceholderArtifactHeader) +
-                strata_placeholder_section_table_bytes(4u) ||
+                strata_placeholder_section_table_bytes(5u) ||
             admission_section->section_size != sizeof(StrataPlaceholderAdmissionInfo) ||
             !draft_summary_section ||
             draft_summary_section->section_offset !=
                 sizeof(StrataPlaceholderArtifactHeader) +
-                strata_placeholder_section_table_bytes(4u) +
+                strata_placeholder_section_table_bytes(5u) +
                 sizeof(StrataPlaceholderAdmissionInfo) ||
             draft_summary_section->section_size != sizeof(StrataPlaceholderDraftSummary) ||
-            export_header->descriptor_offset !=
+            !structure_section ||
+            structure_section->section_offset !=
                 sizeof(StrataPlaceholderArtifactHeader) +
-                strata_placeholder_section_table_bytes(4u) +
+                strata_placeholder_section_table_bytes(5u) +
                 sizeof(StrataPlaceholderAdmissionInfo) +
                 sizeof(StrataPlaceholderDraftSummary) ||
-            export_header->payload_offset !=
+            structure_section->section_size != sizeof(StrataPlaceholderStructureSummary) ||
+            export_header->descriptor_offset !=
                 sizeof(StrataPlaceholderArtifactHeader) +
-                strata_placeholder_section_table_bytes(4u) +
+                strata_placeholder_section_table_bytes(5u) +
                 sizeof(StrataPlaceholderAdmissionInfo) +
                 sizeof(StrataPlaceholderDraftSummary) +
+                sizeof(StrataPlaceholderStructureSummary) ||
+            export_header->payload_offset !=
+                sizeof(StrataPlaceholderArtifactHeader) +
+                strata_placeholder_section_table_bytes(5u) +
+                sizeof(StrataPlaceholderAdmissionInfo) +
+                sizeof(StrataPlaceholderDraftSummary) +
+                sizeof(StrataPlaceholderStructureSummary) +
                 export_header->descriptor_bytes ||
             !descriptor_section ||
             descriptor_section->section_offset != export_header->descriptor_offset ||

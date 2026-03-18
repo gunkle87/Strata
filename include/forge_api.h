@@ -131,6 +131,21 @@ typedef struct ForgeDescriptor
 }
 ForgeDescriptor;
 
+typedef struct ForgeStructureComponent
+{
+    uint64_t id;
+    const char* kind_name;
+    uint32_t stateful_flags;
+}
+ForgeStructureComponent;
+
+typedef struct ForgeStructureConnection
+{
+    uint64_t source_component_id;
+    uint64_t sink_component_id;
+}
+ForgeStructureConnection;
+
 typedef struct ForgeProbeValue
 {
     uint32_t probe_id;
@@ -271,6 +286,24 @@ ForgeResult forge_probe_descriptor_by_name(
     const ForgeArtifact *artifact,
     const char          *name,
     ForgeDescriptor     *out_descriptor);
+
+ForgeResult forge_structure_component_count(
+    const ForgeArtifact *artifact,
+    uint32_t            *out_count);
+
+ForgeResult forge_structure_component_at(
+    const ForgeArtifact       *artifact,
+    uint32_t                   index,
+    ForgeStructureComponent   *out_component);
+
+ForgeResult forge_structure_connection_count(
+    const ForgeArtifact *artifact,
+    uint32_t            *out_count);
+
+ForgeResult forge_structure_connection_at(
+    const ForgeArtifact        *artifact,
+    uint32_t                    index,
+    ForgeStructureConnection   *out_connection);
 
 ForgeResult forge_read_probes(
     const ForgeSession *session,

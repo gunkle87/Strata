@@ -124,6 +124,7 @@ contract.
 The current placeholder handoff now carries:
 - an explicit coarse admission manifest
 - a coarse draft summary block
+- a minimal authored structure block
 - a serialized descriptor block
 - a tiny typed section directory with admission, draft-summary, descriptor, and payload sections
 
@@ -151,6 +152,8 @@ is narrower and deliberate:
   module content
 - they let the draft-summary block reflect actual declared structure when such
   declarations exist
+- they let the temporary placeholder artifact carry minimal authored component
+  and connection declarations for Forge-side inspection
 - they override any manually supplied coarse structure summary, so the current
   vertical path prefers authored structural truth over synthetic summary values
 

@@ -616,6 +616,94 @@ int main(void)
         return 1;
     }
 
+    {
+        uint32_t count = 0u;
+
+        result = forge_structure_component_count(NULL, &count);
+        if (result != FORGE_ERR_INVALID_HANDLE)
+        {
+            fprintf(stderr,
+                "FAIL: forge_structure_component_count(NULL, ...) expected FORGE_ERR_INVALID_HANDLE, got %d\n",
+                (int)result);
+            return 1;
+        }
+    }
+
+    result = forge_structure_component_count((const ForgeArtifact *)0x1, NULL);
+    if (result != FORGE_ERR_INVALID_ARGUMENT)
+    {
+        fprintf(stderr,
+            "FAIL: forge_structure_component_count(..., NULL) expected FORGE_ERR_INVALID_ARGUMENT, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    {
+        ForgeStructureComponent component;
+
+        result = forge_structure_component_at(NULL, 0u, &component);
+        if (result != FORGE_ERR_INVALID_HANDLE)
+        {
+            fprintf(stderr,
+                "FAIL: forge_structure_component_at(NULL, ...) expected FORGE_ERR_INVALID_HANDLE, got %d\n",
+                (int)result);
+            return 1;
+        }
+    }
+
+    result = forge_structure_component_at((const ForgeArtifact *)0x1, 0u, NULL);
+    if (result != FORGE_ERR_INVALID_ARGUMENT)
+    {
+        fprintf(stderr,
+            "FAIL: forge_structure_component_at(..., NULL) expected FORGE_ERR_INVALID_ARGUMENT, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    {
+        uint32_t count = 0u;
+
+        result = forge_structure_connection_count(NULL, &count);
+        if (result != FORGE_ERR_INVALID_HANDLE)
+        {
+            fprintf(stderr,
+                "FAIL: forge_structure_connection_count(NULL, ...) expected FORGE_ERR_INVALID_HANDLE, got %d\n",
+                (int)result);
+            return 1;
+        }
+    }
+
+    result = forge_structure_connection_count((const ForgeArtifact *)0x1, NULL);
+    if (result != FORGE_ERR_INVALID_ARGUMENT)
+    {
+        fprintf(stderr,
+            "FAIL: forge_structure_connection_count(..., NULL) expected FORGE_ERR_INVALID_ARGUMENT, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    {
+        ForgeStructureConnection connection;
+
+        result = forge_structure_connection_at(NULL, 0u, &connection);
+        if (result != FORGE_ERR_INVALID_HANDLE)
+        {
+            fprintf(stderr,
+                "FAIL: forge_structure_connection_at(NULL, ...) expected FORGE_ERR_INVALID_HANDLE, got %d\n",
+                (int)result);
+            return 1;
+        }
+    }
+
+    result = forge_structure_connection_at((const ForgeArtifact *)0x1, 0u, NULL);
+    if (result != FORGE_ERR_INVALID_ARGUMENT)
+    {
+        fprintf(stderr,
+            "FAIL: forge_structure_connection_at(..., NULL) expected FORGE_ERR_INVALID_ARGUMENT, got %d\n",
+            (int)result);
+        return 1;
+    }
+
     /* forge_read_probes: NULL session and bad batch args must validate. */
     {
         ForgeProbeValue values[1];

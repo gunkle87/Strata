@@ -167,6 +167,8 @@ main(void)
     ForgeArtifact *artifact;
     ForgeArtifactInfo info;
     ForgeDescriptor forge_descriptor;
+    ForgeStructureComponent forge_component;
+    ForgeStructureConnection forge_connection;
     BreadboardDescriptor breadboard_input;
     BreadboardDescriptor breadboard_output;
     BreadboardDescriptor breadboard_probe;
@@ -181,6 +183,7 @@ main(void)
     const StrataPlaceholderArtifactHeader *header;
     const StrataPlaceholderSectionEntry *admission_section;
     const StrataPlaceholderSectionEntry *draft_summary_section;
+    const StrataPlaceholderSectionEntry *structure_section;
     const StrataPlaceholderSectionEntry *descriptor_section;
     const StrataPlaceholderSectionEntry *payload_section;
     const StrataPlaceholderAdmissionInfo *admission_info;
@@ -222,6 +225,8 @@ main(void)
         header, STRATA_PLACEHOLDER_SECTION_ADMISSION);
     draft_summary_section = strata_placeholder_find_section_entry(
         header, STRATA_PLACEHOLDER_SECTION_DRAFT_SUMMARY);
+    structure_section = strata_placeholder_find_section_entry(
+        header, STRATA_PLACEHOLDER_SECTION_STRUCTURE);
     descriptor_section = strata_placeholder_find_section_entry(
         header, STRATA_PLACEHOLDER_SECTION_DESCRIPTORS);
     payload_section = strata_placeholder_find_section_entry(
@@ -233,28 +238,37 @@ main(void)
         header->output_descriptor_count != 2u ||
         header->probe_descriptor_count != 1u ||
         header->section_table_offset != sizeof(StrataPlaceholderArtifactHeader) ||
-        header->section_count != 4u ||
+        header->section_count != 5u ||
         !admission_section ||
         admission_section->section_offset !=
             sizeof(StrataPlaceholderArtifactHeader) +
-            strata_placeholder_section_table_bytes(4u) ||
+            strata_placeholder_section_table_bytes(5u) ||
         admission_section->section_size != sizeof(StrataPlaceholderAdmissionInfo) ||
         !draft_summary_section ||
         draft_summary_section->section_offset !=
             sizeof(StrataPlaceholderArtifactHeader) +
-            strata_placeholder_section_table_bytes(4u) +
+            strata_placeholder_section_table_bytes(5u) +
             sizeof(StrataPlaceholderAdmissionInfo) ||
         draft_summary_section->section_size != sizeof(StrataPlaceholderDraftSummary) ||
-        header->descriptor_offset !=
+        !structure_section ||
+        structure_section->section_offset !=
             sizeof(StrataPlaceholderArtifactHeader) +
-            strata_placeholder_section_table_bytes(4u) +
+            strata_placeholder_section_table_bytes(5u) +
             sizeof(StrataPlaceholderAdmissionInfo) +
             sizeof(StrataPlaceholderDraftSummary) ||
-        header->payload_offset !=
+        structure_section->section_size != sizeof(StrataPlaceholderStructureSummary) ||
+        header->descriptor_offset !=
             sizeof(StrataPlaceholderArtifactHeader) +
-            strata_placeholder_section_table_bytes(4u) +
+            strata_placeholder_section_table_bytes(5u) +
             sizeof(StrataPlaceholderAdmissionInfo) +
             sizeof(StrataPlaceholderDraftSummary) +
+            sizeof(StrataPlaceholderStructureSummary) ||
+        header->payload_offset !=
+            sizeof(StrataPlaceholderArtifactHeader) +
+            strata_placeholder_section_table_bytes(5u) +
+            sizeof(StrataPlaceholderAdmissionInfo) +
+            sizeof(StrataPlaceholderDraftSummary) +
+            sizeof(StrataPlaceholderStructureSummary) +
             header->descriptor_bytes ||
         !descriptor_section ||
         descriptor_section->section_offset != header->descriptor_offset ||
@@ -601,6 +615,47 @@ main(void)
             return 1;
         }
 
+        {
+            uint32_t count;
+
+            result = forge_structure_component_count(artifact, &count);
+            if (result != FORGE_OK || count != 2u)
+            {
+                fprintf(stderr, "FAIL: structured TEMPORAL component count mismatch\n");
+                forge_artifact_unload(artifact);
+                return 1;
+            }
+
+            result = forge_structure_component_at(artifact, 1u, &forge_component);
+            if (result != FORGE_OK ||
+                forge_component.id != 22u ||
+                strcmp(forge_component.kind_name, "register") != 0 ||
+                forge_component.stateful_flags != 1u)
+            {
+                fprintf(stderr, "FAIL: structured TEMPORAL component query mismatch\n");
+                forge_artifact_unload(artifact);
+                return 1;
+            }
+
+            result = forge_structure_connection_count(artifact, &count);
+            if (result != FORGE_OK || count != 1u)
+            {
+                fprintf(stderr, "FAIL: structured TEMPORAL connection count mismatch\n");
+                forge_artifact_unload(artifact);
+                return 1;
+            }
+
+            result = forge_structure_connection_at(artifact, 0u, &forge_connection);
+            if (result != FORGE_OK ||
+                forge_connection.source_component_id != 21u ||
+                forge_connection.sink_component_id != 22u)
+            {
+                fprintf(stderr, "FAIL: structured TEMPORAL connection query mismatch\n");
+                forge_artifact_unload(artifact);
+                return 1;
+            }
+        }
+
         if (forge_artifact_unload(artifact) != FORGE_OK)
         {
             fprintf(stderr, "FAIL: could not unload structured TEMPORAL artifact\n");
@@ -739,6 +794,8 @@ main(void)
         header, STRATA_PLACEHOLDER_SECTION_ADMISSION);
     draft_summary_section = strata_placeholder_find_section_entry(
         header, STRATA_PLACEHOLDER_SECTION_DRAFT_SUMMARY);
+    structure_section = strata_placeholder_find_section_entry(
+        header, STRATA_PLACEHOLDER_SECTION_STRUCTURE);
     descriptor_section = strata_placeholder_find_section_entry(
         header, STRATA_PLACEHOLDER_SECTION_DESCRIPTORS);
     payload_section = strata_placeholder_find_section_entry(
@@ -750,28 +807,37 @@ main(void)
         header->output_descriptor_count != 2u ||
         header->probe_descriptor_count != 1u ||
         header->section_table_offset != sizeof(StrataPlaceholderArtifactHeader) ||
-        header->section_count != 4u ||
+        header->section_count != 5u ||
         !admission_section ||
         admission_section->section_offset !=
             sizeof(StrataPlaceholderArtifactHeader) +
-            strata_placeholder_section_table_bytes(4u) ||
+            strata_placeholder_section_table_bytes(5u) ||
         admission_section->section_size != sizeof(StrataPlaceholderAdmissionInfo) ||
         !draft_summary_section ||
         draft_summary_section->section_offset !=
             sizeof(StrataPlaceholderArtifactHeader) +
-            strata_placeholder_section_table_bytes(4u) +
+            strata_placeholder_section_table_bytes(5u) +
             sizeof(StrataPlaceholderAdmissionInfo) ||
         draft_summary_section->section_size != sizeof(StrataPlaceholderDraftSummary) ||
-        header->descriptor_offset !=
+        !structure_section ||
+        structure_section->section_offset !=
             sizeof(StrataPlaceholderArtifactHeader) +
-            strata_placeholder_section_table_bytes(4u) +
+            strata_placeholder_section_table_bytes(5u) +
             sizeof(StrataPlaceholderAdmissionInfo) +
             sizeof(StrataPlaceholderDraftSummary) ||
-        header->payload_offset !=
+        structure_section->section_size != sizeof(StrataPlaceholderStructureSummary) ||
+        header->descriptor_offset !=
             sizeof(StrataPlaceholderArtifactHeader) +
-            strata_placeholder_section_table_bytes(4u) +
+            strata_placeholder_section_table_bytes(5u) +
             sizeof(StrataPlaceholderAdmissionInfo) +
             sizeof(StrataPlaceholderDraftSummary) +
+            sizeof(StrataPlaceholderStructureSummary) ||
+        header->payload_offset !=
+            sizeof(StrataPlaceholderArtifactHeader) +
+            strata_placeholder_section_table_bytes(5u) +
+            sizeof(StrataPlaceholderAdmissionInfo) +
+            sizeof(StrataPlaceholderDraftSummary) +
+            sizeof(StrataPlaceholderStructureSummary) +
             header->descriptor_bytes ||
         !descriptor_section ||
         descriptor_section->section_offset != header->descriptor_offset ||
