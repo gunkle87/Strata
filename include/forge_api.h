@@ -69,6 +69,9 @@ typedef struct ForgeArtifactInfo
     uint64_t source_approximate_size_bytes;
     uint64_t source_module_id;
     const char* source_module_name;
+    uint32_t source_declared_component_count;
+    uint32_t source_declared_connection_count;
+    uint32_t source_declared_stateful_node_count;
     uint32_t payload_size;
     uint32_t placeholder_flags;
     uint32_t required_extension_mask;

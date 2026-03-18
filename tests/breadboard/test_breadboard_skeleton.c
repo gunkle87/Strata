@@ -31,6 +31,7 @@ int main(void)
     BreadboardModule* module = NULL;
     BreadboardResult res;
     BreadboardModuleIdentity module_identity = { 0x1234u, "temporal_demo" };
+    BreadboardStructureSummary module_summary = { 7u, 11u, 2u };
 
     /* 1. Test create */
     res = breadboard_module_create(&module);
@@ -48,6 +49,8 @@ int main(void)
 
     res = breadboard_module_set_identity(module, &module_identity);
     print_result("module_set_identity", res, BREADBOARD_OK);
+    res = breadboard_module_set_structure_summary(module, &module_summary);
+    print_result("module_set_structure_summary", res, BREADBOARD_OK);
 
     /* 3. Test target selection */
     res = breadboard_module_set_target(module, BREADBOARD_TARGET_FAST_4STATE);
@@ -146,7 +149,10 @@ int main(void)
         !draft_info.has_placeholders ||
         draft_info.approximate_size_bytes != strata_placeholder_artifact_size() ||
         draft_info.source_module_id != module_identity.module_id ||
-        strcmp(draft_info.source_module_name, module_identity.module_name) != 0)
+        strcmp(draft_info.source_module_name, module_identity.module_name) != 0 ||
+        draft_info.declared_component_count != module_summary.declared_component_count ||
+        draft_info.declared_connection_count != module_summary.declared_connection_count ||
+        draft_info.declared_stateful_node_count != module_summary.declared_stateful_node_count)
     {
         printf("[FAIL] draft info mismatch for TEMPORAL\n");
         exit(1);
@@ -251,6 +257,9 @@ int main(void)
             export_draft_summary->approximate_size_bytes != strata_placeholder_artifact_size() ||
             export_draft_summary->source_module_id != module_identity.module_id ||
             strcmp(export_draft_summary->source_module_name, module_identity.module_name) != 0 ||
+            export_draft_summary->declared_component_count != module_summary.declared_component_count ||
+            export_draft_summary->declared_connection_count != module_summary.declared_connection_count ||
+            export_draft_summary->declared_stateful_node_count != module_summary.declared_stateful_node_count ||
             export_header->admission_info.requirement_flags !=
                 STRATA_PLACEHOLDER_REQUIREMENT_ADVANCED_CONTROL ||
             !export_header->admission_info.requires_advanced_controls ||
@@ -278,7 +287,10 @@ int main(void)
         !draft_info.has_placeholders ||
         draft_info.approximate_size_bytes != strata_placeholder_artifact_size() ||
         draft_info.source_module_id != module_identity.module_id ||
-        strcmp(draft_info.source_module_name, module_identity.module_name) != 0)
+        strcmp(draft_info.source_module_name, module_identity.module_name) != 0 ||
+        draft_info.declared_component_count != module_summary.declared_component_count ||
+        draft_info.declared_connection_count != module_summary.declared_connection_count ||
+        draft_info.declared_stateful_node_count != module_summary.declared_stateful_node_count)
     {
         printf("[FAIL] draft info mismatch for FAST_4STATE\n");
         exit(1);
@@ -382,6 +394,9 @@ int main(void)
             export_draft_summary->approximate_size_bytes != strata_placeholder_artifact_size() ||
             export_draft_summary->source_module_id != module_identity.module_id ||
             strcmp(export_draft_summary->source_module_name, module_identity.module_name) != 0 ||
+            export_draft_summary->declared_component_count != module_summary.declared_component_count ||
+            export_draft_summary->declared_connection_count != module_summary.declared_connection_count ||
+            export_draft_summary->declared_stateful_node_count != module_summary.declared_stateful_node_count ||
             export_header->admission_info.requirement_flags !=
                 STRATA_PLACEHOLDER_REQUIREMENT_NONE ||
             export_header->admission_info.requires_advanced_controls ||
@@ -513,6 +528,7 @@ int main(void)
         BreadboardDescriptorSpec output_spec = { 2000u, "user_out", 2u };
         BreadboardDescriptorSpec probe_spec = { 3000u, "user_probe", 1u };
         BreadboardModuleIdentity authored_identity = { 0xBEEFu, "authored_temporal" };
+        BreadboardStructureSummary authored_summary = { 3u, 2u, 1u };
 
         res = breadboard_module_create(&authored_module);
         print_result("authored module_create", res, BREADBOARD_OK);
@@ -520,6 +536,8 @@ int main(void)
         print_result("authored module_set_target", res, BREADBOARD_OK);
         res = breadboard_module_set_identity(authored_module, &authored_identity);
         print_result("authored module_set_identity", res, BREADBOARD_OK);
+        res = breadboard_module_set_structure_summary(authored_module, &authored_summary);
+        print_result("authored module_set_structure_summary", res, BREADBOARD_OK);
         res = breadboard_module_add_input_descriptor(authored_module, &input_spec);
         print_result("authored add_input", res, BREADBOARD_OK);
         res = breadboard_module_add_output_descriptor(authored_module, &output_spec);
@@ -536,7 +554,10 @@ int main(void)
             draft_info.approximate_size_bytes !=
                 strata_placeholder_artifact_size_for_counts(1u, 1u, 1u) ||
             draft_info.source_module_id != authored_identity.module_id ||
-            strcmp(draft_info.source_module_name, authored_identity.module_name) != 0)
+            strcmp(draft_info.source_module_name, authored_identity.module_name) != 0 ||
+            draft_info.declared_component_count != authored_summary.declared_component_count ||
+            draft_info.declared_connection_count != authored_summary.declared_connection_count ||
+            draft_info.declared_stateful_node_count != authored_summary.declared_stateful_node_count)
         {
             printf("[FAIL] authored draft info mismatch\n");
             exit(1);
@@ -642,6 +663,53 @@ int main(void)
         breadboard_module_free(native_module);
     }
 
+    /* 12d. Authored structural declarations should derive coarse structure summary */
+    {
+        BreadboardModule* structured_module = NULL;
+        BreadboardArtifactDraft* structured_draft = NULL;
+        BreadboardModuleIdentity structured_identity = { 0xCAFEu, "structured_temporal" };
+        BreadboardStructureSummary misleading_summary = { 99u, 77u, 66u };
+        BreadboardComponentSpec component_a = { 10u, "and_gate", false };
+        BreadboardComponentSpec component_b = { 11u, "register", true };
+        BreadboardComponentSpec component_c = { 12u, "probe_tap", false };
+        BreadboardConnectionSpec connection_ab = { 10u, 11u };
+        BreadboardConnectionSpec connection_bc = { 11u, 12u };
+
+        res = breadboard_module_create(&structured_module);
+        print_result("structured module_create", res, BREADBOARD_OK);
+        res = breadboard_module_set_target(structured_module, BREADBOARD_TARGET_TEMPORAL);
+        print_result("structured module_set_target", res, BREADBOARD_OK);
+        res = breadboard_module_set_identity(structured_module, &structured_identity);
+        print_result("structured module_set_identity", res, BREADBOARD_OK);
+        res = breadboard_module_set_structure_summary(structured_module, &misleading_summary);
+        print_result("structured module_set_structure_summary", res, BREADBOARD_OK);
+        res = breadboard_module_add_component_instance(structured_module, &component_a);
+        print_result("structured add_component_a", res, BREADBOARD_OK);
+        res = breadboard_module_add_component_instance(structured_module, &component_b);
+        print_result("structured add_component_b", res, BREADBOARD_OK);
+        res = breadboard_module_add_component_instance(structured_module, &component_c);
+        print_result("structured add_component_c", res, BREADBOARD_OK);
+        res = breadboard_module_add_connection(structured_module, &connection_ab);
+        print_result("structured add_connection_ab", res, BREADBOARD_OK);
+        res = breadboard_module_add_connection(structured_module, &connection_bc);
+        print_result("structured add_connection_bc", res, BREADBOARD_OK);
+        res = breadboard_module_compile(structured_module, &opts_allow, &structured_draft);
+        print_result("structured module_compile", res, BREADBOARD_OK);
+
+        res = breadboard_artifact_draft_query_info(structured_draft, &draft_info);
+        print_result("structured draft_query_info", res, BREADBOARD_OK);
+        if (draft_info.declared_component_count != 3u ||
+            draft_info.declared_connection_count != 2u ||
+            draft_info.declared_stateful_node_count != 1u)
+        {
+            printf("[FAIL] structured draft info summary mismatch\n");
+            exit(1);
+        }
+
+        breadboard_artifact_draft_free(structured_draft);
+        breadboard_module_free(structured_module);
+    }
+
     /* 13. Lookup by ID and Name failure paths */
     res = breadboard_draft_input_descriptor_by_id(draft, 999, &lookup_desc);
     print_result("draft_input_descriptor_by_id(999)", res, BREADBOARD_ERR_NOT_FOUND);
@@ -680,6 +748,27 @@ int main(void)
 
     res = breadboard_artifact_draft_query_info(draft, NULL);
     print_result("draft_query_info(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+    res = breadboard_module_set_structure_summary(module, NULL);
+    print_result("module_set_structure_summary(NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+    {
+        BreadboardModule* invalid_structure_module = NULL;
+        BreadboardComponentSpec duplicate_component = { 1u, "gate", false };
+        BreadboardConnectionSpec missing_connection = { 1u, 2u };
+
+        res = breadboard_module_create(&invalid_structure_module);
+        print_result("invalid structured module_create", res, BREADBOARD_OK);
+        res = breadboard_module_set_target(invalid_structure_module, BREADBOARD_TARGET_TEMPORAL);
+        print_result("invalid structured module_set_target", res, BREADBOARD_OK);
+        res = breadboard_module_add_component_instance(invalid_structure_module, &duplicate_component);
+        print_result("invalid structured add_component first", res, BREADBOARD_OK);
+        res = breadboard_module_add_component_instance(invalid_structure_module, &duplicate_component);
+        print_result("invalid structured add_component duplicate", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        res = breadboard_module_add_connection(invalid_structure_module, &missing_connection);
+        print_result("invalid structured add_connection missing endpoint", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        breadboard_module_free(invalid_structure_module);
+    }
 
     {
         BreadboardRequirementProfile invalid_profile = { 0u, false, true, true };

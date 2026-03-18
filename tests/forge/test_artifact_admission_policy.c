@@ -121,6 +121,9 @@ main(void)
         info.source_approximate_size_bytes != 1024u ||
         info.source_module_id != 0u ||
         strcmp(info.source_module_name, "") != 0 ||
+        info.source_declared_component_count != 0u ||
+        info.source_declared_connection_count != 0u ||
+        info.source_declared_stateful_node_count != 0u ||
         !info.requires_advanced_controls ||
         info.requires_native_state_read ||
         info.requires_native_inputs ||
@@ -234,6 +237,9 @@ main(void)
         info.source_approximate_size_bytes != 1024u ||
         info.source_module_id != 0u ||
         strcmp(info.source_module_name, "") != 0 ||
+        info.source_declared_component_count != 0u ||
+        info.source_declared_connection_count != 0u ||
+        info.source_declared_stateful_node_count != 0u ||
         info.required_extension_mask != 0u ||
         info.requires_advanced_controls != 0u ||
         info.requires_native_state_read != 0u ||

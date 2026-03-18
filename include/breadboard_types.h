@@ -150,6 +150,47 @@ typedef struct BreadboardRequirementProfile
 BreadboardRequirementProfile;
 
 /*
+ * BreadboardStructureSummary
+ *
+ * Optional coarse authored structural summary for a module. This is source-side
+ * metadata only and does not imply real lowering or netlist ingestion.
+ */
+typedef struct BreadboardStructureSummary
+{
+    uint32_t declared_component_count;
+    uint32_t declared_connection_count;
+    uint32_t declared_stateful_node_count;
+}
+BreadboardStructureSummary;
+
+/*
+ * BreadboardComponentSpec
+ *
+ * Minimal authored structural component declaration used by the current
+ * scaffolding path to derive coarse structure summary counts.
+ */
+typedef struct BreadboardComponentSpec
+{
+    uint64_t id;
+    const char* kind_name;
+    bool is_stateful;
+}
+BreadboardComponentSpec;
+
+/*
+ * BreadboardConnectionSpec
+ *
+ * Minimal authored structural connection declaration used by the current
+ * scaffolding path to derive coarse structure summary counts.
+ */
+typedef struct BreadboardConnectionSpec
+{
+    uint64_t source_component_id;
+    uint64_t sink_component_id;
+}
+BreadboardConnectionSpec;
+
+/*
  * BreadboardCompileOptions
  *
  * Configuration knobs for adjusting structural compilation behavior.
@@ -192,6 +233,9 @@ typedef struct BreadboardDraftInfo
     size_t approximate_size_bytes;
     uint64_t source_module_id;
     const char* source_module_name;
+    uint32_t declared_component_count;
+    uint32_t declared_connection_count;
+    uint32_t declared_stateful_node_count;
 }
 BreadboardDraftInfo;
 

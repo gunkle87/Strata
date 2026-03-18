@@ -135,6 +135,17 @@ validate_requirement_profile(
 }
 
 static void
+fill_default_structure_summary(BreadboardStructureSummary* out_summary)
+{
+    if (!out_summary)
+    {
+        return;
+    }
+
+    memset(out_summary, 0, sizeof(*out_summary));
+}
+
+static void
 fill_default_requirement_profile(
     BreadboardTarget target,
     BreadboardRequirementProfile* out_profile)
@@ -199,6 +210,29 @@ copy_descriptor_name(
     memcpy(copy, name, len + 1u);
     *out_name = copy;
     return 1;
+}
+
+static void
+free_component_array(
+    BreadboardComponentInstance* components,
+    size_t count)
+{
+    size_t index;
+
+    if (!components)
+    {
+        return;
+    }
+
+    for (index = 0u; index < count; ++index)
+    {
+        if (components[index].kind_name)
+        {
+            free((void*)components[index].kind_name);
+        }
+    }
+
+    free(components);
 }
 
 static int
@@ -309,6 +343,110 @@ append_module_descriptor(
     return BREADBOARD_OK;
 }
 
+static int
+module_has_component_id(
+    const BreadboardModule* module,
+    uint64_t component_id)
+{
+    size_t index;
+
+    if (!module)
+    {
+        return 0;
+    }
+
+    for (index = 0u; index < module->component_count; ++index)
+    {
+        if (module->components[index].id == component_id)
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static BreadboardResult
+append_component_instance(
+    BreadboardModule* module,
+    const BreadboardComponentSpec* spec)
+{
+    BreadboardComponentInstance* new_components;
+    const char* kind_name_copy;
+
+    if (!module || !spec || !spec->kind_name || spec->kind_name[0] == '\0')
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    if (module_has_component_id(module, spec->id))
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    new_components = (BreadboardComponentInstance*)realloc(
+        module->components,
+        (module->component_count + 1u) * sizeof(BreadboardComponentInstance));
+    if (!new_components)
+    {
+        return BREADBOARD_ERR_INTERNAL;
+    }
+
+    module->components = new_components;
+    kind_name_copy = NULL;
+    if (!copy_descriptor_name(spec->kind_name, &kind_name_copy))
+    {
+        return BREADBOARD_ERR_INTERNAL;
+    }
+
+    module->components[module->component_count].id = spec->id;
+    module->components[module->component_count].kind_name = kind_name_copy;
+    module->components[module->component_count].is_stateful = spec->is_stateful;
+    module->component_count += 1u;
+    if (spec->is_stateful)
+    {
+        module->stateful_component_count += 1u;
+    }
+
+    return BREADBOARD_OK;
+}
+
+static BreadboardResult
+append_connection(
+    BreadboardModule* module,
+    const BreadboardConnectionSpec* spec)
+{
+    BreadboardConnection* new_connections;
+
+    if (!module || !spec)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    if (!module_has_component_id(module, spec->source_component_id) ||
+        !module_has_component_id(module, spec->sink_component_id))
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    new_connections = (BreadboardConnection*)realloc(
+        module->connections,
+        (module->connection_count + 1u) * sizeof(BreadboardConnection));
+    if (!new_connections)
+    {
+        return BREADBOARD_ERR_INTERNAL;
+    }
+
+    module->connections = new_connections;
+    module->connections[module->connection_count].source_component_id =
+        spec->source_component_id;
+    module->connections[module->connection_count].sink_component_id =
+        spec->sink_component_id;
+    module->connection_count += 1u;
+
+    return BREADBOARD_OK;
+}
+
 static void
 serialize_breadboard_descriptors(
     StrataPlaceholderSerializedDescriptor* out_descriptors,
@@ -382,6 +520,8 @@ void breadboard_module_free(BreadboardModule* module)
 {
     if (module)
     {
+        free_component_array(module->components, module->component_count);
+        free(module->connections);
         free_descriptor_array(module->inputs, module->input_count);
         free_descriptor_array(module->outputs, module->output_count);
         free_descriptor_array(module->probes, module->probe_count);
@@ -556,6 +696,49 @@ BreadboardResult breadboard_module_set_requirement_profile(
     return BREADBOARD_OK;
 }
 
+BreadboardResult breadboard_module_set_structure_summary(
+    BreadboardModule* module,
+    const BreadboardStructureSummary* summary)
+{
+    if (!module)
+    {
+        return BREADBOARD_ERR_INVALID_HANDLE;
+    }
+
+    if (!summary)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    module->structure_summary = *summary;
+    module->has_structure_summary = true;
+    return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_module_add_component_instance(
+    BreadboardModule* module,
+    const BreadboardComponentSpec* spec)
+{
+    if (!module)
+    {
+        return BREADBOARD_ERR_INVALID_HANDLE;
+    }
+
+    return append_component_instance(module, spec);
+}
+
+BreadboardResult breadboard_module_add_connection(
+    BreadboardModule* module,
+    const BreadboardConnectionSpec* spec)
+{
+    if (!module)
+    {
+        return BREADBOARD_ERR_INVALID_HANDLE;
+    }
+
+    return append_connection(module, spec);
+}
+
 /* Helper to record a diagnostic */
 static BreadboardResult record_diagnostic(
     BreadboardModule* module,
@@ -720,6 +903,25 @@ BreadboardResult breadboard_module_compile(
         record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_INTERNAL_ERROR, "Failed to copy module identity into draft");
         return BREADBOARD_ERR_INTERNAL;
     }
+
+    if (module->component_count != 0u || module->connection_count != 0u)
+    {
+        draft->structure_summary.declared_component_count =
+            (uint32_t)module->component_count;
+        draft->structure_summary.declared_connection_count =
+            (uint32_t)module->connection_count;
+        draft->structure_summary.declared_stateful_node_count =
+            (uint32_t)module->stateful_component_count;
+    }
+    else if (module->has_structure_summary)
+    {
+        draft->structure_summary = module->structure_summary;
+    }
+    else
+    {
+        fill_default_structure_summary(&draft->structure_summary);
+    }
+
     draft->info.target = module->target;
     draft->info.has_placeholders =
         (module->input_count == 0u && module->output_count == 0u && module->probe_count == 0u);
@@ -729,6 +931,12 @@ BreadboardResult breadboard_module_compile(
         (uint32_t)draft->probe_count);
     draft->info.source_module_id = draft->source_module_id;
     draft->info.source_module_name = draft->source_module_name;
+    draft->info.declared_component_count =
+        draft->structure_summary.declared_component_count;
+    draft->info.declared_connection_count =
+        draft->structure_summary.declared_connection_count;
+    draft->info.declared_stateful_node_count =
+        draft->structure_summary.declared_stateful_node_count;
     draft->admission_info.target = module->target;
     draft->admission_info.is_placeholder = true;
     draft->admission_info.approximate_size_bytes = draft->info.approximate_size_bytes;
@@ -968,6 +1176,12 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
         draft_summary.source_module_name,
         draft->source_module_name,
         sizeof(draft_summary.source_module_name) - 1u);
+    draft_summary.declared_component_count =
+        draft->structure_summary.declared_component_count;
+    draft_summary.declared_connection_count =
+        draft->structure_summary.declared_connection_count;
+    draft_summary.declared_stateful_node_count =
+        draft->structure_summary.declared_stateful_node_count;
 
     total_descriptor_count = draft->input_count +
         draft->output_count +

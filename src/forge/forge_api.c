@@ -1013,6 +1013,12 @@ forge_artifact_load(
             art->source_module_name,
             draft_summary->source_module_name,
             sizeof(art->source_module_name) - 1u);
+        art->source_declared_component_count =
+            draft_summary->declared_component_count;
+        art->source_declared_connection_count =
+            draft_summary->declared_connection_count;
+        art->source_declared_stateful_node_count =
+            draft_summary->declared_stateful_node_count;
         art->payload_size = header->payload_size;
         art->input_descriptor_count = header->input_descriptor_count;
         art->output_descriptor_count = header->output_descriptor_count;
@@ -1078,6 +1084,12 @@ forge_artifact_info(
     out_info->source_approximate_size_bytes = artifact->source_approximate_size_bytes;
     out_info->source_module_id = artifact->source_module_id;
     out_info->source_module_name = artifact->source_module_name;
+    out_info->source_declared_component_count =
+        artifact->source_declared_component_count;
+    out_info->source_declared_connection_count =
+        artifact->source_declared_connection_count;
+    out_info->source_declared_stateful_node_count =
+        artifact->source_declared_stateful_node_count;
     out_info->payload_size = artifact->payload_size;
     out_info->placeholder_flags = artifact->placeholder_flags;
     out_info->required_extension_mask = artifact->required_extension_mask;

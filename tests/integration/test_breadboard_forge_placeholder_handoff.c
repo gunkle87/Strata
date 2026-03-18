@@ -47,6 +47,7 @@ static int
 build_and_export_draft(
     BreadboardTarget target,
     const BreadboardModuleIdentity *identity,
+    const BreadboardStructureSummary *structure_summary,
     BreadboardDescriptor *out_input_descriptor,
     BreadboardDescriptor *out_output_descriptor,
     BreadboardDescriptor *out_probe_descriptor,
@@ -79,6 +80,13 @@ build_and_export_draft(
 
     if (identity &&
         breadboard_module_set_identity(module, identity) != BREADBOARD_OK)
+    {
+        breadboard_module_free(module);
+        return 0;
+    }
+
+    if (structure_summary &&
+        breadboard_module_set_structure_summary(module, structure_summary) != BREADBOARD_OK)
     {
         breadboard_module_free(module);
         return 0;
@@ -165,6 +173,10 @@ main(void)
     BreadboardModuleIdentity fast_identity = { 0x1111u, "fast_path" };
     BreadboardModuleIdentity temporal_identity = { 0x2222u, "temporal_path" };
     BreadboardModuleIdentity native_identity = { 0x3333u, "native_path" };
+    BreadboardStructureSummary fast_summary = { 4u, 6u, 1u };
+    BreadboardStructureSummary authored_summary = { 3u, 2u, 1u };
+    BreadboardStructureSummary native_summary = { 8u, 12u, 3u };
+    BreadboardStructureSummary temporal_summary = { 5u, 7u, 2u };
     ForgeResult result;
     const StrataPlaceholderArtifactHeader *header;
     const StrataPlaceholderSectionEntry *admission_section;
@@ -194,6 +206,7 @@ main(void)
     if (!build_and_export_draft(
         BREADBOARD_TARGET_FAST_4STATE,
         &fast_identity,
+        &fast_summary,
         &breadboard_input,
         &breadboard_output,
         &breadboard_probe,
@@ -257,6 +270,9 @@ main(void)
         draft_summary->approximate_size_bytes != strata_placeholder_artifact_size() ||
         draft_summary->source_module_id != fast_identity.module_id ||
         strcmp(draft_summary->source_module_name, fast_identity.module_name) != 0 ||
+        draft_summary->declared_component_count != fast_summary.declared_component_count ||
+        draft_summary->declared_connection_count != fast_summary.declared_connection_count ||
+        draft_summary->declared_stateful_node_count != fast_summary.declared_stateful_node_count ||
         header->admission_info.requirement_flags != STRATA_PLACEHOLDER_REQUIREMENT_NONE)
     {
         free(bytes);
@@ -282,6 +298,9 @@ main(void)
         info.source_approximate_size_bytes != strata_placeholder_artifact_size() ||
         info.source_module_id != fast_identity.module_id ||
         strcmp(info.source_module_name, fast_identity.module_name) != 0 ||
+        info.source_declared_component_count != fast_summary.declared_component_count ||
+        info.source_declared_connection_count != fast_summary.declared_connection_count ||
+        info.source_declared_stateful_node_count != fast_summary.declared_stateful_node_count ||
         info.requires_advanced_controls != 0u ||
         info.requires_native_state_read != 0u ||
         info.requires_native_inputs != 0u)
@@ -348,6 +367,7 @@ main(void)
         if (breadboard_module_create(&module) != BREADBOARD_OK ||
             breadboard_module_set_target(module, BREADBOARD_TARGET_TEMPORAL) != BREADBOARD_OK ||
             breadboard_module_set_identity(module, &authored_identity) != BREADBOARD_OK ||
+            breadboard_module_set_structure_summary(module, &authored_summary) != BREADBOARD_OK ||
             breadboard_module_add_input_descriptor(module, &input_spec) != BREADBOARD_OK ||
             breadboard_module_add_output_descriptor(module, &output_spec) != BREADBOARD_OK ||
             breadboard_module_add_probe_descriptor(module, &probe_spec) != BREADBOARD_OK ||
@@ -395,7 +415,10 @@ main(void)
             draft_summary->approximate_size_bytes !=
                 strata_placeholder_artifact_size_for_counts(1u, 1u, 1u) ||
             draft_summary->source_module_id != authored_identity.module_id ||
-            strcmp(draft_summary->source_module_name, authored_identity.module_name) != 0)
+            strcmp(draft_summary->source_module_name, authored_identity.module_name) != 0 ||
+            draft_summary->declared_component_count != authored_summary.declared_component_count ||
+            draft_summary->declared_connection_count != authored_summary.declared_connection_count ||
+            draft_summary->declared_stateful_node_count != authored_summary.declared_stateful_node_count)
         {
             free(bytes);
             fprintf(stderr, "FAIL: authored TEMPORAL draft summary mismatch\n");
@@ -420,7 +443,10 @@ main(void)
             info.source_approximate_size_bytes !=
                 strata_placeholder_artifact_size_for_counts(1u, 1u, 1u) ||
             info.source_module_id != authored_identity.module_id ||
-            strcmp(info.source_module_name, authored_identity.module_name) != 0)
+            strcmp(info.source_module_name, authored_identity.module_name) != 0 ||
+            info.source_declared_component_count != authored_summary.declared_component_count ||
+            info.source_declared_connection_count != authored_summary.declared_connection_count ||
+            info.source_declared_stateful_node_count != authored_summary.declared_stateful_node_count)
         {
             fprintf(stderr, "FAIL: authored TEMPORAL artifact info mismatch\n");
             forge_artifact_unload(artifact);
@@ -473,6 +499,118 @@ main(void)
     {
         BreadboardModule *module;
         BreadboardArtifactDraft *draft;
+        BreadboardModuleIdentity structured_identity = { 0x4444u, "structured_path" };
+        BreadboardStructureSummary misleading_summary = { 99u, 88u, 77u };
+        BreadboardComponentSpec component_a = { 21u, "mux", false };
+        BreadboardComponentSpec component_b = { 22u, "register", true };
+        BreadboardConnectionSpec connection = { 21u, 22u };
+
+        module = NULL;
+        draft = NULL;
+
+        if (breadboard_module_create(&module) != BREADBOARD_OK ||
+            breadboard_module_set_target(module, BREADBOARD_TARGET_TEMPORAL) != BREADBOARD_OK ||
+            breadboard_module_set_identity(module, &structured_identity) != BREADBOARD_OK ||
+            breadboard_module_set_structure_summary(module, &misleading_summary) != BREADBOARD_OK ||
+            breadboard_module_add_component_instance(module, &component_a) != BREADBOARD_OK ||
+            breadboard_module_add_component_instance(module, &component_b) != BREADBOARD_OK ||
+            breadboard_module_add_connection(module, &connection) != BREADBOARD_OK)
+        {
+            fprintf(stderr, "FAIL: could not initialize structured TEMPORAL module\n");
+            return 1;
+        }
+
+        {
+            BreadboardCompileOptions options;
+            options.allow_placeholders = true;
+            options.deny_approximation = false;
+            options.strict_projection = false;
+
+            if (breadboard_module_compile(module, &options, &draft) != BREADBOARD_OK || !draft)
+            {
+                fprintf(stderr, "FAIL: could not build structured TEMPORAL draft\n");
+                breadboard_module_free(module);
+                return 1;
+            }
+        }
+
+        if (breadboard_artifact_draft_export_placeholder_size(draft, &size) != BREADBOARD_OK)
+        {
+            fprintf(stderr, "FAIL: could not size structured TEMPORAL draft export\n");
+            breadboard_artifact_draft_free(draft);
+            breadboard_module_free(module);
+            return 1;
+        }
+
+        bytes = (unsigned char*)malloc(size);
+        if (!bytes)
+        {
+            fprintf(stderr, "FAIL: could not allocate structured TEMPORAL export bytes\n");
+            breadboard_artifact_draft_free(draft);
+            breadboard_module_free(module);
+            return 1;
+        }
+
+        if (breadboard_artifact_draft_export_placeholder(draft, bytes, size, &size) != BREADBOARD_OK)
+        {
+            fprintf(stderr, "FAIL: could not export structured TEMPORAL draft\n");
+            free(bytes);
+            breadboard_artifact_draft_free(draft);
+            breadboard_module_free(module);
+            return 1;
+        }
+
+        breadboard_artifact_draft_free(draft);
+        breadboard_module_free(module);
+
+        header = (const StrataPlaceholderArtifactHeader *)bytes;
+        draft_summary = strata_placeholder_artifact_draft_summary(header);
+        if (!draft_summary ||
+            draft_summary->source_module_id != structured_identity.module_id ||
+            strcmp(draft_summary->source_module_name, structured_identity.module_name) != 0 ||
+            draft_summary->declared_component_count != 2u ||
+            draft_summary->declared_connection_count != 1u ||
+            draft_summary->declared_stateful_node_count != 1u)
+        {
+            free(bytes);
+            fprintf(stderr, "FAIL: structured TEMPORAL draft summary mismatch\n");
+            return 1;
+        }
+
+        artifact = NULL;
+        result = forge_artifact_load(highz_id, bytes, size, &artifact);
+        free(bytes);
+
+        if (result != FORGE_OK || !artifact)
+        {
+            fprintf(stderr, "FAIL: structured TEMPORAL handoff should load, got %d\n",
+                (int)result);
+            return 1;
+        }
+
+        result = forge_artifact_info(artifact, &info);
+        if (result != FORGE_OK ||
+            info.source_module_id != structured_identity.module_id ||
+            strcmp(info.source_module_name, structured_identity.module_name) != 0 ||
+            info.source_declared_component_count != 2u ||
+            info.source_declared_connection_count != 1u ||
+            info.source_declared_stateful_node_count != 1u)
+        {
+            fprintf(stderr, "FAIL: structured TEMPORAL artifact info mismatch\n");
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        if (forge_artifact_unload(artifact) != FORGE_OK)
+        {
+            fprintf(stderr, "FAIL: could not unload structured TEMPORAL artifact\n");
+            return 1;
+        }
+    }
+
+    {
+        BreadboardModule *module;
+        BreadboardArtifactDraft *draft;
         BreadboardRequirementProfile native_profile = { 1u, false, true, true };
 
         module = NULL;
@@ -481,6 +619,7 @@ main(void)
         if (breadboard_module_create(&module) != BREADBOARD_OK ||
             breadboard_module_set_target(module, BREADBOARD_TARGET_TEMPORAL) != BREADBOARD_OK ||
             breadboard_module_set_identity(module, &native_identity) != BREADBOARD_OK ||
+            breadboard_module_set_structure_summary(module, &native_summary) != BREADBOARD_OK ||
             breadboard_module_set_requirement_profile(module, &native_profile) != BREADBOARD_OK)
         {
             fprintf(stderr, "FAIL: could not initialize native TEMPORAL module\n");
@@ -535,7 +674,10 @@ main(void)
         if (!draft_summary ||
             header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_NATIVE ||
             draft_summary->source_module_id != native_identity.module_id ||
-            strcmp(draft_summary->source_module_name, native_identity.module_name) != 0)
+            strcmp(draft_summary->source_module_name, native_identity.module_name) != 0 ||
+            draft_summary->declared_component_count != native_summary.declared_component_count ||
+            draft_summary->declared_connection_count != native_summary.declared_connection_count ||
+            draft_summary->declared_stateful_node_count != native_summary.declared_stateful_node_count)
         {
             free(bytes);
             fprintf(stderr, "FAIL: native TEMPORAL draft summary mismatch\n");
@@ -557,6 +699,9 @@ main(void)
         if (result != FORGE_OK ||
             info.source_module_id != native_identity.module_id ||
             strcmp(info.source_module_name, native_identity.module_name) != 0 ||
+            info.source_declared_component_count != native_summary.declared_component_count ||
+            info.source_declared_connection_count != native_summary.declared_connection_count ||
+            info.source_declared_stateful_node_count != native_summary.declared_stateful_node_count ||
             info.requires_advanced_controls != 0u ||
             !info.requires_native_state_read ||
             !info.requires_native_inputs)
@@ -578,6 +723,7 @@ main(void)
     if (!build_and_export_draft(
         BREADBOARD_TARGET_TEMPORAL,
         &temporal_identity,
+        &temporal_summary,
         &breadboard_input,
         &breadboard_output,
         &breadboard_probe,
@@ -641,6 +787,9 @@ main(void)
         draft_summary->approximate_size_bytes != strata_placeholder_artifact_size() ||
         draft_summary->source_module_id != temporal_identity.module_id ||
         strcmp(draft_summary->source_module_name, temporal_identity.module_name) != 0 ||
+        draft_summary->declared_component_count != temporal_summary.declared_component_count ||
+        draft_summary->declared_connection_count != temporal_summary.declared_connection_count ||
+        draft_summary->declared_stateful_node_count != temporal_summary.declared_stateful_node_count ||
         header->admission_info.requirement_flags !=
             STRATA_PLACEHOLDER_REQUIREMENT_ADVANCED_CONTROL ||
         !header->admission_info.requires_advanced_controls)
@@ -668,6 +817,9 @@ main(void)
         info.source_approximate_size_bytes != strata_placeholder_artifact_size() ||
         info.source_module_id != temporal_identity.module_id ||
         strcmp(info.source_module_name, temporal_identity.module_name) != 0 ||
+        info.source_declared_component_count != temporal_summary.declared_component_count ||
+        info.source_declared_connection_count != temporal_summary.declared_connection_count ||
+        info.source_declared_stateful_node_count != temporal_summary.declared_stateful_node_count ||
         !info.requires_advanced_controls)
     {
         free(bytes);

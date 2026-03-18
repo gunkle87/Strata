@@ -91,6 +91,39 @@ BreadboardResult breadboard_module_set_requirement_profile(
     const BreadboardRequirementProfile* profile);
 
 /*
+ * breadboard_module_set_structure_summary
+ *
+ * Sets optional coarse authored structural summary metadata on the module.
+ * This remains source-side scaffolding only and is propagated through draft
+ * info and the temporary placeholder export path.
+ */
+BreadboardResult breadboard_module_set_structure_summary(
+    BreadboardModule* module,
+    const BreadboardStructureSummary* summary);
+
+/*
+ * breadboard_module_add_component_instance
+ *
+ * Declares a minimal authored structural component instance on the module.
+ * Current scaffolding uses these declarations only to derive coarse structure
+ * summary counts.
+ */
+BreadboardResult breadboard_module_add_component_instance(
+    BreadboardModule* module,
+    const BreadboardComponentSpec* spec);
+
+/*
+ * breadboard_module_add_connection
+ *
+ * Declares a minimal authored structural connection on the module. Current
+ * scaffolding uses these declarations only to derive coarse structure summary
+ * counts and basic authored topology presence.
+ */
+BreadboardResult breadboard_module_add_connection(
+    BreadboardModule* module,
+    const BreadboardConnectionSpec* spec);
+
+/*
  * breadboard_module_add_input_descriptor
  *
  * Declares a draft-visible input descriptor on the module.

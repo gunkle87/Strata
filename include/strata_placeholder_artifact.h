@@ -16,7 +16,7 @@
 
 #define STRATA_PLACEHOLDER_ARTIFACT_MAGIC_LEN 4u
 #define STRATA_PLACEHOLDER_ARTIFACT_VERSION_MAJOR 0u
-#define STRATA_PLACEHOLDER_ARTIFACT_VERSION_MINOR 8u
+#define STRATA_PLACEHOLDER_ARTIFACT_VERSION_MINOR 9u
 #define STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN 4u
 #define STRATA_PLACEHOLDER_DESCRIPTOR_NAME_CAPACITY 32u
 #define STRATA_PLACEHOLDER_MODULE_NAME_CAPACITY 64u
@@ -45,6 +45,9 @@ typedef struct StrataPlaceholderDraftSummary
     uint64_t approximate_size_bytes;
     uint64_t source_module_id;
     char source_module_name[STRATA_PLACEHOLDER_MODULE_NAME_CAPACITY];
+    uint32_t declared_component_count;
+    uint32_t declared_connection_count;
+    uint32_t declared_stateful_node_count;
 }
 StrataPlaceholderDraftSummary;
 
@@ -314,6 +317,9 @@ strata_placeholder_expected_draft_summary_for_backend(
     out_summary->approximate_size_bytes = 1024u;
     out_summary->source_module_id = 0u;
     memset(out_summary->source_module_name, 0, sizeof(out_summary->source_module_name));
+    out_summary->declared_component_count = 0u;
+    out_summary->declared_connection_count = 0u;
+    out_summary->declared_stateful_node_count = 0u;
 
     switch (backend_id)
     {

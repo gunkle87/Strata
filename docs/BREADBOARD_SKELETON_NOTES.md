@@ -16,6 +16,7 @@ The following core public types define the compiler contract:
 - `BreadboardDescriptorSpec`: Defines an authored draft-visible descriptor declaration for module inputs, outputs, and probes.
 - `BreadboardModuleIdentity`: Defines optional authored source identity metadata for a module.
 - `BreadboardRequirementProfile`: Defines an optional coarse authored requirement profile for temporary admission-class selection.
+- `BreadboardStructureSummary`: Defines optional authored coarse source-side structure counts for temporary draft and export summaries.
 - `BreadboardResult`: Provides standard compilation status and error codes.
 - `BreadboardCompileOptions`: Knobs for compilation strictness (provides `allow_placeholders`, `deny_approximation`, `strict_projection`).
 - `BreadboardDiagnosticSeverity`: Severity scale for emitted compiler diagnostics.
@@ -50,6 +51,9 @@ Modules now also support explicit authored descriptor declaration through:
 - `breadboard_module_add_probe_descriptor`
 - `breadboard_module_set_identity`
 - `breadboard_module_set_requirement_profile`
+- `breadboard_module_set_structure_summary`
+- `breadboard_module_add_component_instance`
+- `breadboard_module_add_connection`
 
 The first is a coarse stable draft summary. The second is the newer admission-oriented surface.
 The export helpers provide a temporary placeholder handoff into the current
@@ -128,9 +132,27 @@ The draft summary block now includes:
 - placeholder-vs-authored coarse status
 - approximate artifact size
 - optional authored module identity (`module_id`, `module_name`)
+- optional authored structure counts (`declared_component_count`,
+  `declared_connection_count`, `declared_stateful_node_count`)
 
 That keeps the temporary contract self-describing while still remaining a
 scaffolding format rather than the final Strata artifact layout.
+
+## Minimal Structural Declarations
+
+Breadboard modules can now also declare minimal authored structural presence in
+the current scaffolding path:
+- component instances (`breadboard_module_add_component_instance`)
+- connections (`breadboard_module_add_connection`)
+
+These do not yet perform real graph lowering or recognition. Their current role
+is narrower and deliberate:
+- they let Breadboard derive coarse structure-summary counts from authored
+  module content
+- they let the draft-summary block reflect actual declared structure when such
+  declarations exist
+- they override any manually supplied coarse structure summary, so the current
+  vertical path prefers authored structural truth over synthetic summary values
 
 ## Current Stub Limitations
 
