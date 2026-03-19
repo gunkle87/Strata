@@ -61,7 +61,10 @@ typedef enum BreadboardDiagnosticCode
     BREADBOARD_DIAG_CODE_UNSUPPORTED_TARGET = 1,
     BREADBOARD_DIAG_CODE_UNSUPPORTED_CONSTRUCT = 2,
     BREADBOARD_DIAG_CODE_INTERNAL_ERROR = 3,
-    BREADBOARD_DIAG_CODE_TARGET_DENIED_BY_POLICY = 4
+    BREADBOARD_DIAG_CODE_TARGET_DENIED_BY_POLICY = 4,
+    BREADBOARD_DIAG_CODE_EXECUTABLE_SUBSET_REQUIRED = 5,
+    BREADBOARD_DIAG_CODE_EXECUTABLE_SUBSET_INVALID = 6,
+    BREADBOARD_DIAG_CODE_EXECUTABLE_LOWERING_UNAVAILABLE = 7
 }
 BreadboardDiagnosticCode;
 
@@ -228,6 +231,86 @@ typedef struct BreadboardPrimitiveSignature
 BreadboardPrimitiveSignature;
 
 /*
+ * BreadboardEndpointSpec
+ *
+ * Explicit endpoint declaration for the first admitted executable subset.
+ * Module endpoints use descriptor_id; component endpoints use component_id and
+ * slot_index. Unused identity fields must be zeroed.
+ */
+typedef struct BreadboardEndpointSpec
+{
+    BreadboardEndpointClass endpoint_class;
+    uint64_t descriptor_id;
+    uint64_t component_id;
+    uint32_t slot_index;
+}
+BreadboardEndpointSpec;
+
+/*
+ * BreadboardExecutableConnectionSpec
+ *
+ * Endpoint-aware connection declaration for executable-subset legality
+ * analysis. This is still structural contract data only, not lowered IR.
+ */
+typedef struct BreadboardExecutableConnectionSpec
+{
+    BreadboardEndpointSpec source;
+    BreadboardEndpointSpec sink;
+}
+BreadboardExecutableConnectionSpec;
+
+/*
+ * BreadboardExecutableAssessmentStatus
+ *
+ * Outcome of assessing a module against the frozen admitted executable subset.
+ */
+typedef enum BreadboardExecutableAssessmentStatus
+{
+    BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID = 0,
+    BREADBOARD_EXECUTABLE_ASSESSMENT_PLACEHOLDER_ONLY = 1,
+    BREADBOARD_EXECUTABLE_ASSESSMENT_EXECUTABLE = 2
+}
+BreadboardExecutableAssessmentStatus;
+
+/*
+ * BreadboardExecutableAssessmentReason
+ *
+ * Coarse explanation for why a module is executable, placeholder-only, or
+ * structurally invalid for the admitted fast-path subset.
+ */
+typedef enum BreadboardExecutableAssessmentReason
+{
+    BREADBOARD_EXEC_REASON_NONE = 0,
+    BREADBOARD_EXEC_REASON_TARGET_UNSUPPORTED = 1,
+    BREADBOARD_EXEC_REASON_PROFILE_UNSUPPORTED = 2,
+    BREADBOARD_EXEC_REASON_PROBES_UNSUPPORTED = 3,
+    BREADBOARD_EXEC_REASON_DESCRIPTOR_WIDTH_UNSUPPORTED = 4,
+    BREADBOARD_EXEC_REASON_STATEFUL_COMPONENT_UNSUPPORTED = 5,
+    BREADBOARD_EXEC_REASON_PRIMITIVE_UNSUPPORTED = 6,
+    BREADBOARD_EXEC_REASON_EXECUTABLE_CONNECTIONS_REQUIRED = 7,
+    BREADBOARD_EXEC_REASON_INVALID_ENDPOINT = 8,
+    BREADBOARD_EXEC_REASON_DUPLICATE_SINK_DRIVER = 9,
+    BREADBOARD_EXEC_REASON_MISSING_REQUIRED_DRIVER = 10,
+    BREADBOARD_EXEC_REASON_CYCLE_DETECTED = 11
+}
+BreadboardExecutableAssessmentReason;
+
+/*
+ * BreadboardExecutableAssessment
+ *
+ * Public legality assessment surface for the admitted first executable subset.
+ */
+typedef struct BreadboardExecutableAssessment
+{
+    BreadboardExecutableSubset subset;
+    BreadboardExecutableAssessmentStatus status;
+    BreadboardExecutableAssessmentReason reason;
+    uint64_t failing_component_id;
+    size_t failing_connection_index;
+}
+BreadboardExecutableAssessment;
+
+/*
  * BreadboardModuleIdentity
  *
  * Optional authored identity metadata for a module. This is coarse source-side
@@ -339,6 +422,9 @@ typedef struct BreadboardCompileOptions
 
     /* If true, explicitly enforce strict state projection rules. */
     bool strict_projection;
+
+    /* If true, require the first real executable path and disallow placeholder fallback. */
+    bool require_real_executable;
 }
 BreadboardCompileOptions;
 

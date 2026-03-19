@@ -319,6 +319,57 @@ copy_connection_array(
 }
 
 static int
+module_find_component_index(
+    const BreadboardModule* module,
+    uint64_t component_id,
+    size_t* out_index)
+{
+    size_t index;
+
+    if (!module || !out_index)
+    {
+        return 0;
+    }
+
+    for (index = 0u; index < module->component_count; ++index)
+    {
+        if (module->components[index].id == component_id)
+        {
+            *out_index = index;
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static int
+find_descriptor_index(
+    const BreadboardDescriptor* descriptors,
+    size_t count,
+    uint64_t descriptor_id,
+    size_t* out_index)
+{
+    size_t index;
+
+    if (!descriptors || !out_index)
+    {
+        return 0;
+    }
+
+    for (index = 0u; index < count; ++index)
+    {
+        if (descriptors[index].id == descriptor_id)
+        {
+            *out_index = index;
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static int
 copy_declared_descriptors(
     BreadboardDescriptor** out_descriptors,
     const BreadboardDescriptor* descriptors,
@@ -528,6 +579,515 @@ append_connection(
     module->connection_count += 1u;
 
     return BREADBOARD_OK;
+}
+
+static int
+primitive_kind_from_name(
+    const char* kind_name,
+    BreadboardPrimitiveKind* out_kind)
+{
+    if (!kind_name || !out_kind)
+    {
+        return 0;
+    }
+
+    if (strcmp(kind_name, "BUF") == 0)
+    {
+        *out_kind = BREADBOARD_PRIMITIVE_BUF;
+        return 1;
+    }
+    if (strcmp(kind_name, "NOT") == 0)
+    {
+        *out_kind = BREADBOARD_PRIMITIVE_NOT;
+        return 1;
+    }
+    if (strcmp(kind_name, "AND") == 0)
+    {
+        *out_kind = BREADBOARD_PRIMITIVE_AND;
+        return 1;
+    }
+    if (strcmp(kind_name, "OR") == 0)
+    {
+        *out_kind = BREADBOARD_PRIMITIVE_OR;
+        return 1;
+    }
+    if (strcmp(kind_name, "XOR") == 0)
+    {
+        *out_kind = BREADBOARD_PRIMITIVE_XOR;
+        return 1;
+    }
+
+    *out_kind = BREADBOARD_PRIMITIVE_INVALID;
+    return 0;
+}
+
+static uint32_t
+primitive_input_count(
+    BreadboardPrimitiveKind kind)
+{
+    switch (kind)
+    {
+        case BREADBOARD_PRIMITIVE_BUF:
+        case BREADBOARD_PRIMITIVE_NOT:
+            return 1u;
+        case BREADBOARD_PRIMITIVE_AND:
+        case BREADBOARD_PRIMITIVE_OR:
+        case BREADBOARD_PRIMITIVE_XOR:
+            return 2u;
+        default:
+            return 0u;
+    }
+}
+
+static void
+fill_executable_assessment_default(
+    BreadboardExecutableAssessment* out_assessment)
+{
+    if (!out_assessment)
+    {
+        return;
+    }
+
+    memset(out_assessment, 0, sizeof(*out_assessment));
+    out_assessment->subset = BREADBOARD_EXECUTABLE_SUBSET_NONE;
+    out_assessment->status = BREADBOARD_EXECUTABLE_ASSESSMENT_PLACEHOLDER_ONLY;
+    out_assessment->reason = BREADBOARD_EXEC_REASON_NONE;
+    out_assessment->failing_connection_index = (size_t)-1;
+}
+
+static BreadboardResult
+append_executable_connection(
+    BreadboardModule* module,
+    const BreadboardExecutableConnectionSpec* spec)
+{
+    BreadboardExecutableConnectionSpec* new_connections;
+
+    if (!module || !spec)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    new_connections = (BreadboardExecutableConnectionSpec*)realloc(
+        module->executable_connections,
+        (module->executable_connection_count + 1u) *
+            sizeof(BreadboardExecutableConnectionSpec));
+    if (!new_connections)
+    {
+        return BREADBOARD_ERR_INTERNAL;
+    }
+
+    module->executable_connections = new_connections;
+    module->executable_connections[module->executable_connection_count] = *spec;
+    module->executable_connection_count += 1u;
+    return BREADBOARD_OK;
+}
+
+static const char*
+executable_assessment_reason_message(
+    BreadboardExecutableAssessmentReason reason)
+{
+    switch (reason)
+    {
+        case BREADBOARD_EXEC_REASON_TARGET_UNSUPPORTED:
+            return "Current target has no admitted real executable subset";
+        case BREADBOARD_EXEC_REASON_PROFILE_UNSUPPORTED:
+            return "Requirement profile falls outside the admitted executable subset";
+        case BREADBOARD_EXEC_REASON_PROBES_UNSUPPORTED:
+            return "Probe descriptors are not part of the admitted executable subset";
+        case BREADBOARD_EXEC_REASON_DESCRIPTOR_WIDTH_UNSUPPORTED:
+            return "Executable subset currently requires single-bit inputs and outputs";
+        case BREADBOARD_EXEC_REASON_STATEFUL_COMPONENT_UNSUPPORTED:
+            return "Stateful components are not admitted in the first executable subset";
+        case BREADBOARD_EXEC_REASON_PRIMITIVE_UNSUPPORTED:
+            return "Authored component kind is outside the admitted primitive family";
+        case BREADBOARD_EXEC_REASON_EXECUTABLE_CONNECTIONS_REQUIRED:
+            return "Real executable assessment requires endpoint-aware executable connections";
+        case BREADBOARD_EXEC_REASON_INVALID_ENDPOINT:
+            return "Executable connection endpoints are malformed or reference invalid slots";
+        case BREADBOARD_EXEC_REASON_DUPLICATE_SINK_DRIVER:
+            return "Executable subset requires every sink to have at most one driver";
+        case BREADBOARD_EXEC_REASON_MISSING_REQUIRED_DRIVER:
+            return "Executable subset requires every primitive input and module output to be driven";
+        case BREADBOARD_EXEC_REASON_CYCLE_DETECTED:
+            return "Executable subset requires an acyclic combinational topology";
+        default:
+            return "Executable subset requirement not satisfied";
+    }
+}
+
+static BreadboardExecutableAssessment
+assess_executable_subset(
+    const BreadboardModule* module)
+{
+    BreadboardExecutableAssessment assessment;
+    size_t descriptor_index;
+    size_t component_index;
+    size_t connection_index;
+    unsigned char* component_input_seen;
+    unsigned char* output_seen;
+    unsigned char* adjacency;
+    size_t* indegree;
+    size_t* queue;
+    size_t queue_head;
+    size_t queue_tail;
+    size_t visited_count;
+
+    fill_executable_assessment_default(&assessment);
+
+    if (!module)
+    {
+        assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID;
+        assessment.reason = BREADBOARD_EXEC_REASON_INVALID_ENDPOINT;
+        return assessment;
+    }
+
+    if (module->target != BREADBOARD_TARGET_FAST_4STATE)
+    {
+        assessment.reason = BREADBOARD_EXEC_REASON_TARGET_UNSUPPORTED;
+        return assessment;
+    }
+
+    assessment.subset = BREADBOARD_EXECUTABLE_SUBSET_FAST_COMBINATIONAL_V1;
+
+    if (module->has_requirement_profile &&
+        (module->requirement_profile.extension_flags != 0u ||
+         module->requirement_profile.requires_advanced_controls ||
+         module->requirement_profile.requires_native_state_read ||
+         module->requirement_profile.requires_native_inputs))
+    {
+        assessment.reason = BREADBOARD_EXEC_REASON_PROFILE_UNSUPPORTED;
+        return assessment;
+    }
+
+    if (module->probe_count != 0u)
+    {
+        assessment.reason = BREADBOARD_EXEC_REASON_PROBES_UNSUPPORTED;
+        return assessment;
+    }
+
+    for (descriptor_index = 0u; descriptor_index < module->input_count; ++descriptor_index)
+    {
+        if (module->inputs[descriptor_index].width != 1u)
+        {
+            assessment.reason = BREADBOARD_EXEC_REASON_DESCRIPTOR_WIDTH_UNSUPPORTED;
+            return assessment;
+        }
+    }
+
+    for (descriptor_index = 0u; descriptor_index < module->output_count; ++descriptor_index)
+    {
+        if (module->outputs[descriptor_index].width != 1u)
+        {
+            assessment.reason = BREADBOARD_EXEC_REASON_DESCRIPTOR_WIDTH_UNSUPPORTED;
+            return assessment;
+        }
+    }
+
+    for (component_index = 0u; component_index < module->component_count; ++component_index)
+    {
+        BreadboardPrimitiveKind primitive_kind;
+
+        if (module->components[component_index].is_stateful)
+        {
+            assessment.reason = BREADBOARD_EXEC_REASON_STATEFUL_COMPONENT_UNSUPPORTED;
+            assessment.failing_component_id = module->components[component_index].id;
+            return assessment;
+        }
+
+        if (!primitive_kind_from_name(
+                module->components[component_index].kind_name,
+                &primitive_kind))
+        {
+            assessment.reason = BREADBOARD_EXEC_REASON_PRIMITIVE_UNSUPPORTED;
+            assessment.failing_component_id = module->components[component_index].id;
+            return assessment;
+        }
+    }
+
+    if (module->executable_connection_count == 0u)
+    {
+        assessment.reason = BREADBOARD_EXEC_REASON_EXECUTABLE_CONNECTIONS_REQUIRED;
+        return assessment;
+    }
+
+    component_input_seen = NULL;
+    output_seen = NULL;
+    adjacency = NULL;
+    indegree = NULL;
+    queue = NULL;
+
+    if (module->component_count != 0u)
+    {
+        component_input_seen = (unsigned char*)calloc(
+            module->component_count * 2u,
+            sizeof(unsigned char));
+        adjacency = (unsigned char*)calloc(
+            module->component_count * module->component_count,
+            sizeof(unsigned char));
+        indegree = (size_t*)calloc(module->component_count, sizeof(size_t));
+        queue = (size_t*)calloc(module->component_count, sizeof(size_t));
+        if (!component_input_seen || !adjacency || !indegree || !queue)
+        {
+            free(queue);
+            free(indegree);
+            free(adjacency);
+            free(output_seen);
+            free(component_input_seen);
+            assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID;
+            assessment.reason = BREADBOARD_EXEC_REASON_INVALID_ENDPOINT;
+            return assessment;
+        }
+    }
+
+    if (module->output_count != 0u)
+    {
+        output_seen = (unsigned char*)calloc(module->output_count, sizeof(unsigned char));
+        if (!output_seen)
+        {
+            free(queue);
+            free(indegree);
+            free(adjacency);
+            free(component_input_seen);
+            assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID;
+            assessment.reason = BREADBOARD_EXEC_REASON_INVALID_ENDPOINT;
+            return assessment;
+        }
+    }
+
+    for (connection_index = 0u;
+         connection_index < module->executable_connection_count;
+         ++connection_index)
+    {
+        const BreadboardExecutableConnectionSpec* connection =
+            &module->executable_connections[connection_index];
+        size_t source_component_index = 0u;
+        size_t sink_component_index = 0u;
+        size_t output_index = 0u;
+        BreadboardPrimitiveKind primitive_kind = BREADBOARD_PRIMITIVE_INVALID;
+        uint32_t input_count = 0u;
+        int source_is_component = 0;
+        int sink_is_component = 0;
+
+        assessment.failing_connection_index = connection_index;
+
+        switch (connection->source.endpoint_class)
+        {
+            case BREADBOARD_ENDPOINT_MODULE_INPUT_SOURCE:
+                if (connection->source.component_id != 0u ||
+                    connection->source.slot_index != 0u ||
+                    !find_descriptor_index(
+                        module->inputs,
+                        module->input_count,
+                        connection->source.descriptor_id,
+                        &descriptor_index))
+                {
+                    assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID;
+                    assessment.reason = BREADBOARD_EXEC_REASON_INVALID_ENDPOINT;
+                    goto cleanup;
+                }
+                break;
+
+            case BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE:
+                if (connection->source.descriptor_id != 0u ||
+                    connection->source.slot_index != 0u ||
+                    !module_find_component_index(
+                        module,
+                        connection->source.component_id,
+                        &source_component_index) ||
+                    !primitive_kind_from_name(
+                        module->components[source_component_index].kind_name,
+                        &primitive_kind))
+                {
+                    assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID;
+                    assessment.reason = BREADBOARD_EXEC_REASON_INVALID_ENDPOINT;
+                    goto cleanup;
+                }
+                source_is_component = 1;
+                break;
+
+            default:
+                assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID;
+                assessment.reason = BREADBOARD_EXEC_REASON_INVALID_ENDPOINT;
+                goto cleanup;
+        }
+
+        switch (connection->sink.endpoint_class)
+        {
+            case BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK:
+                if (connection->sink.descriptor_id != 0u ||
+                    !module_find_component_index(
+                        module,
+                        connection->sink.component_id,
+                        &sink_component_index) ||
+                    !primitive_kind_from_name(
+                        module->components[sink_component_index].kind_name,
+                        &primitive_kind))
+                {
+                    assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID;
+                    assessment.reason = BREADBOARD_EXEC_REASON_INVALID_ENDPOINT;
+                    goto cleanup;
+                }
+
+                input_count = primitive_input_count(primitive_kind);
+                if (input_count == 0u || connection->sink.slot_index >= input_count)
+                {
+                    assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID;
+                    assessment.reason = BREADBOARD_EXEC_REASON_INVALID_ENDPOINT;
+                    goto cleanup;
+                }
+
+                if (component_input_seen[(sink_component_index * 2u) +
+                                         connection->sink.slot_index] != 0u)
+                {
+                    assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID;
+                    assessment.reason = BREADBOARD_EXEC_REASON_DUPLICATE_SINK_DRIVER;
+                    assessment.failing_component_id =
+                        module->components[sink_component_index].id;
+                    goto cleanup;
+                }
+
+                component_input_seen[(sink_component_index * 2u) +
+                                     connection->sink.slot_index] = 1u;
+                sink_is_component = 1;
+                break;
+
+            case BREADBOARD_ENDPOINT_MODULE_OUTPUT_SINK:
+                if (connection->sink.component_id != 0u ||
+                    connection->sink.slot_index != 0u ||
+                    !find_descriptor_index(
+                        module->outputs,
+                        module->output_count,
+                        connection->sink.descriptor_id,
+                        &output_index))
+                {
+                    assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID;
+                    assessment.reason = BREADBOARD_EXEC_REASON_INVALID_ENDPOINT;
+                    goto cleanup;
+                }
+
+                if (output_seen[output_index] != 0u)
+                {
+                    assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID;
+                    assessment.reason = BREADBOARD_EXEC_REASON_DUPLICATE_SINK_DRIVER;
+                    goto cleanup;
+                }
+
+                output_seen[output_index] = 1u;
+                break;
+
+            default:
+                assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID;
+                assessment.reason = BREADBOARD_EXEC_REASON_INVALID_ENDPOINT;
+                goto cleanup;
+        }
+
+        if (source_is_component && sink_is_component)
+        {
+            if (source_component_index == sink_component_index)
+            {
+                assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID;
+                assessment.reason = BREADBOARD_EXEC_REASON_CYCLE_DETECTED;
+                assessment.failing_component_id =
+                    module->components[source_component_index].id;
+                goto cleanup;
+            }
+
+            adjacency[(source_component_index * module->component_count) +
+                      sink_component_index] = 1u;
+        }
+    }
+
+    for (component_index = 0u; component_index < module->component_count; ++component_index)
+    {
+        BreadboardPrimitiveKind primitive_kind;
+        uint32_t input_count;
+        uint32_t slot_index;
+
+        primitive_kind_from_name(module->components[component_index].kind_name, &primitive_kind);
+        input_count = primitive_input_count(primitive_kind);
+        for (slot_index = 0u; slot_index < input_count; ++slot_index)
+        {
+            if (component_input_seen[(component_index * 2u) + slot_index] == 0u)
+            {
+                assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID;
+                assessment.reason = BREADBOARD_EXEC_REASON_MISSING_REQUIRED_DRIVER;
+                assessment.failing_component_id = module->components[component_index].id;
+                goto cleanup;
+            }
+        }
+    }
+
+    for (descriptor_index = 0u; descriptor_index < module->output_count; ++descriptor_index)
+    {
+        if (output_seen[descriptor_index] == 0u)
+        {
+            assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID;
+            assessment.reason = BREADBOARD_EXEC_REASON_MISSING_REQUIRED_DRIVER;
+            goto cleanup;
+        }
+    }
+
+    for (component_index = 0u; component_index < module->component_count; ++component_index)
+    {
+        size_t sink_index;
+        for (sink_index = 0u; sink_index < module->component_count; ++sink_index)
+        {
+            if (adjacency[(component_index * module->component_count) + sink_index] != 0u)
+            {
+                indegree[sink_index] += 1u;
+            }
+        }
+    }
+
+    queue_head = 0u;
+    queue_tail = 0u;
+    for (component_index = 0u; component_index < module->component_count; ++component_index)
+    {
+        if (indegree[component_index] == 0u)
+        {
+            queue[queue_tail++] = component_index;
+        }
+    }
+
+    visited_count = 0u;
+    while (queue_head < queue_tail)
+    {
+        size_t current_index = queue[queue_head++];
+        size_t sink_index;
+
+        visited_count += 1u;
+        for (sink_index = 0u; sink_index < module->component_count; ++sink_index)
+        {
+            if (adjacency[(current_index * module->component_count) + sink_index] == 0u)
+            {
+                continue;
+            }
+
+            indegree[sink_index] -= 1u;
+            if (indegree[sink_index] == 0u)
+            {
+                queue[queue_tail++] = sink_index;
+            }
+        }
+    }
+
+    if (visited_count != module->component_count)
+    {
+        assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID;
+        assessment.reason = BREADBOARD_EXEC_REASON_CYCLE_DETECTED;
+        goto cleanup;
+    }
+
+    assessment.status = BREADBOARD_EXECUTABLE_ASSESSMENT_EXECUTABLE;
+    assessment.reason = BREADBOARD_EXEC_REASON_NONE;
+
+cleanup:
+    free(queue);
+    free(indegree);
+    free(adjacency);
+    free(output_seen);
+    free(component_input_seen);
+    return assessment;
 }
 
 static void
@@ -747,6 +1307,7 @@ void breadboard_module_free(BreadboardModule* module)
     {
         free_component_array(module->components, module->component_count);
         free(module->connections);
+        free(module->executable_connections);
         free_descriptor_array(module->inputs, module->input_count);
         free_descriptor_array(module->outputs, module->output_count);
         free_descriptor_array(module->probes, module->probe_count);
@@ -964,6 +1525,18 @@ BreadboardResult breadboard_module_add_connection(
     return append_connection(module, spec);
 }
 
+BreadboardResult breadboard_module_add_executable_connection(
+    BreadboardModule* module,
+    const BreadboardExecutableConnectionSpec* spec)
+{
+    if (!module)
+    {
+        return BREADBOARD_ERR_INVALID_HANDLE;
+    }
+
+    return append_executable_connection(module, spec);
+}
+
 /* Helper to record a diagnostic */
 static BreadboardResult record_diagnostic(
     BreadboardModule* module,
@@ -999,6 +1572,8 @@ BreadboardResult breadboard_module_compile(
     const BreadboardCompileOptions* options,
     BreadboardArtifactDraft** out_draft)
 {
+    BreadboardExecutableAssessment executable_assessment;
+
     if (!module || !out_draft)
     {
         return BREADBOARD_ERR_INVALID_ARGUMENT;
@@ -1026,6 +1601,45 @@ BreadboardResult breadboard_module_compile(
     {
         record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_TARGET_DENIED_BY_POLICY, "Target denied by product/compile policy");
         return BREADBOARD_ERR_COMPILE_FAILED;
+    }
+
+    if (options &&
+        options->require_real_executable &&
+        options->allow_placeholders)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    executable_assessment = assess_executable_subset(module);
+    if (executable_assessment.status == BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID)
+    {
+        record_diagnostic(
+            module,
+            BREADBOARD_DIAG_ERROR,
+            BREADBOARD_DIAG_CODE_EXECUTABLE_SUBSET_INVALID,
+            executable_assessment_reason_message(executable_assessment.reason));
+        return BREADBOARD_ERR_COMPILE_FAILED;
+    }
+
+    if (options && options->require_real_executable)
+    {
+        if (executable_assessment.status !=
+            BREADBOARD_EXECUTABLE_ASSESSMENT_EXECUTABLE)
+        {
+            record_diagnostic(
+                module,
+                BREADBOARD_DIAG_ERROR,
+                BREADBOARD_DIAG_CODE_EXECUTABLE_SUBSET_REQUIRED,
+                executable_assessment_reason_message(executable_assessment.reason));
+            return BREADBOARD_ERR_COMPILE_FAILED;
+        }
+
+        record_diagnostic(
+            module,
+            BREADBOARD_DIAG_ERROR,
+            BREADBOARD_DIAG_CODE_EXECUTABLE_LOWERING_UNAVAILABLE,
+            "Real executable fast-path lowering is not implemented yet");
+        return BREADBOARD_ERR_UNSUPPORTED;
     }
 
     /* We are a skeleton. We cannot actually compile structure yet. */
@@ -1678,6 +2292,24 @@ BreadboardResult breadboard_query_primitive_signature(
         return BREADBOARD_ERR_INVALID_ARGUMENT;
     }
 
+    return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_module_assess_executable_subset(
+    const BreadboardModule* module,
+    BreadboardExecutableAssessment* out_assessment)
+{
+    if (!module)
+    {
+        return BREADBOARD_ERR_INVALID_HANDLE;
+    }
+
+    if (!out_assessment)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    *out_assessment = assess_executable_subset(module);
     return BREADBOARD_OK;
 }
 

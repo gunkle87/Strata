@@ -211,6 +211,370 @@ int main(void)
         print_result("query_primitive_signature(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
     }
 
+    {
+        BreadboardModule* executable_module = NULL;
+        BreadboardArtifactDraft* executable_draft = NULL;
+        BreadboardExecutableAssessment assessment;
+        BreadboardDiagnostic diagnostic;
+        BreadboardDescriptorSpec input_a = { 401u, "a", 1u };
+        BreadboardDescriptorSpec input_b = { 402u, "b", 1u };
+        BreadboardDescriptorSpec output_y = { 403u, "y", 1u };
+        BreadboardComponentSpec and_gate = { 501u, "AND", false };
+        BreadboardComponentSpec not_gate = { 502u, "NOT", false };
+        BreadboardExecutableConnectionSpec exec_ab = {
+            { BREADBOARD_ENDPOINT_MODULE_INPUT_SOURCE, 401u, 0u, 0u },
+            { BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK, 0u, 501u, 0u }
+        };
+        BreadboardExecutableConnectionSpec exec_bb = {
+            { BREADBOARD_ENDPOINT_MODULE_INPUT_SOURCE, 402u, 0u, 0u },
+            { BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK, 0u, 501u, 1u }
+        };
+        BreadboardExecutableConnectionSpec exec_chain = {
+            { BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE, 0u, 501u, 0u },
+            { BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK, 0u, 502u, 0u }
+        };
+        BreadboardExecutableConnectionSpec exec_out = {
+            { BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE, 0u, 502u, 0u },
+            { BREADBOARD_ENDPOINT_MODULE_OUTPUT_SINK, 403u, 0u, 0u }
+        };
+        BreadboardCompileOptions opts_real = {
+            .allow_placeholders = false,
+            .deny_approximation = false,
+            .strict_projection = false,
+            .require_real_executable = true
+        };
+        BreadboardCompileOptions opts_conflict = {
+            .allow_placeholders = true,
+            .deny_approximation = false,
+            .strict_projection = false,
+            .require_real_executable = true
+        };
+
+        res = breadboard_module_create(&executable_module);
+        print_result("exec module_create", res, BREADBOARD_OK);
+        res = breadboard_module_set_target(executable_module, BREADBOARD_TARGET_FAST_4STATE);
+        print_result("exec module_set_target", res, BREADBOARD_OK);
+        res = breadboard_module_add_input_descriptor(executable_module, &input_a);
+        print_result("exec add_input_a", res, BREADBOARD_OK);
+        res = breadboard_module_add_input_descriptor(executable_module, &input_b);
+        print_result("exec add_input_b", res, BREADBOARD_OK);
+        res = breadboard_module_add_output_descriptor(executable_module, &output_y);
+        print_result("exec add_output_y", res, BREADBOARD_OK);
+        res = breadboard_module_add_component_instance(executable_module, &and_gate);
+        print_result("exec add_component_and", res, BREADBOARD_OK);
+        res = breadboard_module_add_component_instance(executable_module, &not_gate);
+        print_result("exec add_component_not", res, BREADBOARD_OK);
+        res = breadboard_module_add_executable_connection(executable_module, &exec_ab);
+        print_result("exec add_connection_ab", res, BREADBOARD_OK);
+        res = breadboard_module_add_executable_connection(executable_module, &exec_bb);
+        print_result("exec add_connection_bb", res, BREADBOARD_OK);
+        res = breadboard_module_add_executable_connection(executable_module, &exec_chain);
+        print_result("exec add_connection_chain", res, BREADBOARD_OK);
+        res = breadboard_module_add_executable_connection(executable_module, &exec_out);
+        print_result("exec add_connection_out", res, BREADBOARD_OK);
+
+        res = breadboard_module_assess_executable_subset(executable_module, &assessment);
+        print_result("exec assess_subset", res, BREADBOARD_OK);
+        if (assessment.subset != BREADBOARD_EXECUTABLE_SUBSET_FAST_COMBINATIONAL_V1 ||
+            assessment.status != BREADBOARD_EXECUTABLE_ASSESSMENT_EXECUTABLE ||
+            assessment.reason != BREADBOARD_EXEC_REASON_NONE)
+        {
+            printf("[FAIL] executable assessment mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_module_compile(executable_module, &opts_conflict, &executable_draft);
+        print_result("exec compile(conflicting options)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+        res = breadboard_module_compile(executable_module, &opts_real, &executable_draft);
+        print_result("exec compile(require_real_executable)", res, BREADBOARD_ERR_UNSUPPORTED);
+
+        res = breadboard_module_get_last_diagnostic(executable_module, &diagnostic);
+        print_result("exec last_diagnostic", res, BREADBOARD_OK);
+        if (diagnostic.code != BREADBOARD_DIAG_CODE_EXECUTABLE_LOWERING_UNAVAILABLE)
+        {
+            printf("[FAIL] executable lowering diagnostic mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_module_add_executable_connection(NULL, &exec_ab);
+        print_result("add_executable_connection(NULL, ...)", res, BREADBOARD_ERR_INVALID_HANDLE);
+        res = breadboard_module_add_executable_connection(executable_module, NULL);
+        print_result("add_executable_connection(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        res = breadboard_module_assess_executable_subset(NULL, &assessment);
+        print_result("assess_executable_subset(NULL, ...)", res, BREADBOARD_ERR_INVALID_HANDLE);
+        res = breadboard_module_assess_executable_subset(executable_module, NULL);
+        print_result("assess_executable_subset(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+        breadboard_artifact_draft_free(executable_draft);
+        breadboard_module_free(executable_module);
+    }
+
+    {
+        BreadboardModule* unsupported_module = NULL;
+        BreadboardArtifactDraft* unsupported_draft = NULL;
+        BreadboardExecutableAssessment assessment;
+        BreadboardDiagnostic diagnostic;
+        BreadboardDescriptorSpec input_desc = { 601u, "in", 1u };
+        BreadboardDescriptorSpec output_desc = { 602u, "out", 1u };
+        BreadboardComponentSpec unsupported_component = { 603u, "NAND", false };
+        BreadboardCompileOptions opts_real = {
+            .allow_placeholders = false,
+            .deny_approximation = false,
+            .strict_projection = false,
+            .require_real_executable = true
+        };
+
+        res = breadboard_module_create(&unsupported_module);
+        print_result("unsupported exec module_create", res, BREADBOARD_OK);
+        res = breadboard_module_set_target(unsupported_module, BREADBOARD_TARGET_FAST_4STATE);
+        print_result("unsupported exec module_set_target", res, BREADBOARD_OK);
+        res = breadboard_module_add_input_descriptor(unsupported_module, &input_desc);
+        print_result("unsupported exec add_input", res, BREADBOARD_OK);
+        res = breadboard_module_add_output_descriptor(unsupported_module, &output_desc);
+        print_result("unsupported exec add_output", res, BREADBOARD_OK);
+        res = breadboard_module_add_component_instance(unsupported_module, &unsupported_component);
+        print_result("unsupported exec add_component", res, BREADBOARD_OK);
+        res = breadboard_module_assess_executable_subset(unsupported_module, &assessment);
+        print_result("unsupported exec assess_subset", res, BREADBOARD_OK);
+        if (assessment.status != BREADBOARD_EXECUTABLE_ASSESSMENT_PLACEHOLDER_ONLY ||
+            assessment.reason != BREADBOARD_EXEC_REASON_PRIMITIVE_UNSUPPORTED ||
+            assessment.failing_component_id != 603u)
+        {
+            printf("[FAIL] unsupported primitive assessment mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_module_compile(unsupported_module, &opts_real, &unsupported_draft);
+        print_result("unsupported exec compile(require_real_executable)", res, BREADBOARD_ERR_COMPILE_FAILED);
+        res = breadboard_module_get_last_diagnostic(unsupported_module, &diagnostic);
+        print_result("unsupported exec last_diagnostic", res, BREADBOARD_OK);
+        if (diagnostic.code != BREADBOARD_DIAG_CODE_EXECUTABLE_SUBSET_REQUIRED)
+        {
+            printf("[FAIL] unsupported primitive diagnostic mismatch\n");
+            exit(1);
+        }
+
+        breadboard_artifact_draft_free(unsupported_draft);
+        breadboard_module_free(unsupported_module);
+    }
+
+    {
+        BreadboardModule* invalid_exec_module = NULL;
+        BreadboardArtifactDraft* invalid_exec_draft = NULL;
+        BreadboardExecutableAssessment assessment;
+        BreadboardDiagnostic diagnostic;
+        BreadboardDescriptorSpec input_a = { 701u, "a", 1u };
+        BreadboardDescriptorSpec input_b = { 702u, "b", 1u };
+        BreadboardDescriptorSpec output_y = { 703u, "y", 1u };
+        BreadboardComponentSpec and_gate = { 704u, "AND", false };
+        BreadboardExecutableConnectionSpec first_driver = {
+            { BREADBOARD_ENDPOINT_MODULE_INPUT_SOURCE, 701u, 0u, 0u },
+            { BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK, 0u, 704u, 0u }
+        };
+        BreadboardExecutableConnectionSpec duplicate_driver = {
+            { BREADBOARD_ENDPOINT_MODULE_INPUT_SOURCE, 702u, 0u, 0u },
+            { BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK, 0u, 704u, 0u }
+        };
+        BreadboardExecutableConnectionSpec output_driver = {
+            { BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE, 0u, 704u, 0u },
+            { BREADBOARD_ENDPOINT_MODULE_OUTPUT_SINK, 703u, 0u, 0u }
+        };
+        BreadboardCompileOptions opts_real = {
+            .allow_placeholders = false,
+            .deny_approximation = false,
+            .strict_projection = false,
+            .require_real_executable = true
+        };
+
+        res = breadboard_module_create(&invalid_exec_module);
+        print_result("invalid exec module_create", res, BREADBOARD_OK);
+        res = breadboard_module_set_target(invalid_exec_module, BREADBOARD_TARGET_FAST_4STATE);
+        print_result("invalid exec module_set_target", res, BREADBOARD_OK);
+        res = breadboard_module_add_input_descriptor(invalid_exec_module, &input_a);
+        print_result("invalid exec add_input_a", res, BREADBOARD_OK);
+        res = breadboard_module_add_input_descriptor(invalid_exec_module, &input_b);
+        print_result("invalid exec add_input_b", res, BREADBOARD_OK);
+        res = breadboard_module_add_output_descriptor(invalid_exec_module, &output_y);
+        print_result("invalid exec add_output", res, BREADBOARD_OK);
+        res = breadboard_module_add_component_instance(invalid_exec_module, &and_gate);
+        print_result("invalid exec add_component", res, BREADBOARD_OK);
+        res = breadboard_module_add_executable_connection(invalid_exec_module, &first_driver);
+        print_result("invalid exec add_connection_first", res, BREADBOARD_OK);
+        res = breadboard_module_add_executable_connection(invalid_exec_module, &duplicate_driver);
+        print_result("invalid exec add_connection_duplicate", res, BREADBOARD_OK);
+        res = breadboard_module_add_executable_connection(invalid_exec_module, &output_driver);
+        print_result("invalid exec add_connection_output", res, BREADBOARD_OK);
+
+        res = breadboard_module_assess_executable_subset(invalid_exec_module, &assessment);
+        print_result("invalid exec assess_subset", res, BREADBOARD_OK);
+        if (assessment.status != BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID ||
+            assessment.reason != BREADBOARD_EXEC_REASON_DUPLICATE_SINK_DRIVER ||
+            assessment.failing_component_id != 704u)
+        {
+            printf("[FAIL] invalid executable assessment mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_module_compile(invalid_exec_module, &opts_real, &invalid_exec_draft);
+        print_result("invalid exec compile(require_real_executable)", res, BREADBOARD_ERR_COMPILE_FAILED);
+        res = breadboard_module_get_last_diagnostic(invalid_exec_module, &diagnostic);
+        print_result("invalid exec last_diagnostic", res, BREADBOARD_OK);
+        if (diagnostic.code != BREADBOARD_DIAG_CODE_EXECUTABLE_SUBSET_INVALID)
+        {
+            printf("[FAIL] invalid executable diagnostic mismatch\n");
+            exit(1);
+        }
+
+        breadboard_artifact_draft_free(invalid_exec_draft);
+        breadboard_module_free(invalid_exec_module);
+    }
+
+    {
+        BreadboardModule* temporal_exec_module = NULL;
+        BreadboardExecutableAssessment assessment;
+
+        res = breadboard_module_create(&temporal_exec_module);
+        print_result("temporal exec module_create", res, BREADBOARD_OK);
+        res = breadboard_module_set_target(temporal_exec_module, BREADBOARD_TARGET_TEMPORAL);
+        print_result("temporal exec module_set_target", res, BREADBOARD_OK);
+        res = breadboard_module_assess_executable_subset(temporal_exec_module, &assessment);
+        print_result("temporal exec assess_subset", res, BREADBOARD_OK);
+        if (assessment.status != BREADBOARD_EXECUTABLE_ASSESSMENT_PLACEHOLDER_ONLY ||
+            assessment.reason != BREADBOARD_EXEC_REASON_TARGET_UNSUPPORTED)
+        {
+            printf("[FAIL] temporal target assessment mismatch\n");
+            exit(1);
+        }
+
+        breadboard_module_free(temporal_exec_module);
+    }
+
+    {
+        BreadboardModule* invalid_endpoint_module = NULL;
+        BreadboardExecutableAssessment assessment;
+        BreadboardDescriptorSpec input_a = { 801u, "a", 1u };
+        BreadboardDescriptorSpec output_y = { 802u, "y", 1u };
+        BreadboardComponentSpec buf_gate = { 803u, "BUF", false };
+        BreadboardExecutableConnectionSpec bad_slot = {
+            { BREADBOARD_ENDPOINT_MODULE_INPUT_SOURCE, 801u, 0u, 0u },
+            { BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK, 0u, 803u, 1u }
+        };
+        BreadboardExecutableConnectionSpec drive_output = {
+            { BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE, 0u, 803u, 0u },
+            { BREADBOARD_ENDPOINT_MODULE_OUTPUT_SINK, 802u, 0u, 0u }
+        };
+
+        res = breadboard_module_create(&invalid_endpoint_module);
+        print_result("invalid endpoint module_create", res, BREADBOARD_OK);
+        res = breadboard_module_set_target(invalid_endpoint_module, BREADBOARD_TARGET_FAST_4STATE);
+        print_result("invalid endpoint module_set_target", res, BREADBOARD_OK);
+        res = breadboard_module_add_input_descriptor(invalid_endpoint_module, &input_a);
+        print_result("invalid endpoint add_input", res, BREADBOARD_OK);
+        res = breadboard_module_add_output_descriptor(invalid_endpoint_module, &output_y);
+        print_result("invalid endpoint add_output", res, BREADBOARD_OK);
+        res = breadboard_module_add_component_instance(invalid_endpoint_module, &buf_gate);
+        print_result("invalid endpoint add_component", res, BREADBOARD_OK);
+        res = breadboard_module_add_executable_connection(invalid_endpoint_module, &bad_slot);
+        print_result("invalid endpoint add_connection_bad_slot", res, BREADBOARD_OK);
+        res = breadboard_module_add_executable_connection(invalid_endpoint_module, &drive_output);
+        print_result("invalid endpoint add_connection_output", res, BREADBOARD_OK);
+        res = breadboard_module_assess_executable_subset(invalid_endpoint_module, &assessment);
+        print_result("invalid endpoint assess_subset", res, BREADBOARD_OK);
+        if (assessment.status != BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID ||
+            assessment.reason != BREADBOARD_EXEC_REASON_INVALID_ENDPOINT)
+        {
+            printf("[FAIL] invalid endpoint assessment mismatch\n");
+            exit(1);
+        }
+
+        breadboard_module_free(invalid_endpoint_module);
+    }
+
+    {
+        BreadboardModule* missing_driver_module = NULL;
+        BreadboardExecutableAssessment assessment;
+        BreadboardDescriptorSpec input_a = { 901u, "a", 1u };
+        BreadboardDescriptorSpec output_y = { 902u, "y", 1u };
+        BreadboardComponentSpec and_gate = { 903u, "AND", false };
+        BreadboardExecutableConnectionSpec first_input = {
+            { BREADBOARD_ENDPOINT_MODULE_INPUT_SOURCE, 901u, 0u, 0u },
+            { BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK, 0u, 903u, 0u }
+        };
+        BreadboardExecutableConnectionSpec output_driver = {
+            { BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE, 0u, 903u, 0u },
+            { BREADBOARD_ENDPOINT_MODULE_OUTPUT_SINK, 902u, 0u, 0u }
+        };
+
+        res = breadboard_module_create(&missing_driver_module);
+        print_result("missing driver module_create", res, BREADBOARD_OK);
+        res = breadboard_module_set_target(missing_driver_module, BREADBOARD_TARGET_FAST_4STATE);
+        print_result("missing driver module_set_target", res, BREADBOARD_OK);
+        res = breadboard_module_add_input_descriptor(missing_driver_module, &input_a);
+        print_result("missing driver add_input", res, BREADBOARD_OK);
+        res = breadboard_module_add_output_descriptor(missing_driver_module, &output_y);
+        print_result("missing driver add_output", res, BREADBOARD_OK);
+        res = breadboard_module_add_component_instance(missing_driver_module, &and_gate);
+        print_result("missing driver add_component", res, BREADBOARD_OK);
+        res = breadboard_module_add_executable_connection(missing_driver_module, &first_input);
+        print_result("missing driver add_connection_input", res, BREADBOARD_OK);
+        res = breadboard_module_add_executable_connection(missing_driver_module, &output_driver);
+        print_result("missing driver add_connection_output", res, BREADBOARD_OK);
+        res = breadboard_module_assess_executable_subset(missing_driver_module, &assessment);
+        print_result("missing driver assess_subset", res, BREADBOARD_OK);
+        if (assessment.status != BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID ||
+            assessment.reason != BREADBOARD_EXEC_REASON_MISSING_REQUIRED_DRIVER ||
+            assessment.failing_component_id != 903u)
+        {
+            printf("[FAIL] missing driver assessment mismatch\n");
+            exit(1);
+        }
+
+        breadboard_module_free(missing_driver_module);
+    }
+
+    {
+        BreadboardModule* cycle_module = NULL;
+        BreadboardExecutableAssessment assessment;
+        BreadboardDescriptorSpec input_a = { 1001u, "a", 1u };
+        BreadboardDescriptorSpec output_y = { 1002u, "y", 1u };
+        BreadboardComponentSpec buf_gate = { 1003u, "BUF", false };
+        BreadboardExecutableConnectionSpec self_cycle = {
+            { BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE, 0u, 1003u, 0u },
+            { BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK, 0u, 1003u, 0u }
+        };
+        BreadboardExecutableConnectionSpec output_driver = {
+            { BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE, 0u, 1003u, 0u },
+            { BREADBOARD_ENDPOINT_MODULE_OUTPUT_SINK, 1002u, 0u, 0u }
+        };
+
+        res = breadboard_module_create(&cycle_module);
+        print_result("cycle module_create", res, BREADBOARD_OK);
+        res = breadboard_module_set_target(cycle_module, BREADBOARD_TARGET_FAST_4STATE);
+        print_result("cycle module_set_target", res, BREADBOARD_OK);
+        res = breadboard_module_add_input_descriptor(cycle_module, &input_a);
+        print_result("cycle add_input", res, BREADBOARD_OK);
+        res = breadboard_module_add_output_descriptor(cycle_module, &output_y);
+        print_result("cycle add_output", res, BREADBOARD_OK);
+        res = breadboard_module_add_component_instance(cycle_module, &buf_gate);
+        print_result("cycle add_component", res, BREADBOARD_OK);
+        res = breadboard_module_add_executable_connection(cycle_module, &self_cycle);
+        print_result("cycle add_connection_self", res, BREADBOARD_OK);
+        res = breadboard_module_add_executable_connection(cycle_module, &output_driver);
+        print_result("cycle add_connection_output", res, BREADBOARD_OK);
+        res = breadboard_module_assess_executable_subset(cycle_module, &assessment);
+        print_result("cycle assess_subset", res, BREADBOARD_OK);
+        if (assessment.status != BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID ||
+            assessment.reason != BREADBOARD_EXEC_REASON_CYCLE_DETECTED ||
+            assessment.failing_component_id != 1003u)
+        {
+            printf("[FAIL] cycle assessment mismatch\n");
+            exit(1);
+        }
+
+        breadboard_module_free(cycle_module);
+    }
+
     res = breadboard_module_set_identity(module, &module_identity);
     print_result("module_set_identity", res, BREADBOARD_OK);
     res = breadboard_module_set_structure_summary(module, &module_summary);

@@ -27,6 +27,8 @@ struct BreadboardModule
     BreadboardComponent* components;
     size_t connection_count;
     BreadboardConnection* connections;
+    size_t executable_connection_count;
+    BreadboardExecutableConnectionSpec* executable_connections;
 
     size_t input_count;
     BreadboardDescriptor* inputs;

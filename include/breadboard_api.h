@@ -124,6 +124,16 @@ BreadboardResult breadboard_module_add_connection(
     const BreadboardConnectionSpec* spec);
 
 /*
+ * breadboard_module_add_executable_connection
+ *
+ * Declares an endpoint-aware connection intended for admitted executable
+ * subset legality assessment. This does not lower or execute anything yet.
+ */
+BreadboardResult breadboard_module_add_executable_connection(
+    BreadboardModule* module,
+    const BreadboardExecutableConnectionSpec* spec);
+
+/*
  * breadboard_module_add_input_descriptor
  *
  * Declares a draft-visible input descriptor on the module.
@@ -335,6 +345,16 @@ BreadboardResult breadboard_query_primitive_signature(
     BreadboardTarget target,
     BreadboardPrimitiveKind primitive_kind,
     BreadboardPrimitiveSignature* out_signature);
+
+/*
+ * breadboard_module_assess_executable_subset
+ *
+ * Assesses whether the current authored module is executable, placeholder-only,
+ * or structurally invalid for the first admitted executable subset.
+ */
+BreadboardResult breadboard_module_assess_executable_subset(
+    const BreadboardModule* module,
+    BreadboardExecutableAssessment* out_assessment);
 
 /*
  * breadboard_draft_input_descriptor_count
