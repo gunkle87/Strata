@@ -22,6 +22,9 @@ FORGE_SRCS = \
     ../../src/forge/forge_api.c \
     ../../src/common/forge_diagnostic.c
 
+BREADBOARD_SRCS = \
+    ../../src/breadboard/breadboard_api.c
+
 TESTS = \
     test_backend_enum \
     test_backend_info \
@@ -56,8 +59,8 @@ test_artifact_stub.exe: test_artifact_stub.c $(FORGE_SRCS)
 test_artifact_admission_policy.exe: test_artifact_admission_policy.c $(FORGE_SRCS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(FORGE_SRCS)
 
-test_session_lifecycle.exe: test_session_lifecycle.c $(FORGE_SRCS)
-	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(FORGE_SRCS)
+test_session_lifecycle.exe: test_session_lifecycle.c $(FORGE_SRCS) $(BREADBOARD_SRCS)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(FORGE_SRCS) $(BREADBOARD_SRCS)
 
 test_runtime_stubs.exe: test_runtime_stubs.c $(FORGE_SRCS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(FORGE_SRCS)

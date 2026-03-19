@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "../../include/breadboard_api.h"
 #include "../../include/forge_api.h"
 #include "../../include/strata_placeholder_artifact.h"
 
@@ -35,6 +36,164 @@ fill_stub_artifact(unsigned char *buffer, unsigned int target_backend_id)
         STRATA_PLACEHOLDER_PAYLOAD_BASELINE,
         &admission_info,
         &out_size);
+}
+
+static int
+exercise_real_fast_session_lifecycle(ForgeBackendId backend_id)
+{
+    BreadboardModule *module = NULL;
+    BreadboardArtifactDraft *draft = NULL;
+    BreadboardCompileOptions options;
+    BreadboardDescriptorSpec input_a = { 410u, "real_a", 1u };
+    BreadboardDescriptorSpec output_y = { 412u, "real_y", 1u };
+    BreadboardComponentSpec buffer = { 510u, "BUF", false };
+    BreadboardExecutableConnectionSpec exec_in = {
+        { BREADBOARD_ENDPOINT_MODULE_INPUT_SOURCE, 410u, 0u, 0u },
+        { BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK, 0u, 510u, 0u }
+    };
+    BreadboardExecutableConnectionSpec exec_out = {
+        { BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE, 0u, 510u, 0u },
+        { BREADBOARD_ENDPOINT_MODULE_OUTPUT_SINK, 412u, 0u, 0u }
+    };
+    unsigned char *bytes = NULL;
+    size_t size = 0u;
+    ForgeArtifact *artifact = NULL;
+    ForgeSession *session = NULL;
+    ForgeSessionInfo session_info;
+    ForgeResult result;
+    BreadboardResult breadboard_result;
+
+    memset(&options, 0, sizeof(options));
+    options.allow_placeholders = false;
+    options.deny_approximation = false;
+    options.strict_projection = false;
+    options.require_real_executable = true;
+
+    if (breadboard_module_create(&module) != BREADBOARD_OK ||
+        breadboard_module_set_target(module, BREADBOARD_TARGET_FAST_4STATE) != BREADBOARD_OK ||
+        breadboard_module_add_input_descriptor(module, &input_a) != BREADBOARD_OK ||
+        breadboard_module_add_output_descriptor(module, &output_y) != BREADBOARD_OK ||
+        breadboard_module_add_component_instance(module, &buffer) != BREADBOARD_OK ||
+        breadboard_module_add_executable_connection(module, &exec_in) != BREADBOARD_OK ||
+        breadboard_module_add_executable_connection(module, &exec_out) != BREADBOARD_OK)
+    {
+        fprintf(stderr, "FAIL: could not build real FAST_4STATE module\n");
+        breadboard_module_free(module);
+        return 1;
+    }
+
+    breadboard_result = breadboard_module_compile(module, &options, &draft);
+    if (breadboard_result != BREADBOARD_OK || !draft)
+    {
+        fprintf(stderr, "FAIL: could not compile real FAST_4STATE draft: %d\n",
+            (int)breadboard_result);
+        breadboard_module_free(module);
+        return 1;
+    }
+
+    breadboard_result = breadboard_artifact_draft_export_fast_size(draft, &size);
+    if (breadboard_result != BREADBOARD_OK)
+    {
+        fprintf(stderr, "FAIL: could not size real FAST_4STATE draft\n");
+        breadboard_artifact_draft_free(draft);
+        breadboard_module_free(module);
+        return 1;
+    }
+
+    bytes = (unsigned char *)malloc(size);
+    if (!bytes)
+    {
+        fprintf(stderr, "FAIL: could not allocate real FAST_4STATE bytes\n");
+        breadboard_artifact_draft_free(draft);
+        breadboard_module_free(module);
+        return 1;
+    }
+
+    breadboard_result = breadboard_artifact_draft_export_fast(draft, bytes, size, &size);
+    if (breadboard_result != BREADBOARD_OK)
+    {
+        fprintf(stderr, "FAIL: could not export real FAST_4STATE draft\n");
+        free(bytes);
+        breadboard_artifact_draft_free(draft);
+        breadboard_module_free(module);
+        return 1;
+    }
+
+    breadboard_artifact_draft_free(draft);
+    breadboard_module_free(module);
+
+    result = forge_artifact_load(backend_id, bytes, size, &artifact);
+    free(bytes);
+    bytes = NULL;
+    if (result != FORGE_OK || !artifact)
+    {
+        fprintf(stderr, "FAIL: real FAST_4STATE artifact should load, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    result = forge_session_create(artifact, &session);
+    if (result != FORGE_OK || !session)
+    {
+        fprintf(stderr, "FAIL: real FAST_4STATE session should create, got %d\n",
+            (int)result);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_session_info(session, &session_info);
+    if (result != FORGE_OK ||
+        session_info.backend_id != backend_id ||
+        session_info.lifecycle_state != FORGE_SESSION_STATE_READY ||
+        session_info.placeholder_state != 0u)
+    {
+        fprintf(stderr, "FAIL: real FAST_4STATE session info mismatch\n");
+        forge_session_free(session);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_session_reset(session);
+    if (result != FORGE_OK)
+    {
+        fprintf(stderr, "FAIL: real FAST_4STATE session reset failed: %d\n",
+            (int)result);
+        forge_session_free(session);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_session_info(session, &session_info);
+    if (result != FORGE_OK ||
+        session_info.backend_id != backend_id ||
+        session_info.lifecycle_state != FORGE_SESSION_STATE_READY ||
+        session_info.placeholder_state != 0u)
+    {
+        fprintf(stderr, "FAIL: real FAST_4STATE session info after reset mismatch\n");
+        forge_session_free(session);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_session_free(session);
+    session = NULL;
+    if (result != FORGE_OK)
+    {
+        fprintf(stderr, "FAIL: real FAST_4STATE session free failed: %d\n",
+            (int)result);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    result = forge_artifact_unload(artifact);
+    if (result != FORGE_OK)
+    {
+        fprintf(stderr, "FAIL: real FAST_4STATE artifact unload failed: %d\n",
+            (int)result);
+        return 1;
+    }
+
+    return 0;
 }
 
 int main(void)
@@ -168,6 +327,11 @@ int main(void)
     if (result != FORGE_OK)
     {
         fprintf(stderr, "FAIL: forge_artifact_unload returned %d\n", (int)result);
+        return 1;
+    }
+
+    if (exercise_real_fast_session_lifecycle(id) != 0)
+    {
         return 1;
     }
 

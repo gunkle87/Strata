@@ -10,7 +10,7 @@
 /*
  * forge_api.c
  *
- * Stub artifact, descriptor, and session lifecycle for Forge.
+ * Artifact, descriptor, and session lifecycle for Forge.
  * No real backend execution is implemented here.
  * All execution paths return explicit result codes.
  *
@@ -27,6 +27,166 @@ forge_fail(ForgeResult result, const char *msg)
 {
     forge_diag_set(msg);
     return result;
+}
+
+static void
+forge_session_release_runtime_state(ForgeSession *session)
+{
+    if (!session)
+    {
+        return;
+    }
+
+    free(session->input_values);
+    free(session->signal_values);
+    free(session->output_values);
+    session->input_values = NULL;
+    session->signal_values = NULL;
+    session->output_values = NULL;
+    session->input_value_count = 0u;
+    session->signal_value_count = 0u;
+    session->output_value_count = 0u;
+    session->real_fast_runtime = 0u;
+}
+
+static void
+forge_session_reset_runtime_state(ForgeSession *session)
+{
+    uint32_t index;
+
+    if (!session)
+    {
+        return;
+    }
+
+    if (session->input_values)
+    {
+        for (index = 0u; index < session->input_value_count; ++index)
+        {
+            session->input_values[index].value = FORGE_LOGIC_X;
+        }
+    }
+
+    if (session->signal_values)
+    {
+        for (index = 0u; index < session->signal_value_count; ++index)
+        {
+            session->signal_values[index] = FORGE_LOGIC_X;
+        }
+    }
+
+    if (session->output_values)
+    {
+        for (index = 0u; index < session->output_value_count; ++index)
+        {
+            session->output_values[index].value = FORGE_LOGIC_X;
+        }
+    }
+}
+
+static ForgeResult
+forge_session_prepare_runtime_state(ForgeSession *session)
+{
+    const ForgeArtifact *artifact;
+    size_t input_count;
+    size_t signal_count;
+    size_t output_count;
+    size_t index;
+
+    if (!session || !session->artifact)
+    {
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_session_create: session artifact unavailable");
+    }
+
+    artifact = session->artifact;
+    if (artifact->placeholder_flags != 0u || artifact->source_has_placeholders != 0u)
+    {
+        forge_session_release_runtime_state(session);
+        return FORGE_OK;
+    }
+
+    input_count = artifact->input_descriptor_count;
+    output_count = artifact->output_descriptor_count;
+    signal_count = input_count + (size_t)artifact->structure_component_count;
+
+    if (signal_count < input_count)
+    {
+        forge_session_release_runtime_state(session);
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_session_create: fast runtime signal count overflowed");
+    }
+
+    session->input_values = NULL;
+    session->signal_values = NULL;
+    session->output_values = NULL;
+    session->input_value_count = 0u;
+    session->signal_value_count = 0u;
+    session->output_value_count = 0u;
+
+    if (input_count != 0u)
+    {
+        session->input_values = (ForgeSignalValue *)calloc(
+            input_count,
+            sizeof(ForgeSignalValue));
+        if (!session->input_values)
+        {
+            forge_session_release_runtime_state(session);
+            return forge_fail(FORGE_ERR_INTERNAL,
+                "forge_session_create: input state allocation failed");
+        }
+
+        for (index = 0u; index < input_count; ++index)
+        {
+            session->input_values[index].signal_id =
+                artifact->descriptors[index].id;
+            session->input_values[index].value = FORGE_LOGIC_X;
+        }
+        session->input_value_count = (uint32_t)input_count;
+    }
+
+    if (signal_count != 0u)
+    {
+        session->signal_values = (ForgeLogicValue *)calloc(
+            signal_count,
+            sizeof(ForgeLogicValue));
+        if (!session->signal_values)
+        {
+            forge_session_release_runtime_state(session);
+            return forge_fail(FORGE_ERR_INTERNAL,
+                "forge_session_create: signal state allocation failed");
+        }
+
+        for (index = 0u; index < signal_count; ++index)
+        {
+            session->signal_values[index] = FORGE_LOGIC_X;
+        }
+        session->signal_value_count = (uint32_t)signal_count;
+    }
+
+    if (output_count != 0u)
+    {
+        session->output_values = (ForgeSignalValue *)calloc(
+            output_count,
+            sizeof(ForgeSignalValue));
+        if (!session->output_values)
+        {
+            forge_session_release_runtime_state(session);
+            return forge_fail(FORGE_ERR_INTERNAL,
+                "forge_session_create: output state allocation failed");
+        }
+
+        for (index = 0u; index < output_count; ++index)
+        {
+            session->output_values[index].signal_id =
+                artifact->descriptors[input_count + index].id;
+            session->output_values[index].value = FORGE_LOGIC_X;
+        }
+        session->output_value_count = (uint32_t)output_count;
+    }
+
+    session->real_fast_runtime = 1u;
+    return FORGE_OK;
 }
 
 /*
@@ -1363,14 +1523,15 @@ forge_session_create(
 ForgeResult
 forge_session_create_with_profile(
     ForgeArtifact            *artifact,
-    ForgeSessionProfileKind   profile_kind,
-    ForgeSession            **out_session)
+ForgeSessionProfileKind   profile_kind,
+ForgeSession            **out_session)
 {
     ForgeSession *session;
     ForgeEffectiveProfile profile;
     ForgeBuildCapabilitySet build;
     ForgeProductExposureProfile product;
     ForgeSessionRestrictionProfile session_profile;
+    ForgeResult session_result;
 
     if (!out_session)
     {
@@ -1405,6 +1566,7 @@ forge_session_create_with_profile(
             "forge_session_create: allocation failed");
     }
 
+    memset(session, 0, sizeof(*session));
     session->artifact = artifact;
     session->placeholder_state = 0;
     forge_policy_get_build_capabilities(&build);
@@ -1429,6 +1591,14 @@ forge_session_create_with_profile(
     }
 
     session->effective_profile = profile;
+
+    session_result = forge_session_prepare_runtime_state(session);
+    if (session_result != FORGE_OK)
+    {
+        forge_session_release_runtime_state(session);
+        free(session);
+        return session_result;
+    }
 
     *out_session = session;
 
@@ -2049,6 +2219,7 @@ forge_session_reset(ForgeSession *session)
     }
 
     session->placeholder_state = 0;
+    forge_session_reset_runtime_state(session);
 
     forge_diag_set("");
     return FORGE_OK;
@@ -2063,6 +2234,7 @@ forge_session_free(ForgeSession *session)
             "forge_session_free: session is NULL");
     }
 
+    forge_session_release_runtime_state(session);
     free(session);
 
     forge_diag_set("");

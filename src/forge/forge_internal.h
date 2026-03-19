@@ -46,6 +46,13 @@ struct ForgeSession
     ForgeArtifact *artifact;
     uint32_t placeholder_state;
     ForgeEffectiveProfile effective_profile;
+    uint32_t real_fast_runtime;
+    uint32_t input_value_count;
+    uint32_t signal_value_count;
+    uint32_t output_value_count;
+    ForgeSignalValue *input_values;
+    ForgeLogicValue *signal_values;
+    ForgeSignalValue *output_values;
 };
 
 #endif /* FORGE_INTERNAL_H */
