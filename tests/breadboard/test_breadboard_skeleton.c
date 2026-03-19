@@ -437,6 +437,9 @@ int main(void)
         {
             unsigned char* export_bytes = (unsigned char*)malloc(export_size);
             const StrataPlaceholderArtifactHeader* export_header;
+            BreadboardArtifactDraft* repeat_draft = NULL;
+            unsigned char* repeat_export_bytes = NULL;
+            size_t repeat_export_size = 0u;
 
             if (!export_bytes)
             {
@@ -458,6 +461,53 @@ int main(void)
                 free(export_bytes);
                 exit(1);
             }
+
+            res = breadboard_module_compile(executable_module, &opts_real, &repeat_draft);
+            print_result("exec draft_compile(repeat)", res, BREADBOARD_OK);
+            if (!repeat_draft)
+            {
+                printf("[FAIL] repeat real fast draft should be non-NULL\n");
+                free(export_bytes);
+                exit(1);
+            }
+
+            res = breadboard_artifact_draft_export_fast_size(repeat_draft, &repeat_export_size);
+            print_result("exec draft_export_fast_size(repeat)", res, BREADBOARD_OK);
+            if (repeat_export_size != export_size)
+            {
+                printf("[FAIL] repeat real fast export size mismatch\n");
+                breadboard_artifact_draft_free(repeat_draft);
+                free(export_bytes);
+                exit(1);
+            }
+
+            repeat_export_bytes = (unsigned char*)malloc(repeat_export_size);
+            if (!repeat_export_bytes)
+            {
+                printf("[FAIL] could not allocate repeat real fast export bytes\n");
+                breadboard_artifact_draft_free(repeat_draft);
+                free(export_bytes);
+                exit(1);
+            }
+
+            res = breadboard_artifact_draft_export_fast(
+                repeat_draft,
+                repeat_export_bytes,
+                repeat_export_size,
+                &repeat_export_size);
+            print_result("exec draft_export_fast(repeat)", res, BREADBOARD_OK);
+            if (repeat_export_size != export_size ||
+                memcmp(export_bytes, repeat_export_bytes, export_size) != 0)
+            {
+                printf("[FAIL] repeat real fast export bytes should be deterministic\n");
+                breadboard_artifact_draft_free(repeat_draft);
+                free(repeat_export_bytes);
+                free(export_bytes);
+                exit(1);
+            }
+
+            breadboard_artifact_draft_free(repeat_draft);
+            free(repeat_export_bytes);
 
             free(export_bytes);
         }

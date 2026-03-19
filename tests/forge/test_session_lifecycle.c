@@ -119,6 +119,57 @@ exercise_real_fast_session_lifecycle(ForgeBackendId backend_id)
         return 1;
     }
 
+    {
+        unsigned char *tampered_bytes = NULL;
+        const StrataPlaceholderArtifactHeader *tampered_header;
+        const StrataPlaceholderFastExecutablePayloadHeader *tampered_payload_header;
+        StrataPlaceholderFastInputBinding *tampered_input_bindings;
+        ForgeArtifact *tampered_artifact = NULL;
+
+        tampered_bytes = (unsigned char *)malloc(size);
+        if (!tampered_bytes)
+        {
+            fprintf(stderr, "FAIL: could not allocate tampered FAST_4STATE bytes\n");
+            free(bytes);
+            breadboard_artifact_draft_free(draft);
+            breadboard_module_free(module);
+            return 1;
+        }
+
+        memcpy(tampered_bytes, bytes, size);
+        tampered_header = (const StrataPlaceholderArtifactHeader *)tampered_bytes;
+        tampered_payload_header = strata_placeholder_fast_payload_header(tampered_header);
+        tampered_input_bindings = (StrataPlaceholderFastInputBinding *)
+            strata_placeholder_fast_payload_input_bindings(tampered_payload_header);
+        if (!tampered_payload_header || !tampered_input_bindings)
+        {
+            fprintf(stderr, "FAIL: tampered FAST_4STATE payload is not addressable\n");
+            free(tampered_bytes);
+            free(bytes);
+            breadboard_artifact_draft_free(draft);
+            breadboard_module_free(module);
+            return 1;
+        }
+
+        tampered_input_bindings[0].descriptor_id = 999u;
+        result = forge_artifact_load(backend_id, tampered_bytes, size, &tampered_artifact);
+        free(tampered_bytes);
+        if (result != FORGE_ERR_ARTIFACT_INCOMPATIBLE)
+        {
+            fprintf(stderr,
+                "FAIL: tampered FAST_4STATE binding IDs should be rejected, got %d\n",
+                (int)result);
+            if (tampered_artifact)
+            {
+                forge_artifact_unload(tampered_artifact);
+            }
+            free(bytes);
+            breadboard_artifact_draft_free(draft);
+            breadboard_module_free(module);
+            return 1;
+        }
+    }
+
     breadboard_artifact_draft_free(draft);
     breadboard_module_free(module);
 
