@@ -24,6 +24,7 @@ struct ForgeArtifact
     uint32_t source_declared_connection_count;
     uint32_t source_declared_stateful_node_count;
     uint32_t payload_size;
+    uint8_t *payload_bytes;
     uint32_t input_descriptor_count;
     uint32_t output_descriptor_count;
     uint32_t probe_descriptor_count;

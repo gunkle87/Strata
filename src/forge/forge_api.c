@@ -1355,6 +1355,7 @@ forge_artifact_load(
         art->source_declared_stateful_node_count =
             draft_summary->declared_stateful_node_count;
         art->payload_size = header->payload_size;
+        art->payload_bytes = NULL;
         art->input_descriptor_count = header->input_descriptor_count;
         art->output_descriptor_count = header->output_descriptor_count;
         art->probe_descriptor_count = header->probe_descriptor_count;
@@ -1429,6 +1430,25 @@ forge_artifact_load(
                 sizeof(StrataPlaceholderSerializedConnection));
         }
 
+        if (art->payload_size != 0u)
+        {
+            art->payload_bytes = (uint8_t*)malloc((size_t)art->payload_size);
+            if (!art->payload_bytes)
+            {
+                free(art->connections);
+                free(art->components);
+                free(art->descriptors);
+                free(art);
+                return forge_fail(FORGE_ERR_INTERNAL,
+                    "forge_artifact_load: payload block allocation failed");
+            }
+
+            memcpy(
+                art->payload_bytes,
+                payload,
+                (size_t)art->payload_size);
+        }
+
         *out_artifact = art;
 
         forge_diag_set("");
@@ -1498,6 +1518,10 @@ forge_artifact_unload(ForgeArtifact *artifact)
     if (artifact->connections)
     {
         free(artifact->connections);
+    }
+    if (artifact->payload_bytes)
+    {
+        free(artifact->payload_bytes);
     }
     free(artifact);
 

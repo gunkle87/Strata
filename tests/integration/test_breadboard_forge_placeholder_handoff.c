@@ -474,6 +474,57 @@ main(void)
             }
         }
 
+        {
+            unsigned char *tampered_bytes;
+            const StrataPlaceholderArtifactHeader *tampered_header;
+            const StrataPlaceholderFastExecutablePayloadHeader *tampered_payload_header;
+            const StrataPlaceholderFastInputBinding *tampered_input_bindings;
+            ForgeArtifact *tampered_artifact;
+
+            tampered_bytes = (unsigned char *)malloc(real_size);
+            if (!tampered_bytes)
+            {
+                fprintf(stderr, "FAIL: could not allocate tampered FAST_4STATE bytes\n");
+                free(real_bytes);
+                breadboard_artifact_draft_free(real_draft);
+                breadboard_module_free(real_module);
+                return 1;
+            }
+
+            memcpy(tampered_bytes, real_bytes, real_size);
+            tampered_header = (const StrataPlaceholderArtifactHeader *)tampered_bytes;
+            tampered_payload_header = strata_placeholder_fast_payload_header(tampered_header);
+            tampered_input_bindings = strata_placeholder_fast_payload_input_bindings(
+                tampered_payload_header);
+            if (!tampered_payload_header || !tampered_input_bindings)
+            {
+                fprintf(stderr, "FAIL: tampered FAST_4STATE payload is not addressable\n");
+                free(tampered_bytes);
+                free(real_bytes);
+                breadboard_artifact_draft_free(real_draft);
+                breadboard_module_free(real_module);
+                return 1;
+            }
+
+            tampered_input_bindings[0].descriptor_id = 999u;
+            tampered_artifact = NULL;
+            result = forge_artifact_load(lxs_id, tampered_bytes, real_size, &tampered_artifact);
+            free(tampered_bytes);
+            if (result != FORGE_ERR_ARTIFACT_INCOMPATIBLE)
+            {
+                fprintf(stderr, "FAIL: tampered FAST_4STATE binding IDs should be rejected, got %d\n",
+                    (int)result);
+                if (tampered_artifact)
+                {
+                    forge_artifact_unload(tampered_artifact);
+                }
+                free(real_bytes);
+                breadboard_artifact_draft_free(real_draft);
+                breadboard_module_free(real_module);
+                return 1;
+            }
+        }
+
         breadboard_artifact_draft_free(real_draft);
         breadboard_module_free(real_module);
 

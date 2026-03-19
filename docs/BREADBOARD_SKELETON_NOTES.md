@@ -128,6 +128,12 @@ The current placeholder handoff now carries:
 - a serialized descriptor block
 - a tiny typed section directory with admission, draft-summary, descriptor, and payload sections
 
+Forge load currently keeps artifact-owned copies of the serialized structure,
+descriptor, and executable payload blocks for the admitted fast-path path so
+later lifecycle steps do not depend on caller-owned buffers staying alive.
+The real fast-path load also validates that payload binding IDs line up with
+the serialized descriptor block before the artifact is admitted.
+
 The draft summary block now includes:
 - source target value
 - placeholder-vs-authored coarse status
