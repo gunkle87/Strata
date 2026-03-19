@@ -1,10 +1,28 @@
 # Breadboard Skeleton Implementation Notes
 
-This document provides a brief summary of the initial `Breadboard` public boundary and skeleton implementation.
+This document summarizes the current `Breadboard` public boundary and the
+phase-closed status of the first real executable path.
 
 ## Purpose
 
-The `Breadboard` boundary has been established as a structural compilation layer without absorbing real execution, UI, or runtime API capabilities. The types and stubs provided here fulfill the requirements laid out in `STRATA_BREADBOARD_BOUNDARY_SPEC.md` while remaining intentionally incomplete in terms of actual compilation logic.
+The `Breadboard` boundary remains the structural compilation layer without
+absorbing runtime lifecycle or backend-private execution ownership.
+
+For this phase, `Breadboard` is no longer placeholder-only.
+It now has one real executable path for one narrow admitted subset:
+- target: `FAST_4STATE`
+- flat single-module structure
+- single-bit signals only
+- combinational logic only
+- admitted primitive family:
+  - `BUF`
+  - `NOT`
+  - `AND`
+  - `OR`
+  - `XOR`
+
+Everything outside that admitted slice remains either placeholder-oriented or
+explicitly rejected, depending on the call path and requested compile mode.
 
 ## Added Types
 
@@ -165,18 +183,91 @@ is narrower and deliberate:
 - they override any manually supplied coarse structure summary, so the current
   vertical path prefers authored structural truth over synthetic summary values
 
-## Current Stub Limitations
+## Current Real Executable Scope
 
-As this is purely a scaffolding and contract task:
-1. **Compilation**: `breadboard_module_compile` does not run any real lowering, recognition, or validation passes.
-2. **Policy Gating**: target gating mechanisms via `breadboard_module_set_target_policy` and `breadboard_module_query_target_availability` exist. Compilation is explicitly rejected with `BREADBOARD_DIAG_CODE_TARGET_DENIED_BY_POLICY` if attempting to target denied backends. Note that Forge still remains the final runtime enforcement boundary.
-3. **Draft Metadata**: Both `BreadboardDraftInfo` and `BreadboardDraftAdmissionInfo` are placeholder-oriented summaries. They are intentionally coarse and should not be interpreted as real lowering facts.
-4. **Placeholders**: The compiler explicitly rejects compilation with `BREADBOARD_ERR_COMPILE_FAILED` recording a diagnostic unless `allow_placeholders=true` is set. If allowed, a draft is returned. With no authored descriptor declarations, that draft falls back to the deterministic placeholder tuple set of 2 dummy inputs, 2 dummy outputs, and 1 dummy probe descriptor. With authored declarations present, the draft now reflects those authored descriptors instead.
-5. **Diagnostics**: `breadboard_module_get_diagnostic_count` and `breadboard_module_get_diagnostic` now reflect the internally recorded array of diagnostics resulting from module compilation and API usage.
-6. **Temporary Artifact Handoff**: The export helpers produce only the current temporary Forge-compatible placeholder bytes. They do not define the final Strata artifact format.
-7. **No Structural Import**: There are not yet APIs for actually feeding components, graphs, or netlists into the `BreadboardModule`.
+The following `Breadboard` behaviors are real in the current phase:
+1. **Executable subset assessment**:
+   `Breadboard` can distinguish executable-admitted fast structure from
+   placeholder-eligible structure and outright invalid structure.
+2. **Executable legality gating**:
+   real fast-path compile requests hard-fail when authored structure is outside
+   the admitted subset.
+3. **Real lowering**:
+   `breadboard_module_compile` can lower admitted `FAST_4STATE` combinational
+   structure into a real executable draft.
+4. **Deterministic descriptor truth**:
+   admitted executable drafts preserve stable input and output descriptor
+   identity across compile, export, load, and runtime reads.
+5. **Deterministic export**:
+   equivalent authored structure yields equivalent exported executable bytes for
+   the admitted path.
+6. **Executable artifact family**:
+   the current real executable family is the temporary-envelope fast payload
+   path carrying `STRATA_PLACEHOLDER_PAYLOAD_FAST_EXECUTABLE_V1`.
 
-These limitations ensure no real processing occurs and prevents arbitrary runtime behavior from appearing prematurely within Breadboard before the actual compiler paths are built.
+## Stable Admitted Executable Subset And Exclusions
+
+This section is the stable phase-close summary of what is admitted and what is
+still excluded.
+
+### Admitted now
+- `FAST_4STATE` only
+- flat single-module structure only
+- single-bit structure only
+- combinational logic only
+- no stateful elements
+- no cycles or feedback
+- primitive family:
+  - `BUF`
+  - `NOT`
+  - `AND`
+  - `OR`
+  - `XOR`
+
+### Explicitly excluded from the real executable subset in this phase
+- `TEMPORAL`
+- `HighZ` execution
+- stateful nodes
+- broad recognition-system growth
+- probe descriptors as part of the executable runtime path
+- common storage inspection
+- native temporal stepping controls
+- general multi-backend parity
+- final artifact-format claims
+- native admitted `NAND` as a primitive opcode
+
+`NAND`-equivalent behavior can currently be represented only by composition,
+for example `NOT(AND(a, b))`. That is a deliberate scope limit for this phase,
+not a hidden native primitive admission.
+
+## Current Placeholder-Only Or Scaffolded Scope
+
+The following areas remain scaffolded, placeholder-only, or intentionally
+deferred:
+1. **Placeholder compile path**:
+   placeholder drafts still exist for scaffolding and deferred targets when the
+   caller explicitly allows them.
+2. **Temporal path**:
+   `TEMPORAL` remains non-executable through this first real vertical slice.
+3. **Final artifact format**:
+   the current executable path uses a temporary shared envelope and must not be
+   described as the final Strata artifact design.
+4. **Broader observation surfaces**:
+   common output reads are real for the admitted executable slice, but broader
+   probe and storage inspection remain outside this phase.
+5. **General compiler completeness**:
+   the compiler is not yet a broad structural importer, recognizer, or
+   multi-backend lowering system.
+
+## Current Phase Limits
+
+This phase proves one honest executable path.
+It does not prove:
+1. general-purpose Strata compilation
+2. temporal-backend readiness
+3. broad multi-backend parity
+4. final artifact-family design
+5. native admission of every common logic primitive family
 
 ## Boundary Adherence
 

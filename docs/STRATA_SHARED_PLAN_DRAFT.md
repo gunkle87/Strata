@@ -11,6 +11,13 @@ Status
 - This file defines required artifact meaning and minimum content.
 - It does not finalize the exact binary encoding, serialization format, or
   in-memory representation.
+- Current phase-close note:
+  - the first real executable artifact family now exists inside the current
+    temporary shared envelope
+  - that executable family is the admitted fast payload path carried as
+    `STRATA_PLACEHOLDER_PAYLOAD_FAST_EXECUTABLE_V1`
+  - placeholder payload families still exist and remain explicitly distinct
+  - this must not be read as final artifact-format closure
 
 Core doctrine
 - `structure is the authoring layer`
@@ -572,4 +579,10 @@ If this draft stays honest:
 - `HighZ` can stay temporal,
 - and Strata can remain one layered system without collapsing its engines into
   one compromised core.
+
+Current phase-close interpretation:
+- one executable artifact family is now real
+- that executable family is intentionally narrow and phase-scoped
+- the current temporary envelope is good enough for the first vertical path but
+  must not be promoted to final artifact design language
 

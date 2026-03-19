@@ -11,6 +11,14 @@ Status
 - Planning document.
 - This file defines API intent and boundary ownership.
 - It does not finalize the shared plan contract.
+- Current phase-close note:
+  - `Forge` now has one real admitted runtime slice for the executable
+    `FAST_4STATE` path.
+  - That real slice includes load validation, session creation/reset/destroy,
+    input application, one deterministic common advancement boundary, and
+    output reads for admitted real fast artifacts.
+  - It does not imply temporal readiness, broad probe readiness, storage
+    inspection readiness, or full multi-backend parity.
 
 Core doctrine
 - `structure is the authoring layer`
@@ -572,4 +580,12 @@ If this layer stays strict:
 - tooling and UI can integrate without reaching into backend memory layouts,
 - and the shared plan contract can be designed later from a stable foundation
   instead of guessed too early.
+
+Current phase-close interpretation:
+- `Forge` is now real for one narrow executable lifecycle.
+- The current real common runtime surface is limited to admitted fast-path
+  artifact load, session lifecycle, input application, deterministic stepping,
+  and output reads.
+- Placeholder load paths, broader probes, storage inspection, and temporal
+  controls remain outside this completed phase.
 

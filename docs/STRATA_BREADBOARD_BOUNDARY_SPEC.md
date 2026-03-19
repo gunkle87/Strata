@@ -12,6 +12,13 @@ Status
 - Planning and boundary document.
 - This file defines responsibilities, invariants, and output obligations.
 - It does not finalize the shared artifact binary layout.
+- Current phase-close note:
+  - `Breadboard` now has one real executable lowering path for the admitted
+    `FAST_4STATE` subset.
+  - That path remains intentionally narrow and uses the current temporary
+    shared envelope rather than claiming the final Strata artifact design.
+  - Everything outside that admitted subset remains placeholder-oriented,
+    explicitly rejected, or deferred.
 
 Core doctrine
 - `structure is the authoring layer`
@@ -499,4 +506,11 @@ If this boundary stays clean:
 - `HighZ` can stay temporal,
 - and the later artifact draft can be designed from real boundary obligations
   instead of guesswork.
+
+Current phase-close interpretation:
+- `Breadboard` is now real for one admitted executable path only.
+- That real path covers legality checks, deterministic lowering, descriptor
+  truth, and executable artifact emission for the first `FAST_4STATE` slice.
+- This document must not be read as evidence of broad compiler completeness or
+  temporal-backend readiness.
 
