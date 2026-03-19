@@ -296,6 +296,11 @@ ForgeResult forge_structure_component_at(
     uint32_t                   index,
     ForgeStructureComponent   *out_component);
 
+ForgeResult forge_structure_component_by_id(
+    const ForgeArtifact       *artifact,
+    uint64_t                   component_id,
+    ForgeStructureComponent   *out_component);
+
 ForgeResult forge_structure_connection_count(
     const ForgeArtifact *artifact,
     uint32_t            *out_count);

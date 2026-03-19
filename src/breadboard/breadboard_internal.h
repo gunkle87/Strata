@@ -5,21 +5,6 @@
 #include "../../include/strata_placeholder_artifact.h"
 #include <stddef.h>
 
-typedef struct BreadboardComponentInstance
-{
-    uint64_t id;
-    const char* kind_name;
-    bool is_stateful;
-}
-BreadboardComponentInstance;
-
-typedef struct BreadboardConnection
-{
-    uint64_t source_component_id;
-    uint64_t sink_component_id;
-}
-BreadboardConnection;
-
 /*
  * breadboard_internal.h
  *
@@ -39,7 +24,7 @@ struct BreadboardModule
     bool has_structure_summary;
     size_t component_count;
     size_t stateful_component_count;
-    BreadboardComponentInstance* components;
+    BreadboardComponent* components;
     size_t connection_count;
     BreadboardConnection* connections;
 
@@ -67,7 +52,7 @@ struct BreadboardArtifactDraft
     char source_module_name[STRATA_PLACEHOLDER_MODULE_NAME_CAPACITY];
     BreadboardStructureSummary structure_summary;
     size_t component_count;
-    BreadboardComponentInstance* components;
+    BreadboardComponent* components;
     size_t connection_count;
     BreadboardConnection* connections;
     BreadboardDraftInfo info;

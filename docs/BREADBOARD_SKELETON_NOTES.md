@@ -152,6 +152,8 @@ is narrower and deliberate:
   module content
 - they let the draft-summary block reflect actual declared structure when such
   declarations exist
+- they let the draft expose authored component records directly for pre-handoff
+  inspection through index and authored-component-ID queries
 - they let the temporary placeholder artifact carry minimal authored component
   and connection declarations for Forge-side inspection
 - they override any manually supplied coarse structure summary, so the current

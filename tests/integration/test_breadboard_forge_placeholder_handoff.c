@@ -518,6 +518,8 @@ main(void)
         BreadboardComponentSpec component_a = { 21u, "mux", false };
         BreadboardComponentSpec component_b = { 22u, "register", true };
         BreadboardConnectionSpec connection = { 21u, 22u };
+        BreadboardComponent breadboard_component;
+        BreadboardConnection breadboard_connection;
 
         module = NULL;
         draft = NULL;
@@ -546,6 +548,38 @@ main(void)
                 breadboard_module_free(module);
                 return 1;
             }
+        }
+
+        if (breadboard_draft_component_at(draft, 1u, &breadboard_component) != BREADBOARD_OK ||
+            breadboard_component.id != 22u ||
+            strcmp(breadboard_component.kind_name, "register") != 0 ||
+            !breadboard_component.is_stateful)
+        {
+            fprintf(stderr, "FAIL: structured TEMPORAL Breadboard component query mismatch\n");
+            breadboard_artifact_draft_free(draft);
+            breadboard_module_free(module);
+            return 1;
+        }
+
+        if (breadboard_draft_component_by_id(draft, 21u, &breadboard_component) != BREADBOARD_OK ||
+            breadboard_component.id != 21u ||
+            strcmp(breadboard_component.kind_name, "mux") != 0 ||
+            breadboard_component.is_stateful)
+        {
+            fprintf(stderr, "FAIL: structured TEMPORAL Breadboard component-by-id query mismatch\n");
+            breadboard_artifact_draft_free(draft);
+            breadboard_module_free(module);
+            return 1;
+        }
+
+        if (breadboard_draft_connection_at(draft, 0u, &breadboard_connection) != BREADBOARD_OK ||
+            breadboard_connection.source_component_id != 21u ||
+            breadboard_connection.sink_component_id != 22u)
+        {
+            fprintf(stderr, "FAIL: structured TEMPORAL Breadboard connection query mismatch\n");
+            breadboard_artifact_draft_free(draft);
+            breadboard_module_free(module);
+            return 1;
         }
 
         if (breadboard_artifact_draft_export_placeholder_size(draft, &size) != BREADBOARD_OK)
@@ -633,6 +667,17 @@ main(void)
                 forge_component.stateful_flags != 1u)
             {
                 fprintf(stderr, "FAIL: structured TEMPORAL component query mismatch\n");
+                forge_artifact_unload(artifact);
+                return 1;
+            }
+
+            result = forge_structure_component_by_id(artifact, 21u, &forge_component);
+            if (result != FORGE_OK ||
+                forge_component.id != 21u ||
+                strcmp(forge_component.kind_name, "mux") != 0 ||
+                forge_component.stateful_flags != 0u)
+            {
+                fprintf(stderr, "FAIL: structured TEMPORAL component-by-id query mismatch\n");
                 forge_artifact_unload(artifact);
                 return 1;
             }

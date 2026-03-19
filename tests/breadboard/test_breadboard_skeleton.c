@@ -698,6 +698,10 @@ int main(void)
         BreadboardComponentSpec component_c = { 12u, "probe_tap", false };
         BreadboardConnectionSpec connection_ab = { 10u, 11u };
         BreadboardConnectionSpec connection_bc = { 11u, 12u };
+        BreadboardComponent component;
+        BreadboardConnection connection;
+        size_t component_count = 0u;
+        size_t connection_count = 0u;
 
         res = breadboard_module_create(&structured_module);
         print_result("structured module_create", res, BREADBOARD_OK);
@@ -727,6 +731,45 @@ int main(void)
             draft_info.declared_stateful_node_count != 1u)
         {
             printf("[FAIL] structured draft info summary mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_component_count(structured_draft, &component_count);
+        print_result("structured draft_component_count", res, BREADBOARD_OK);
+        res = breadboard_draft_connection_count(structured_draft, &connection_count);
+        print_result("structured draft_connection_count", res, BREADBOARD_OK);
+        if (component_count != 3u || connection_count != 2u)
+        {
+            printf("[FAIL] structured draft count query mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_component_at(structured_draft, 1u, &component);
+        print_result("structured draft_component_at(1)", res, BREADBOARD_OK);
+        if (component.id != 11u ||
+            strcmp(component.kind_name, "register") != 0 ||
+            !component.is_stateful)
+        {
+            printf("[FAIL] structured draft component query mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_connection_at(structured_draft, 1u, &connection);
+        print_result("structured draft_connection_at(1)", res, BREADBOARD_OK);
+        if (connection.source_component_id != 11u ||
+            connection.sink_component_id != 12u)
+        {
+            printf("[FAIL] structured draft connection query mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_component_by_id(structured_draft, 12u, &component);
+        print_result("structured draft_component_by_id(12)", res, BREADBOARD_OK);
+        if (component.id != 12u ||
+            strcmp(component.kind_name, "probe_tap") != 0 ||
+            component.is_stateful)
+        {
+            printf("[FAIL] structured draft component-by-id query mismatch\n");
             exit(1);
         }
 
@@ -772,6 +815,40 @@ int main(void)
 
     res = breadboard_artifact_draft_query_info(draft, NULL);
     print_result("draft_query_info(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+    {
+        BreadboardComponent component;
+        BreadboardConnection connection;
+        size_t count = 0u;
+
+        res = breadboard_draft_component_count(NULL, &count);
+        print_result("draft_component_count(NULL, ...)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        res = breadboard_draft_component_count(draft, NULL);
+        print_result("draft_component_count(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        res = breadboard_draft_component_at(NULL, 0u, &component);
+        print_result("draft_component_at(NULL, ...)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        res = breadboard_draft_component_at(draft, 0u, NULL);
+        print_result("draft_component_at(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        res = breadboard_draft_component_at(draft, 0u, &component);
+        print_result("draft_component_at(placeholder draft, 0)", res, BREADBOARD_ERR_OUT_OF_BOUNDS);
+        res = breadboard_draft_component_by_id(NULL, 1u, &component);
+        print_result("draft_component_by_id(NULL, ...)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        res = breadboard_draft_component_by_id(draft, 1u, NULL);
+        print_result("draft_component_by_id(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        res = breadboard_draft_component_by_id(draft, 1u, &component);
+        print_result("draft_component_by_id(placeholder draft, 1)", res, BREADBOARD_ERR_NOT_FOUND);
+
+        res = breadboard_draft_connection_count(NULL, &count);
+        print_result("draft_connection_count(NULL, ...)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        res = breadboard_draft_connection_count(draft, NULL);
+        print_result("draft_connection_count(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        res = breadboard_draft_connection_at(NULL, 0u, &connection);
+        print_result("draft_connection_at(NULL, ...)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        res = breadboard_draft_connection_at(draft, 0u, NULL);
+        print_result("draft_connection_at(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        res = breadboard_draft_connection_at(draft, 0u, &connection);
+        print_result("draft_connection_at(placeholder draft, 0)", res, BREADBOARD_ERR_OUT_OF_BOUNDS);
+    }
 
     res = breadboard_module_set_structure_summary(module, NULL);
     print_result("module_set_structure_summary(NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);

@@ -254,6 +254,59 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
     size_t* out_size);
 
 /*
+ * breadboard_draft_component_count
+ *
+ * Retrieves the total number of authored structural components retained on the
+ * draft.
+ */
+BreadboardResult breadboard_draft_component_count(
+    const BreadboardArtifactDraft* draft,
+    size_t* out_count);
+
+/*
+ * breadboard_draft_component_at
+ *
+ * Retrieves a specific authored structural component retained on the draft by
+ * index.
+ */
+BreadboardResult breadboard_draft_component_at(
+    const BreadboardArtifactDraft* draft,
+    size_t index,
+    BreadboardComponent* out_component);
+
+/*
+ * breadboard_draft_component_by_id
+ *
+ * Retrieves a specific authored structural component retained on the draft by
+ * authored component ID.
+ */
+BreadboardResult breadboard_draft_component_by_id(
+    const BreadboardArtifactDraft* draft,
+    uint64_t component_id,
+    BreadboardComponent* out_component);
+
+/*
+ * breadboard_draft_connection_count
+ *
+ * Retrieves the total number of authored structural connections retained on
+ * the draft.
+ */
+BreadboardResult breadboard_draft_connection_count(
+    const BreadboardArtifactDraft* draft,
+    size_t* out_count);
+
+/*
+ * breadboard_draft_connection_at
+ *
+ * Retrieves a specific authored structural connection retained on the draft by
+ * index.
+ */
+BreadboardResult breadboard_draft_connection_at(
+    const BreadboardArtifactDraft* draft,
+    size_t index,
+    BreadboardConnection* out_connection);
+
+/*
  * breadboard_module_query_target_info
  *
  * Retrieves information about the current target capabilities.

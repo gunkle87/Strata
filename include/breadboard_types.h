@@ -191,6 +191,33 @@ typedef struct BreadboardConnectionSpec
 BreadboardConnectionSpec;
 
 /*
+ * BreadboardComponent
+ *
+ * Query surface for authored structural components retained on a compiled
+ * draft. This remains temporary scaffolding metadata, not final IR.
+ */
+typedef struct BreadboardComponent
+{
+    uint64_t id;
+    const char* kind_name;
+    bool is_stateful;
+}
+BreadboardComponent;
+
+/*
+ * BreadboardConnection
+ *
+ * Query surface for authored structural connections retained on a compiled
+ * draft. This remains temporary scaffolding metadata, not final IR.
+ */
+typedef struct BreadboardConnection
+{
+    uint64_t source_component_id;
+    uint64_t sink_component_id;
+}
+BreadboardConnection;
+
+/*
  * BreadboardCompileOptions
  *
  * Configuration knobs for adjusting structural compilation behavior.

@@ -322,6 +322,17 @@ int main(void)
         return 1;
     }
 
+    result = forge_structure_component_by_id(artifact, 1234u, &component);
+
+    if (result != FORGE_ERR_OUT_OF_BOUNDS)
+    {
+        fprintf(stderr,
+            "FAIL: forge_structure_component_by_id expected FORGE_ERR_OUT_OF_BOUNDS, got %d\n",
+            (int)result);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
     result = forge_structure_connection_at(artifact, 0u, &connection);
 
     if (result != FORGE_ERR_OUT_OF_BOUNDS)

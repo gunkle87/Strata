@@ -661,6 +661,28 @@ int main(void)
     }
 
     {
+        ForgeStructureComponent component;
+
+        result = forge_structure_component_by_id(NULL, 1u, &component);
+        if (result != FORGE_ERR_INVALID_HANDLE)
+        {
+            fprintf(stderr,
+                "FAIL: forge_structure_component_by_id(NULL, ...) expected FORGE_ERR_INVALID_HANDLE, got %d\n",
+                (int)result);
+            return 1;
+        }
+    }
+
+    result = forge_structure_component_by_id((const ForgeArtifact *)0x1, 1u, NULL);
+    if (result != FORGE_ERR_INVALID_ARGUMENT)
+    {
+        fprintf(stderr,
+            "FAIL: forge_structure_component_by_id(..., NULL) expected FORGE_ERR_INVALID_ARGUMENT, got %d\n",
+            (int)result);
+        return 1;
+    }
+
+    {
         uint32_t count = 0u;
 
         result = forge_structure_connection_count(NULL, &count);

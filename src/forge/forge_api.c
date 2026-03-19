@@ -1889,6 +1889,41 @@ forge_structure_component_at(
 }
 
 ForgeResult
+forge_structure_component_by_id(
+    const ForgeArtifact      *artifact,
+    uint64_t                  component_id,
+    ForgeStructureComponent  *out_component)
+{
+    uint32_t index;
+
+    if (!out_component)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_structure_component_by_id: out_component is NULL");
+    }
+
+    if (!artifact)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_structure_component_by_id: artifact is NULL");
+    }
+
+    for (index = 0u; index < artifact->structure_component_count; ++index)
+    {
+        if (artifact->components[index].id == component_id)
+        {
+            *out_component = forge_structure_component_from_serialized(
+                &artifact->components[index]);
+            forge_diag_set("");
+            return FORGE_OK;
+        }
+    }
+
+    return forge_fail(FORGE_ERR_OUT_OF_BOUNDS,
+        "forge_structure_component_by_id: component_id not found");
+}
+
+ForgeResult
 forge_structure_connection_count(
     const ForgeArtifact *artifact,
     uint32_t            *out_count)

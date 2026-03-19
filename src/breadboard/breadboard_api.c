@@ -214,7 +214,7 @@ copy_descriptor_name(
 
 static void
 free_component_array(
-    BreadboardComponentInstance* components,
+    BreadboardComponent* components,
     size_t count)
 {
     size_t index;
@@ -237,11 +237,11 @@ free_component_array(
 
 static int
 copy_component_array(
-    BreadboardComponentInstance** out_components,
-    const BreadboardComponentInstance* components,
+    BreadboardComponent** out_components,
+    const BreadboardComponent* components,
     size_t count)
 {
-    BreadboardComponentInstance* copy;
+    BreadboardComponent* copy;
     size_t index;
 
     if (!out_components)
@@ -261,7 +261,7 @@ copy_component_array(
         return 0;
     }
 
-    copy = (BreadboardComponentInstance*)calloc(count, sizeof(BreadboardComponentInstance));
+    copy = (BreadboardComponent*)calloc(count, sizeof(BreadboardComponent));
     if (!copy)
     {
         return 0;
@@ -454,7 +454,7 @@ append_component_instance(
     BreadboardModule* module,
     const BreadboardComponentSpec* spec)
 {
-    BreadboardComponentInstance* new_components;
+    BreadboardComponent* new_components;
     const char* kind_name_copy;
 
     if (!module || !spec || !spec->kind_name || spec->kind_name[0] == '\0')
@@ -467,9 +467,9 @@ append_component_instance(
         return BREADBOARD_ERR_INVALID_ARGUMENT;
     }
 
-    new_components = (BreadboardComponentInstance*)realloc(
+    new_components = (BreadboardComponent*)realloc(
         module->components,
-        (module->component_count + 1u) * sizeof(BreadboardComponentInstance));
+        (module->component_count + 1u) * sizeof(BreadboardComponent));
     if (!new_components)
     {
         return BREADBOARD_ERR_INTERNAL;
@@ -572,7 +572,7 @@ serialize_breadboard_descriptors(
 static void
 serialize_breadboard_components(
     StrataPlaceholderSerializedComponent* out_components,
-    const BreadboardComponentInstance* components,
+    const BreadboardComponent* components,
     size_t count)
 {
     size_t index;
@@ -1437,6 +1437,94 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
     free(serialized_connections);
     free(serialized_components);
     free(serialized_descriptors);
+    return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_draft_component_count(
+    const BreadboardArtifactDraft* draft,
+    size_t* out_count)
+{
+    if (!draft || !out_count)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    *out_count = draft->component_count;
+    return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_draft_component_at(
+    const BreadboardArtifactDraft* draft,
+    size_t index,
+    BreadboardComponent* out_component)
+{
+    if (!draft || !out_component)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    if (index >= draft->component_count)
+    {
+        return BREADBOARD_ERR_OUT_OF_BOUNDS;
+    }
+
+    *out_component = draft->components[index];
+    return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_draft_component_by_id(
+    const BreadboardArtifactDraft* draft,
+    uint64_t component_id,
+    BreadboardComponent* out_component)
+{
+    size_t index;
+
+    if (!draft || !out_component)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    for (index = 0u; index < draft->component_count; ++index)
+    {
+        if (draft->components[index].id == component_id)
+        {
+            *out_component = draft->components[index];
+            return BREADBOARD_OK;
+        }
+    }
+
+    return BREADBOARD_ERR_NOT_FOUND;
+}
+
+BreadboardResult breadboard_draft_connection_count(
+    const BreadboardArtifactDraft* draft,
+    size_t* out_count)
+{
+    if (!draft || !out_count)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    *out_count = draft->connection_count;
+    return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_draft_connection_at(
+    const BreadboardArtifactDraft* draft,
+    size_t index,
+    BreadboardConnection* out_connection)
+{
+    if (!draft || !out_connection)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    if (index >= draft->connection_count)
+    {
+        return BREADBOARD_ERR_OUT_OF_BOUNDS;
+    }
+
+    *out_connection = draft->connections[index];
     return BREADBOARD_OK;
 }
 
