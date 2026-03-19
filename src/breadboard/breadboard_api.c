@@ -627,6 +627,90 @@ serialize_breadboard_connections(
     }
 }
 
+static void
+fill_empty_executable_subset_info(
+    BreadboardTarget target,
+    BreadboardExecutableSubsetInfo* out_info)
+{
+    if (!out_info)
+    {
+        return;
+    }
+
+    memset(out_info, 0, sizeof(*out_info));
+    out_info->subset = BREADBOARD_EXECUTABLE_SUBSET_NONE;
+    out_info->target = target;
+}
+
+static void
+fill_fast_combinational_subset_info(
+    BreadboardExecutableSubsetInfo* out_info)
+{
+    if (!out_info)
+    {
+        return;
+    }
+
+    memset(out_info, 0, sizeof(*out_info));
+    out_info->subset = BREADBOARD_EXECUTABLE_SUBSET_FAST_COMBINATIONAL_V1;
+    out_info->target = BREADBOARD_TARGET_FAST_4STATE;
+    out_info->has_real_executable_subset = true;
+    out_info->flat_only = true;
+    out_info->single_bit_only = true;
+    out_info->combinational_only = true;
+    out_info->allows_stateful_components = false;
+    out_info->allows_cycles = false;
+    out_info->real_path_hard_rejects_out_of_subset = true;
+    out_info->placeholder_fallback_requires_explicit_allowance = true;
+    out_info->admitted_primitive_mask = BREADBOARD_PRIMITIVE_MASK_ALL_FIRST_EXECUTABLE;
+    out_info->module_input_endpoint_class =
+        BREADBOARD_ENDPOINT_MODULE_INPUT_SOURCE;
+    out_info->component_output_endpoint_class =
+        BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE;
+    out_info->component_input_endpoint_class =
+        BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK;
+    out_info->module_output_endpoint_class =
+        BREADBOARD_ENDPOINT_MODULE_OUTPUT_SINK;
+}
+
+static int
+fill_primitive_signature(
+    BreadboardTarget target,
+    BreadboardPrimitiveKind primitive_kind,
+    BreadboardPrimitiveSignature* out_signature)
+{
+    if (!out_signature || target != BREADBOARD_TARGET_FAST_4STATE)
+    {
+        return 0;
+    }
+
+    memset(out_signature, 0, sizeof(*out_signature));
+    out_signature->primitive_kind = primitive_kind;
+    out_signature->target = target;
+    out_signature->output_count = 1u;
+    out_signature->output_name_0 = "out";
+    out_signature->single_bit_only = true;
+    out_signature->is_stateful = false;
+
+    switch (primitive_kind)
+    {
+        case BREADBOARD_PRIMITIVE_BUF:
+        case BREADBOARD_PRIMITIVE_NOT:
+            out_signature->input_count = 1u;
+            out_signature->input_name_0 = "in";
+            return 1;
+        case BREADBOARD_PRIMITIVE_AND:
+        case BREADBOARD_PRIMITIVE_OR:
+        case BREADBOARD_PRIMITIVE_XOR:
+            out_signature->input_count = 2u;
+            out_signature->input_name_0 = "a";
+            out_signature->input_name_1 = "b";
+            return 1;
+        default:
+            return 0;
+    }
+}
+
 /*
  * breadboard_api.c
  *
@@ -1538,6 +1622,62 @@ BreadboardResult breadboard_module_query_target_info(
     }
 
     out_info->target = module->target;
+    return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_query_executable_subset_info(
+    BreadboardTarget target,
+    BreadboardExecutableSubsetInfo* out_info)
+{
+    if (!out_info)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    if (target != BREADBOARD_TARGET_FAST_4STATE &&
+        target != BREADBOARD_TARGET_TEMPORAL)
+    {
+        return BREADBOARD_ERR_INVALID_TARGET;
+    }
+
+    if (target == BREADBOARD_TARGET_FAST_4STATE)
+    {
+        fill_fast_combinational_subset_info(out_info);
+    }
+    else
+    {
+        fill_empty_executable_subset_info(target, out_info);
+    }
+
+    return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_query_primitive_signature(
+    BreadboardTarget target,
+    BreadboardPrimitiveKind primitive_kind,
+    BreadboardPrimitiveSignature* out_signature)
+{
+    if (!out_signature)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    if (target != BREADBOARD_TARGET_FAST_4STATE &&
+        target != BREADBOARD_TARGET_TEMPORAL)
+    {
+        return BREADBOARD_ERR_INVALID_TARGET;
+    }
+
+    if (target != BREADBOARD_TARGET_FAST_4STATE)
+    {
+        return BREADBOARD_ERR_UNSUPPORTED;
+    }
+
+    if (!fill_primitive_signature(target, primitive_kind, out_signature))
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
     return BREADBOARD_OK;
 }
 

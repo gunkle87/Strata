@@ -47,6 +47,170 @@ int main(void)
     res = breadboard_module_create(NULL);
     print_result("module_create(NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
 
+    {
+        BreadboardExecutableSubsetInfo subset_info;
+        BreadboardPrimitiveSignature primitive_signature;
+
+        res = breadboard_query_executable_subset_info(
+            BREADBOARD_TARGET_FAST_4STATE,
+            &subset_info);
+        print_result("query_executable_subset_info(FAST_4STATE)", res, BREADBOARD_OK);
+        if (subset_info.subset != BREADBOARD_EXECUTABLE_SUBSET_FAST_COMBINATIONAL_V1 ||
+            !subset_info.has_real_executable_subset ||
+            !subset_info.flat_only ||
+            !subset_info.single_bit_only ||
+            !subset_info.combinational_only ||
+            subset_info.allows_stateful_components ||
+            subset_info.allows_cycles ||
+            !subset_info.real_path_hard_rejects_out_of_subset ||
+            !subset_info.placeholder_fallback_requires_explicit_allowance ||
+            subset_info.admitted_primitive_mask !=
+                BREADBOARD_PRIMITIVE_MASK_ALL_FIRST_EXECUTABLE ||
+            subset_info.module_input_endpoint_class !=
+                BREADBOARD_ENDPOINT_MODULE_INPUT_SOURCE ||
+            subset_info.component_output_endpoint_class !=
+                BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE ||
+            subset_info.component_input_endpoint_class !=
+                BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK ||
+            subset_info.module_output_endpoint_class !=
+                BREADBOARD_ENDPOINT_MODULE_OUTPUT_SINK)
+        {
+            printf("[FAIL] FAST_4STATE executable subset info mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_query_executable_subset_info(
+            BREADBOARD_TARGET_TEMPORAL,
+            &subset_info);
+        print_result("query_executable_subset_info(TEMPORAL)", res, BREADBOARD_OK);
+        if (subset_info.subset != BREADBOARD_EXECUTABLE_SUBSET_NONE ||
+            subset_info.has_real_executable_subset ||
+            subset_info.target != BREADBOARD_TARGET_TEMPORAL)
+        {
+            printf("[FAIL] TEMPORAL executable subset info mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_query_executable_subset_info(
+            (BreadboardTarget)999,
+            &subset_info);
+        print_result("query_executable_subset_info(INVALID)", res, BREADBOARD_ERR_INVALID_TARGET);
+
+        res = breadboard_query_executable_subset_info(
+            BREADBOARD_TARGET_FAST_4STATE,
+            NULL);
+        print_result("query_executable_subset_info(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+        res = breadboard_query_primitive_signature(
+            BREADBOARD_TARGET_FAST_4STATE,
+            BREADBOARD_PRIMITIVE_BUF,
+            &primitive_signature);
+        print_result("query_primitive_signature(BUF)", res, BREADBOARD_OK);
+        if (primitive_signature.primitive_kind != BREADBOARD_PRIMITIVE_BUF ||
+            primitive_signature.target != BREADBOARD_TARGET_FAST_4STATE ||
+            primitive_signature.input_count != 1u ||
+            primitive_signature.output_count != 1u ||
+            strcmp(primitive_signature.input_name_0, "in") != 0 ||
+            primitive_signature.input_name_1 != NULL ||
+            strcmp(primitive_signature.output_name_0, "out") != 0 ||
+            primitive_signature.is_stateful ||
+            !primitive_signature.single_bit_only)
+        {
+            printf("[FAIL] BUF primitive signature mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_query_primitive_signature(
+            BREADBOARD_TARGET_FAST_4STATE,
+            BREADBOARD_PRIMITIVE_AND,
+            &primitive_signature);
+        print_result("query_primitive_signature(AND)", res, BREADBOARD_OK);
+        if (primitive_signature.primitive_kind != BREADBOARD_PRIMITIVE_AND ||
+            primitive_signature.input_count != 2u ||
+            strcmp(primitive_signature.input_name_0, "a") != 0 ||
+            strcmp(primitive_signature.input_name_1, "b") != 0 ||
+            strcmp(primitive_signature.output_name_0, "out") != 0)
+        {
+            printf("[FAIL] AND primitive signature mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_query_primitive_signature(
+            BREADBOARD_TARGET_FAST_4STATE,
+            BREADBOARD_PRIMITIVE_NOT,
+            &primitive_signature);
+        print_result("query_primitive_signature(NOT)", res, BREADBOARD_OK);
+        if (primitive_signature.primitive_kind != BREADBOARD_PRIMITIVE_NOT ||
+            primitive_signature.input_count != 1u ||
+            strcmp(primitive_signature.input_name_0, "in") != 0 ||
+            primitive_signature.input_name_1 != NULL ||
+            strcmp(primitive_signature.output_name_0, "out") != 0 ||
+            primitive_signature.is_stateful ||
+            !primitive_signature.single_bit_only)
+        {
+            printf("[FAIL] NOT primitive signature mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_query_primitive_signature(
+            BREADBOARD_TARGET_FAST_4STATE,
+            BREADBOARD_PRIMITIVE_OR,
+            &primitive_signature);
+        print_result("query_primitive_signature(OR)", res, BREADBOARD_OK);
+        if (primitive_signature.primitive_kind != BREADBOARD_PRIMITIVE_OR ||
+            primitive_signature.input_count != 2u ||
+            strcmp(primitive_signature.input_name_0, "a") != 0 ||
+            strcmp(primitive_signature.input_name_1, "b") != 0 ||
+            strcmp(primitive_signature.output_name_0, "out") != 0 ||
+            primitive_signature.is_stateful ||
+            !primitive_signature.single_bit_only)
+        {
+            printf("[FAIL] OR primitive signature mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_query_primitive_signature(
+            BREADBOARD_TARGET_FAST_4STATE,
+            BREADBOARD_PRIMITIVE_XOR,
+            &primitive_signature);
+        print_result("query_primitive_signature(XOR)", res, BREADBOARD_OK);
+        if (primitive_signature.primitive_kind != BREADBOARD_PRIMITIVE_XOR ||
+            primitive_signature.input_count != 2u ||
+            strcmp(primitive_signature.input_name_0, "a") != 0 ||
+            strcmp(primitive_signature.input_name_1, "b") != 0 ||
+            strcmp(primitive_signature.output_name_0, "out") != 0 ||
+            primitive_signature.is_stateful ||
+            !primitive_signature.single_bit_only)
+        {
+            printf("[FAIL] XOR primitive signature mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_query_primitive_signature(
+            BREADBOARD_TARGET_TEMPORAL,
+            BREADBOARD_PRIMITIVE_BUF,
+            &primitive_signature);
+        print_result("query_primitive_signature(TEMPORAL, BUF)", res, BREADBOARD_ERR_UNSUPPORTED);
+
+        res = breadboard_query_primitive_signature(
+            BREADBOARD_TARGET_FAST_4STATE,
+            BREADBOARD_PRIMITIVE_INVALID,
+            &primitive_signature);
+        print_result("query_primitive_signature(INVALID primitive)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+        res = breadboard_query_primitive_signature(
+            (BreadboardTarget)999,
+            BREADBOARD_PRIMITIVE_BUF,
+            &primitive_signature);
+        print_result("query_primitive_signature(INVALID target)", res, BREADBOARD_ERR_INVALID_TARGET);
+
+        res = breadboard_query_primitive_signature(
+            BREADBOARD_TARGET_FAST_4STATE,
+            BREADBOARD_PRIMITIVE_BUF,
+            NULL);
+        print_result("query_primitive_signature(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+    }
+
     res = breadboard_module_set_identity(module, &module_identity);
     print_result("module_set_identity", res, BREADBOARD_OK);
     res = breadboard_module_set_structure_summary(module, &module_summary);

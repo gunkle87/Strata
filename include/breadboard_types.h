@@ -121,6 +121,113 @@ typedef struct BreadboardDescriptorSpec
 BreadboardDescriptorSpec;
 
 /*
+ * BreadboardExecutableSubset
+ *
+ * Identifies a frozen admitted executable subset contract for a target. This
+ * does not imply that the subset is already implemented; it defines the
+ * contract later tasks are expected to satisfy.
+ */
+typedef enum BreadboardExecutableSubset
+{
+    BREADBOARD_EXECUTABLE_SUBSET_NONE = 0,
+    BREADBOARD_EXECUTABLE_SUBSET_FAST_COMBINATIONAL_V1 = 1
+}
+BreadboardExecutableSubset;
+
+/*
+ * BreadboardPrimitiveKind
+ *
+ * Admitted primitive kinds for the first real executable fast-path contract.
+ */
+typedef enum BreadboardPrimitiveKind
+{
+    BREADBOARD_PRIMITIVE_INVALID = 0,
+    BREADBOARD_PRIMITIVE_BUF     = 1,
+    BREADBOARD_PRIMITIVE_NOT     = 2,
+    BREADBOARD_PRIMITIVE_AND     = 3,
+    BREADBOARD_PRIMITIVE_OR      = 4,
+    BREADBOARD_PRIMITIVE_XOR     = 5
+}
+BreadboardPrimitiveKind;
+
+/*
+ * BreadboardEndpointClass
+ *
+ * Explicit endpoint classes for the first admitted executable subset model.
+ */
+typedef enum BreadboardEndpointClass
+{
+    BREADBOARD_ENDPOINT_INVALID = 0,
+    BREADBOARD_ENDPOINT_MODULE_INPUT_SOURCE = 1,
+    BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE = 2,
+    BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK = 3,
+    BREADBOARD_ENDPOINT_MODULE_OUTPUT_SINK = 4
+}
+BreadboardEndpointClass;
+
+typedef uint32_t BreadboardPrimitiveMask;
+
+#define BREADBOARD_PRIMITIVE_MASK_NONE (0u)
+#define BREADBOARD_PRIMITIVE_MASK_BUF  (1u << BREADBOARD_PRIMITIVE_BUF)
+#define BREADBOARD_PRIMITIVE_MASK_NOT  (1u << BREADBOARD_PRIMITIVE_NOT)
+#define BREADBOARD_PRIMITIVE_MASK_AND  (1u << BREADBOARD_PRIMITIVE_AND)
+#define BREADBOARD_PRIMITIVE_MASK_OR   (1u << BREADBOARD_PRIMITIVE_OR)
+#define BREADBOARD_PRIMITIVE_MASK_XOR  (1u << BREADBOARD_PRIMITIVE_XOR)
+#define BREADBOARD_PRIMITIVE_MASK_ALL_FIRST_EXECUTABLE \
+    (BREADBOARD_PRIMITIVE_MASK_BUF | \
+     BREADBOARD_PRIMITIVE_MASK_NOT | \
+     BREADBOARD_PRIMITIVE_MASK_AND | \
+     BREADBOARD_PRIMITIVE_MASK_OR | \
+     BREADBOARD_PRIMITIVE_MASK_XOR)
+
+/*
+ * BreadboardExecutableSubsetInfo
+ *
+ * Public contract summary for the currently admitted executable subset of a
+ * target. This freezes the intended first real path without leaking compiler
+ * internals.
+ */
+typedef struct BreadboardExecutableSubsetInfo
+{
+    BreadboardExecutableSubset subset;
+    BreadboardTarget target;
+    bool has_real_executable_subset;
+    bool flat_only;
+    bool single_bit_only;
+    bool combinational_only;
+    bool allows_stateful_components;
+    bool allows_cycles;
+    bool real_path_hard_rejects_out_of_subset;
+    bool placeholder_fallback_requires_explicit_allowance;
+    BreadboardPrimitiveMask admitted_primitive_mask;
+    BreadboardEndpointClass module_input_endpoint_class;
+    BreadboardEndpointClass component_output_endpoint_class;
+    BreadboardEndpointClass component_input_endpoint_class;
+    BreadboardEndpointClass module_output_endpoint_class;
+}
+BreadboardExecutableSubsetInfo;
+
+/*
+ * BreadboardPrimitiveSignature
+ *
+ * Frozen signature shape for one admitted primitive in the first executable
+ * subset contract.
+ */
+typedef struct BreadboardPrimitiveSignature
+{
+    BreadboardPrimitiveKind primitive_kind;
+    BreadboardTarget target;
+    uint32_t input_count;
+    uint32_t output_count;
+    const char* input_name_0;
+    const char* input_name_1;
+    const char* output_name_0;
+    bool is_stateful;
+    bool single_bit_only;
+}
+BreadboardPrimitiveSignature;
+
+/*
  * BreadboardModuleIdentity
  *
  * Optional authored identity metadata for a module. This is coarse source-side

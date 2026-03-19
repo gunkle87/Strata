@@ -316,6 +316,27 @@ BreadboardResult breadboard_module_query_target_info(
     BreadboardTargetInfo* out_info);
 
 /*
+ * breadboard_query_executable_subset_info
+ *
+ * Queries the frozen admitted executable subset contract for a target. This
+ * allows later implementation and audit work to use one stable subset truth.
+ */
+BreadboardResult breadboard_query_executable_subset_info(
+    BreadboardTarget target,
+    BreadboardExecutableSubsetInfo* out_info);
+
+/*
+ * breadboard_query_primitive_signature
+ *
+ * Queries the frozen primitive signature for one admitted primitive kind on a
+ * target-specific executable subset contract.
+ */
+BreadboardResult breadboard_query_primitive_signature(
+    BreadboardTarget target,
+    BreadboardPrimitiveKind primitive_kind,
+    BreadboardPrimitiveSignature* out_signature);
+
+/*
  * breadboard_draft_input_descriptor_count
  *
  * Retrieves the total number of input descriptors exported by the draft.
