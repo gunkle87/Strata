@@ -437,7 +437,7 @@ Important rule
 ## 15. Relationship To Other Design Docs
 
 This policy follows:
-- [STRATA_FORGE_RUNTIME_API_PLAN.md](/c:/DEV/Strata/docs/STRATA_FORGE_RUNTIME_API_PLAN.md)
+- [STRATA_FORGE_RUNTIME_API_PLAN.md](STRATA_FORGE_RUNTIME_API_PLAN.md)
 
 This policy should guide:
 - `STRATA_BREADBOARD_BOUNDARY_SPEC.md`
@@ -465,3 +465,4 @@ That is the only clean way to keep:
 - `HighZ` temporal,
 - `Forge` stable,
 - and `Breadboard` honest about semantic approximation.
+

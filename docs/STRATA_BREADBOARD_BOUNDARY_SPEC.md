@@ -232,7 +232,7 @@ Hard rule
 - initialization-state handling required before steady-state execution.
 
 This must follow:
-- [STRATA_STATE_PROJECTION_POLICY.md](/c:/DEV/Strata/docs/STRATA_STATE_PROJECTION_POLICY.md)
+- [STRATA_STATE_PROJECTION_POLICY.md](STRATA_STATE_PROJECTION_POLICY.md)
 
 ### 5.7 Executable Artifact Emission
 
@@ -466,8 +466,8 @@ Important rule
 ## 17. Relationship To Other Design Docs
 
 This document follows:
-- [STRATA_FORGE_RUNTIME_API_PLAN.md](/c:/DEV/Strata/docs/STRATA_FORGE_RUNTIME_API_PLAN.md)
-- [STRATA_STATE_PROJECTION_POLICY.md](/c:/DEV/Strata/docs/STRATA_STATE_PROJECTION_POLICY.md)
+- [STRATA_FORGE_RUNTIME_API_PLAN.md](STRATA_FORGE_RUNTIME_API_PLAN.md)
+- [STRATA_STATE_PROJECTION_POLICY.md](STRATA_STATE_PROJECTION_POLICY.md)
 
 This document should guide:
 - `STRATA_BACKEND_CAPABILITY_REGISTRY.md`
@@ -499,3 +499,4 @@ If this boundary stays clean:
 - `HighZ` can stay temporal,
 - and the later artifact draft can be designed from real boundary obligations
   instead of guesswork.
+

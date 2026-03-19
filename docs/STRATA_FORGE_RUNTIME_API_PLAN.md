@@ -324,7 +324,7 @@ The common probe contract should support:
 - portable counter reads relevant to runtime inspection.
 
 Probe design must remain consistent with:
-- [PROBE_PROTOCOL.md](/c:/DEV/Strata/docs/PROBE_PROTOCOL.md)
+- [PROBE_PROTOCOL.md](PROBE_PROTOCOL.md)
 
 Important rule
 - probe support belongs in the runtime boundary, not in benchmark-only tools.
@@ -572,3 +572,4 @@ If this layer stays strict:
 - tooling and UI can integrate without reaching into backend memory layouts,
 - and the shared plan contract can be designed later from a stable foundation
   instead of guessed too early.
+
