@@ -364,6 +364,189 @@ main(void)
     }
 
     {
+        BreadboardModule *real_module;
+        BreadboardArtifactDraft *real_draft;
+        BreadboardCompileOptions real_options;
+        BreadboardModuleIdentity real_identity = { 0x4545u, "fast_executable_path" };
+        BreadboardStructureSummary real_summary = { 2u, 1u, 0u };
+        BreadboardDescriptorSpec real_input_a = { 410u, "real_a", 1u };
+        BreadboardDescriptorSpec real_input_b = { 411u, "real_b", 1u };
+        BreadboardDescriptorSpec real_output_y = { 412u, "real_y", 1u };
+        BreadboardComponentSpec real_and = { 510u, "AND", false };
+        BreadboardComponentSpec real_not = { 511u, "NOT", false };
+        BreadboardExecutableConnectionSpec real_ab = {
+            { BREADBOARD_ENDPOINT_MODULE_INPUT_SOURCE, 410u, 0u, 0u },
+            { BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK, 0u, 510u, 0u }
+        };
+        BreadboardExecutableConnectionSpec real_bb = {
+            { BREADBOARD_ENDPOINT_MODULE_INPUT_SOURCE, 411u, 0u, 0u },
+            { BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK, 0u, 510u, 1u }
+        };
+        BreadboardExecutableConnectionSpec real_chain = {
+            { BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE, 0u, 510u, 0u },
+            { BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK, 0u, 511u, 0u }
+        };
+        BreadboardExecutableConnectionSpec real_out = {
+            { BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE, 0u, 511u, 0u },
+            { BREADBOARD_ENDPOINT_MODULE_OUTPUT_SINK, 412u, 0u, 0u }
+        };
+        unsigned char *real_bytes = NULL;
+        size_t real_size = 0u;
+        uint32_t count = 0u;
+
+        real_module = NULL;
+        real_draft = NULL;
+        real_options.allow_placeholders = false;
+        real_options.deny_approximation = false;
+        real_options.strict_projection = false;
+
+        if (breadboard_module_create(&real_module) != BREADBOARD_OK ||
+            breadboard_module_set_target(real_module, BREADBOARD_TARGET_FAST_4STATE) != BREADBOARD_OK ||
+            breadboard_module_set_identity(real_module, &real_identity) != BREADBOARD_OK ||
+            breadboard_module_set_structure_summary(real_module, &real_summary) != BREADBOARD_OK ||
+            breadboard_module_add_input_descriptor(real_module, &real_input_a) != BREADBOARD_OK ||
+            breadboard_module_add_input_descriptor(real_module, &real_input_b) != BREADBOARD_OK ||
+            breadboard_module_add_output_descriptor(real_module, &real_output_y) != BREADBOARD_OK ||
+            breadboard_module_add_component_instance(real_module, &real_and) != BREADBOARD_OK ||
+            breadboard_module_add_component_instance(real_module, &real_not) != BREADBOARD_OK ||
+            breadboard_module_add_executable_connection(real_module, &real_ab) != BREADBOARD_OK ||
+            breadboard_module_add_executable_connection(real_module, &real_bb) != BREADBOARD_OK ||
+            breadboard_module_add_executable_connection(real_module, &real_chain) != BREADBOARD_OK ||
+            breadboard_module_add_executable_connection(real_module, &real_out) != BREADBOARD_OK)
+        {
+            fprintf(stderr, "FAIL: could not build real FAST_4STATE module\n");
+            return 1;
+        }
+
+        real_options.require_real_executable = true;
+
+        if (breadboard_module_compile(real_module, &real_options, &real_draft) != BREADBOARD_OK ||
+            !real_draft)
+        {
+            fprintf(stderr, "FAIL: could not compile real FAST_4STATE draft\n");
+            breadboard_module_free(real_module);
+            return 1;
+        }
+
+        if (breadboard_artifact_draft_export_fast_size(real_draft, &real_size) != BREADBOARD_OK)
+        {
+            fprintf(stderr, "FAIL: could not size real FAST_4STATE export\n");
+            breadboard_artifact_draft_free(real_draft);
+            breadboard_module_free(real_module);
+            return 1;
+        }
+
+        real_bytes = (unsigned char *)malloc(real_size);
+        if (!real_bytes)
+        {
+            fprintf(stderr, "FAIL: could not allocate real FAST_4STATE export bytes\n");
+            breadboard_artifact_draft_free(real_draft);
+            breadboard_module_free(real_module);
+            return 1;
+        }
+
+        if (breadboard_artifact_draft_export_fast(real_draft, real_bytes, real_size, &real_size) != BREADBOARD_OK)
+        {
+            fprintf(stderr, "FAIL: could not export real FAST_4STATE draft\n");
+            free(real_bytes);
+            breadboard_artifact_draft_free(real_draft);
+            breadboard_module_free(real_module);
+            return 1;
+        }
+
+        {
+            const StrataPlaceholderArtifactHeader *real_header =
+                (const StrataPlaceholderArtifactHeader *)real_bytes;
+            const StrataPlaceholderDraftSummary *real_draft_summary =
+                strata_placeholder_artifact_draft_summary(real_header);
+
+            if (!real_draft_summary ||
+                real_header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_FAST_EXECUTABLE_V1 ||
+                real_draft_summary->has_placeholders != 0u ||
+                real_draft_summary->source_module_id != real_identity.module_id ||
+                strcmp(real_draft_summary->source_module_name, real_identity.module_name) != 0)
+            {
+                fprintf(stderr, "FAIL: real FAST_4STATE export summary mismatch\n");
+                free(real_bytes);
+                breadboard_artifact_draft_free(real_draft);
+                breadboard_module_free(real_module);
+                return 1;
+            }
+        }
+
+        breadboard_artifact_draft_free(real_draft);
+        breadboard_module_free(real_module);
+
+        artifact = NULL;
+        result = forge_artifact_load(lxs_id, real_bytes, real_size, &artifact);
+        free(real_bytes);
+        if (result != FORGE_OK || !artifact)
+        {
+            fprintf(stderr, "FAIL: real FAST_4STATE artifact should load, got %d\n",
+                (int)result);
+            return 1;
+        }
+
+        result = forge_artifact_info(artifact, &info);
+        if (result != FORGE_OK ||
+            info.source_has_placeholders != 0u ||
+            info.source_module_id != real_identity.module_id ||
+            strcmp(info.source_module_name, real_identity.module_name) != 0 ||
+            info.source_declared_component_count != real_summary.declared_component_count ||
+            info.source_declared_connection_count != real_summary.declared_connection_count ||
+            info.source_declared_stateful_node_count != real_summary.declared_stateful_node_count)
+        {
+            fprintf(stderr, "FAIL: real FAST_4STATE artifact info mismatch\n");
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_input_descriptor_count(artifact, &count);
+        if (result != FORGE_OK || count != 2u)
+        {
+            fprintf(stderr, "FAIL: real FAST_4STATE input descriptor count mismatch\n");
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_output_descriptor_count(artifact, &count);
+        if (result != FORGE_OK || count != 1u)
+        {
+            fprintf(stderr, "FAIL: real FAST_4STATE output descriptor count mismatch\n");
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_input_descriptor_by_id(artifact, 410u, &forge_descriptor);
+        if (result != FORGE_OK ||
+            forge_descriptor.id != 410u ||
+            strcmp(forge_descriptor.name, "real_a") != 0 ||
+            forge_descriptor.width != 1u)
+        {
+            fprintf(stderr, "FAIL: real FAST_4STATE input descriptor lookup mismatch\n");
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_output_descriptor_by_name(artifact, "real_y", &forge_descriptor);
+        if (result != FORGE_OK ||
+            forge_descriptor.id != 412u ||
+            strcmp(forge_descriptor.name, "real_y") != 0 ||
+            forge_descriptor.width != 1u)
+        {
+            fprintf(stderr, "FAIL: real FAST_4STATE output descriptor lookup mismatch\n");
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        if (forge_artifact_unload(artifact) != FORGE_OK)
+        {
+            fprintf(stderr, "FAIL: could not unload real FAST_4STATE artifact\n");
+            return 1;
+        }
+    }
+
+    {
         BreadboardModule *module;
         BreadboardArtifactDraft *draft;
         BreadboardCompileOptions options;

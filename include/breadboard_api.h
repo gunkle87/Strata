@@ -264,6 +264,25 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
     size_t* out_size);
 
 /*
+ * breadboard_artifact_draft_export_fast
+ *
+ * Exports a real FAST_4STATE draft into the same temporary artifact envelope
+ * using the admitted fast-path payload kind.
+ *
+ * This is still temporary scaffolding, but it carries the lowered executable
+ * descriptor truth instead of placeholder fallback content.
+ */
+BreadboardResult breadboard_artifact_draft_export_fast(
+    const BreadboardArtifactDraft* draft,
+    void* buffer,
+    size_t buffer_size,
+    size_t* out_size);
+
+BreadboardResult breadboard_artifact_draft_export_fast_size(
+    const BreadboardArtifactDraft* draft,
+    size_t* out_size);
+
+/*
  * breadboard_draft_component_count
  *
  * Retrieves the total number of authored structural components retained on the

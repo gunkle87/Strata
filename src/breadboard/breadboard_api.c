@@ -51,6 +51,26 @@ fill_placeholder_admission_info(
     return 1;
 }
 
+static int
+copy_export_admission_info(
+    const BreadboardDraftAdmissionInfo* source,
+    StrataPlaceholderAdmissionInfo* out_info)
+{
+    if (!source || !out_info)
+    {
+        return 0;
+    }
+
+    out_info->requirement_flags = source->extension_flags;
+    out_info->requires_advanced_controls =
+        source->requires_advanced_controls ? 1u : 0u;
+    out_info->requires_native_state_read =
+        source->requires_native_state_read ? 1u : 0u;
+    out_info->requires_native_inputs =
+        source->requires_native_inputs ? 1u : 0u;
+    return 1;
+}
+
 static void
 copy_placeholder_descriptors(
     BreadboardDescriptor* out_descriptors,
@@ -315,6 +335,80 @@ copy_connection_array(
 
     memcpy(copy, connections, count * sizeof(BreadboardConnection));
     *out_connections = copy;
+    return 1;
+}
+
+static int
+copy_executable_structure_connection_array(
+    BreadboardConnection** out_connections,
+    size_t* out_count,
+    const BreadboardExecutableConnectionSpec* connections,
+    size_t count)
+{
+    BreadboardConnection* copy;
+    size_t index;
+    size_t structural_count;
+    size_t write_index;
+
+    if (!out_connections || !out_count)
+    {
+        return 0;
+    }
+
+    *out_connections = NULL;
+    *out_count = 0u;
+
+    if (count == 0u)
+    {
+        return 1;
+    }
+
+    if (!connections)
+    {
+        return 0;
+    }
+
+    structural_count = 0u;
+    for (index = 0u; index < count; ++index)
+    {
+        if (connections[index].source.endpoint_class ==
+                BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE &&
+            connections[index].sink.endpoint_class ==
+                BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK)
+        {
+            structural_count += 1u;
+        }
+    }
+
+    if (structural_count == 0u)
+    {
+        return 1;
+    }
+
+    copy = (BreadboardConnection*)calloc(structural_count, sizeof(BreadboardConnection));
+    if (!copy)
+    {
+        return 0;
+    }
+
+    write_index = 0u;
+    for (index = 0u; index < count; ++index)
+    {
+        if (connections[index].source.endpoint_class ==
+                BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE &&
+            connections[index].sink.endpoint_class ==
+                BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK)
+        {
+            copy[write_index].source_component_id =
+                connections[index].source.component_id;
+            copy[write_index].sink_component_id =
+                connections[index].sink.component_id;
+            write_index += 1u;
+        }
+    }
+
+    *out_connections = copy;
+    *out_count = structural_count;
     return 1;
 }
 
@@ -2202,6 +2296,27 @@ BreadboardResult breadboard_module_compile(
             return BREADBOARD_ERR_COMPILE_FAILED;
         }
 
+        draft->connection_count = 0u;
+        if (!copy_executable_structure_connection_array(
+                &draft->connections,
+                &draft->connection_count,
+                module->executable_connections,
+                module->executable_connection_count))
+        {
+            breadboard_artifact_draft_free(draft);
+            record_diagnostic(
+                module,
+                BREADBOARD_DIAG_ERROR,
+                BREADBOARD_DIAG_CODE_INTERNAL_ERROR,
+                "Failed to copy real executable connections");
+            return BREADBOARD_ERR_INTERNAL;
+        }
+
+        draft->structure_summary.declared_connection_count =
+            (uint32_t)draft->connection_count;
+        draft->info.declared_connection_count =
+            draft->structure_summary.declared_connection_count;
+
         draft->info.has_placeholders = false;
         draft->info.approximate_size_bytes = real_fast_artifact_size_for_layout(
             (uint32_t)draft->input_count,
@@ -2573,6 +2688,339 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
         free(serialized_components);
         free(serialized_descriptors);
         return BREADBOARD_ERR_INTERNAL;
+    }
+
+    free(serialized_connections);
+    free(serialized_components);
+    free(serialized_descriptors);
+    return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_artifact_draft_export_fast_size(
+    const BreadboardArtifactDraft* draft,
+    size_t* out_size)
+{
+    if (!draft || !out_size)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    if (draft->admission_info.is_placeholder)
+    {
+        return BREADBOARD_ERR_UNSUPPORTED;
+    }
+
+    if (draft->target != BREADBOARD_TARGET_FAST_4STATE)
+    {
+        return BREADBOARD_ERR_UNSUPPORTED;
+    }
+
+    *out_size = real_fast_artifact_size_for_layout(
+        (uint32_t)draft->input_count,
+        (uint32_t)draft->output_count,
+        (uint32_t)draft->probe_count,
+        draft->fast_primitive_count,
+        draft->fast_signal_count,
+        draft->fast_input_binding_count,
+        draft->fast_output_binding_count,
+        (uint32_t)draft->component_count,
+        (uint32_t)draft->connection_count);
+    return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_artifact_draft_export_fast(
+    const BreadboardArtifactDraft* draft,
+    void* buffer,
+    size_t buffer_size,
+    size_t* out_size)
+{
+    size_t required_size;
+    uint32_t target_backend_id;
+    StrataPlaceholderPayloadKind payload_kind;
+    StrataPlaceholderAdmissionInfo admission_info;
+    StrataPlaceholderDraftSummary draft_summary;
+    size_t total_descriptor_count;
+    StrataPlaceholderSerializedDescriptor* serialized_descriptors;
+    StrataPlaceholderSerializedComponent* serialized_components;
+    StrataPlaceholderSerializedConnection* serialized_connections;
+
+    if (!draft || !buffer || !out_size)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    if (draft->admission_info.is_placeholder)
+    {
+        return BREADBOARD_ERR_UNSUPPORTED;
+    }
+
+    if (draft->target != BREADBOARD_TARGET_FAST_4STATE)
+    {
+        return BREADBOARD_ERR_UNSUPPORTED;
+    }
+
+    required_size = real_fast_artifact_size_for_layout(
+        (uint32_t)draft->input_count,
+        (uint32_t)draft->output_count,
+        (uint32_t)draft->probe_count,
+        draft->fast_primitive_count,
+        draft->fast_signal_count,
+        draft->fast_input_binding_count,
+        draft->fast_output_binding_count,
+        (uint32_t)draft->component_count,
+        (uint32_t)draft->connection_count);
+
+    if (buffer_size < required_size)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    if (resolve_placeholder_backend_id(draft->target, &target_backend_id) != BREADBOARD_OK)
+    {
+        return BREADBOARD_ERR_UNSUPPORTED;
+    }
+
+    payload_kind = STRATA_PLACEHOLDER_PAYLOAD_FAST_EXECUTABLE_V1;
+
+    if (!copy_export_admission_info(&draft->admission_info, &admission_info))
+    {
+        return BREADBOARD_ERR_INTERNAL;
+    }
+
+    draft_summary.source_target_value = (uint32_t)draft->info.target;
+    draft_summary.has_placeholders = draft->info.has_placeholders ? 1u : 0u;
+    draft_summary.approximate_size_bytes =
+        (uint64_t)draft->info.approximate_size_bytes;
+    draft_summary.source_module_id = draft->source_module_id;
+    memset(draft_summary.source_module_name, 0, sizeof(draft_summary.source_module_name));
+    memcpy(
+        draft_summary.source_module_name,
+        draft->source_module_name,
+        sizeof(draft_summary.source_module_name) - 1u);
+    draft_summary.declared_component_count =
+        draft->structure_summary.declared_component_count;
+    draft_summary.declared_connection_count =
+        draft->structure_summary.declared_connection_count;
+    draft_summary.declared_stateful_node_count =
+        draft->structure_summary.declared_stateful_node_count;
+
+    total_descriptor_count = draft->input_count +
+        draft->output_count +
+        draft->probe_count;
+    serialized_descriptors = (StrataPlaceholderSerializedDescriptor*)calloc(
+        total_descriptor_count,
+        sizeof(StrataPlaceholderSerializedDescriptor));
+    if (!serialized_descriptors)
+    {
+        return BREADBOARD_ERR_INTERNAL;
+    }
+
+    serialized_components = NULL;
+    serialized_connections = NULL;
+    if (draft->component_count != 0u)
+    {
+        serialized_components = (StrataPlaceholderSerializedComponent*)calloc(
+            draft->component_count,
+            sizeof(StrataPlaceholderSerializedComponent));
+        if (!serialized_components)
+        {
+            free(serialized_descriptors);
+            return BREADBOARD_ERR_INTERNAL;
+        }
+
+        serialize_breadboard_components(
+            serialized_components,
+            draft->components,
+            draft->component_count);
+    }
+
+    if (draft->connection_count != 0u)
+    {
+        serialized_connections = (StrataPlaceholderSerializedConnection*)calloc(
+            draft->connection_count,
+            sizeof(StrataPlaceholderSerializedConnection));
+        if (!serialized_connections)
+        {
+            free(serialized_components);
+            free(serialized_descriptors);
+            return BREADBOARD_ERR_INTERNAL;
+        }
+
+        serialize_breadboard_connections(
+            serialized_connections,
+            draft->connections,
+            draft->connection_count);
+    }
+
+    serialize_breadboard_descriptors(
+        serialized_descriptors,
+        draft->inputs,
+        draft->input_count);
+    serialize_breadboard_descriptors(
+        serialized_descriptors + draft->input_count,
+        draft->outputs,
+        draft->output_count);
+    serialize_breadboard_descriptors(
+        serialized_descriptors + draft->input_count + draft->output_count,
+        draft->probes,
+        draft->probe_count);
+
+    {
+        StrataPlaceholderArtifactHeader header;
+        StrataPlaceholderSectionEntry sections[5];
+        const size_t descriptor_bytes = strata_placeholder_descriptor_bytes_for_counts(
+            (uint32_t)draft->input_count,
+            (uint32_t)draft->output_count,
+            (uint32_t)draft->probe_count);
+        const size_t structure_bytes = strata_placeholder_structure_bytes_for_counts(
+            (uint32_t)draft->component_count,
+            (uint32_t)draft->connection_count);
+        const size_t section_table_bytes = strata_placeholder_section_table_bytes(5u);
+        const size_t payload_bytes = real_fast_payload_bytes_for_counts(
+            draft->fast_primitive_count,
+            draft->fast_signal_count,
+            draft->fast_input_binding_count,
+            draft->fast_output_binding_count);
+        const size_t required_size = sizeof(StrataPlaceholderArtifactHeader) +
+            section_table_bytes +
+            sizeof(StrataPlaceholderAdmissionInfo) +
+            sizeof(StrataPlaceholderDraftSummary) +
+            structure_bytes +
+            descriptor_bytes +
+            payload_bytes;
+        uint32_t admission_offset;
+        uint32_t draft_summary_offset;
+        uint32_t structure_offset;
+        size_t component_bytes;
+        size_t connection_bytes;
+        StrataPlaceholderStructureSummary structure_summary;
+        StrataPlaceholderFastExecutablePayloadHeader payload_header;
+
+        if (required_size == 0u || buffer_size < required_size)
+        {
+            free(serialized_connections);
+            free(serialized_components);
+            free(serialized_descriptors);
+            return BREADBOARD_ERR_INVALID_ARGUMENT;
+        }
+
+        memcpy(header.magic, k_strata_placeholder_artifact_magic, sizeof(header.magic));
+        header.version_major = STRATA_PLACEHOLDER_ARTIFACT_VERSION_MAJOR;
+        header.version_minor = STRATA_PLACEHOLDER_ARTIFACT_VERSION_MINOR;
+        header.target_backend_id = target_backend_id;
+        header.input_descriptor_count = (uint32_t)draft->input_count;
+        header.output_descriptor_count = (uint32_t)draft->output_count;
+        header.probe_descriptor_count = (uint32_t)draft->probe_count;
+        header.section_table_offset = (uint32_t)sizeof(StrataPlaceholderArtifactHeader);
+        header.section_count = 5u;
+        header.descriptor_bytes = (uint32_t)descriptor_bytes;
+        admission_offset = (uint32_t)(sizeof(StrataPlaceholderArtifactHeader) +
+            section_table_bytes);
+        draft_summary_offset = (uint32_t)(admission_offset +
+            sizeof(StrataPlaceholderAdmissionInfo));
+        structure_offset = (uint32_t)(draft_summary_offset +
+            sizeof(StrataPlaceholderDraftSummary));
+        header.descriptor_offset = (uint32_t)(structure_offset + structure_bytes);
+        header.payload_size = (uint32_t)payload_bytes;
+        header.payload_offset = (uint32_t)(header.descriptor_offset + descriptor_bytes);
+        header.payload_kind = (uint32_t)payload_kind;
+        header.admission_info = admission_info;
+
+        sections[0].section_kind = STRATA_PLACEHOLDER_SECTION_ADMISSION;
+        sections[0].section_offset = admission_offset;
+        sections[0].section_size = sizeof(StrataPlaceholderAdmissionInfo);
+        sections[1].section_kind = STRATA_PLACEHOLDER_SECTION_DRAFT_SUMMARY;
+        sections[1].section_offset = draft_summary_offset;
+        sections[1].section_size = sizeof(StrataPlaceholderDraftSummary);
+        sections[2].section_kind = STRATA_PLACEHOLDER_SECTION_STRUCTURE;
+        sections[2].section_offset = structure_offset;
+        sections[2].section_size = (uint32_t)structure_bytes;
+        sections[3].section_kind = STRATA_PLACEHOLDER_SECTION_DESCRIPTORS;
+        sections[3].section_offset = header.descriptor_offset;
+        sections[3].section_size = header.descriptor_bytes;
+        sections[4].section_kind = STRATA_PLACEHOLDER_SECTION_PAYLOAD;
+        sections[4].section_offset = header.payload_offset;
+        sections[4].section_size = header.payload_size;
+
+        component_bytes =
+            (size_t)draft->component_count * sizeof(StrataPlaceholderSerializedComponent);
+        connection_bytes =
+            (size_t)draft->connection_count * sizeof(StrataPlaceholderSerializedConnection);
+
+        structure_summary.component_count = (uint32_t)draft->component_count;
+        structure_summary.connection_count = (uint32_t)draft->connection_count;
+
+        memcpy(buffer, &header, sizeof(header));
+        memcpy(
+            ((uint8_t*)buffer) + header.section_table_offset,
+            sections,
+            section_table_bytes);
+        memcpy(
+            ((uint8_t*)buffer) + admission_offset,
+            &admission_info,
+            sizeof(StrataPlaceholderAdmissionInfo));
+        memcpy(
+            ((uint8_t*)buffer) + draft_summary_offset,
+            &draft_summary,
+            sizeof(StrataPlaceholderDraftSummary));
+        memcpy(
+            ((uint8_t*)buffer) + structure_offset,
+            &structure_summary,
+            sizeof(StrataPlaceholderStructureSummary));
+        if (component_bytes != 0u && serialized_components)
+        {
+            memcpy(
+                ((uint8_t*)buffer) + structure_offset +
+                    sizeof(StrataPlaceholderStructureSummary),
+                serialized_components,
+                component_bytes);
+        }
+        if (connection_bytes != 0u && serialized_connections)
+        {
+            memcpy(
+                ((uint8_t*)buffer) + structure_offset +
+                    sizeof(StrataPlaceholderStructureSummary) +
+                    component_bytes,
+                serialized_connections,
+                connection_bytes);
+        }
+        memcpy(
+            ((uint8_t*)buffer) + header.descriptor_offset,
+            serialized_descriptors,
+            descriptor_bytes);
+
+        payload_header.primitive_count = (uint32_t)draft->fast_primitive_count;
+        payload_header.signal_count = (uint32_t)draft->fast_signal_count;
+        payload_header.input_binding_count = (uint32_t)draft->fast_input_binding_count;
+        payload_header.output_binding_count = (uint32_t)draft->fast_output_binding_count;
+        memcpy(
+            ((uint8_t*)buffer) + header.payload_offset,
+            &payload_header,
+            sizeof(payload_header));
+        memcpy(
+            ((uint8_t*)buffer) + header.payload_offset + sizeof(payload_header),
+            draft->fast_signals,
+            (size_t)draft->fast_signal_count * sizeof(StrataPlaceholderFastSignalRecord));
+        memcpy(
+            ((uint8_t*)buffer) + header.payload_offset + sizeof(payload_header) +
+                ((size_t)draft->fast_signal_count * sizeof(StrataPlaceholderFastSignalRecord)),
+            draft->fast_primitives,
+            (size_t)draft->fast_primitive_count * sizeof(StrataPlaceholderFastPrimitiveRecord));
+        memcpy(
+            ((uint8_t*)buffer) + header.payload_offset + sizeof(payload_header) +
+                ((size_t)draft->fast_signal_count * sizeof(StrataPlaceholderFastSignalRecord)) +
+                ((size_t)draft->fast_primitive_count * sizeof(StrataPlaceholderFastPrimitiveRecord)),
+            draft->fast_input_bindings,
+            (size_t)draft->fast_input_binding_count * sizeof(StrataPlaceholderFastInputBinding));
+        memcpy(
+            ((uint8_t*)buffer) + header.payload_offset + sizeof(payload_header) +
+                ((size_t)draft->fast_signal_count * sizeof(StrataPlaceholderFastSignalRecord)) +
+                ((size_t)draft->fast_primitive_count * sizeof(StrataPlaceholderFastPrimitiveRecord)) +
+                ((size_t)draft->fast_input_binding_count * sizeof(StrataPlaceholderFastInputBinding)),
+            draft->fast_output_bindings,
+            (size_t)draft->fast_output_binding_count * sizeof(StrataPlaceholderFastOutputBinding));
+
+        *out_size = required_size;
     }
 
     free(serialized_connections);

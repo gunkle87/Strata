@@ -1006,6 +1006,7 @@ forge_artifact_load(
     uint32_t requires_advanced_controls;
     uint32_t requires_native_state_read;
     uint32_t requires_native_inputs;
+    uint32_t placeholder_flags;
     ForgeResult descriptor_result;
     ForgeResult requirement_result;
 
@@ -1085,16 +1086,15 @@ forge_artifact_load(
     payload = strata_placeholder_artifact_payload(header);
     payload_kind = (StrataPlaceholderPayloadKind)header->payload_kind;
     required_extension_mask = 0u;
+    placeholder_flags = 1u;
     requires_advanced_controls = admission_info->requires_advanced_controls;
     requires_native_state_read = admission_info->requires_native_state_read;
     requires_native_inputs = admission_info->requires_native_inputs;
 
     /*
-     * Stub success path:
-     * valid shared header + one of the recognized placeholder payload classes
-     * plus a coherent explicit admission manifest returns a minimal
+     * Stub and fast-executable success paths:
+     * valid shared header plus a coherent payload family returns a minimal
      * ForgeArtifact with coarse admission metadata.
-     * Any other payload remains unsupported until real decoding exists.
      */
     if (header->payload_size == STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN)
     {
@@ -1128,7 +1128,47 @@ forge_artifact_load(
             return requirement_result;
         }
 
-        art = (ForgeArtifact *)malloc(sizeof(ForgeArtifact));
+        placeholder_flags = 1u;
+    }
+    else if (strata_placeholder_payload_kind_is_real_fast_executable(payload_kind))
+    {
+        if (!strata_placeholder_fast_payload_header_is_coherent(header))
+        {
+            return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+                "forge_artifact_load: real fast payload header is not coherent");
+        }
+
+        if (admission_info->requirement_flags != STRATA_PLACEHOLDER_REQUIREMENT_NONE ||
+            admission_info->requires_advanced_controls != 0u ||
+            admission_info->requires_native_state_read != 0u ||
+            admission_info->requires_native_inputs != 0u)
+        {
+            return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+                "forge_artifact_load: real fast admission manifest must be empty");
+        }
+
+        requirement_result = forge_validate_artifact_requirements(
+            &profile,
+            rec->info.backend_class,
+            0u,
+            requires_advanced_controls,
+            requires_native_state_read,
+            requires_native_inputs);
+
+        if (requirement_result != FORGE_OK)
+        {
+            return requirement_result;
+        }
+
+        placeholder_flags = 0u;
+    }
+    else
+    {
+        return forge_fail(FORGE_ERR_UNSUPPORTED,
+            "forge_artifact_load: artifact header valid but payload decoding is not implemented");
+    }
+
+    art = (ForgeArtifact *)malloc(sizeof(ForgeArtifact));
 
         if (!art)
         {
@@ -1159,7 +1199,7 @@ forge_artifact_load(
         art->output_descriptor_count = header->output_descriptor_count;
         art->probe_descriptor_count = header->probe_descriptor_count;
         art->source_size = size;
-        art->placeholder_flags = 1;
+        art->placeholder_flags = placeholder_flags;
         art->required_extension_mask = required_extension_mask;
         art->requires_advanced_controls = requires_advanced_controls;
         art->requires_native_state_read = requires_native_state_read;
@@ -1233,10 +1273,6 @@ forge_artifact_load(
 
         forge_diag_set("");
         return FORGE_OK;
-    }
-
-    return forge_fail(FORGE_ERR_UNSUPPORTED,
-        "forge_artifact_load: artifact header valid but payload decoding is not implemented");
 }
 
 ForgeResult

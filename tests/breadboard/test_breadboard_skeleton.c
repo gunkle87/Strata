@@ -219,10 +219,14 @@ int main(void)
         BreadboardDraftAdmissionInfo admission_info;
         BreadboardDiagnostic diagnostic;
         BreadboardComponent component;
+        BreadboardDescriptor descriptor;
         size_t diagnostic_count = 0u;
         size_t component_count = 0u;
         size_t connection_count = 0u;
         size_t export_size = 0u;
+        size_t input_descriptor_count = 0u;
+        size_t output_descriptor_count = 0u;
+        size_t probe_descriptor_count = 0u;
         BreadboardDescriptorSpec input_a = { 401u, "a", 1u };
         BreadboardDescriptorSpec input_b = { 402u, "b", 1u };
         BreadboardDescriptorSpec output_y = { 403u, "y", 1u };
@@ -328,16 +332,46 @@ int main(void)
                 strata_placeholder_section_table_bytes(5u) +
                 sizeof(StrataPlaceholderAdmissionInfo) +
                 sizeof(StrataPlaceholderDraftSummary) +
-                strata_placeholder_structure_bytes_for_counts(2u, 0u) +
+                strata_placeholder_structure_bytes_for_counts(2u, 1u) +
                 strata_placeholder_descriptor_bytes_for_counts(2u, 1u, 0u) +
                 strata_placeholder_fast_payload_bytes_for_counts(2u, 4u, 2u, 1u) ||
             draft_info.source_module_id != 0u ||
             strcmp(draft_info.source_module_name, "") != 0 ||
             draft_info.declared_component_count != 2u ||
-            draft_info.declared_connection_count != 0u ||
+            draft_info.declared_connection_count != 1u ||
             draft_info.declared_stateful_node_count != 0u)
         {
             printf("[FAIL] executable draft info mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_input_descriptor_count(executable_draft, &input_descriptor_count);
+        print_result("exec draft_input_descriptor_count", res, BREADBOARD_OK);
+        res = breadboard_draft_output_descriptor_count(executable_draft, &output_descriptor_count);
+        print_result("exec draft_output_descriptor_count", res, BREADBOARD_OK);
+        res = breadboard_draft_probe_descriptor_count(executable_draft, &probe_descriptor_count);
+        print_result("exec draft_probe_descriptor_count", res, BREADBOARD_OK);
+        if (input_descriptor_count != 2u ||
+            output_descriptor_count != 1u ||
+            probe_descriptor_count != 0u)
+        {
+            printf("[FAIL] executable draft descriptor count mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_input_descriptor_by_id(executable_draft, 401u, &descriptor);
+        print_result("exec draft_input_descriptor_by_id(401)", res, BREADBOARD_OK);
+        if (descriptor.id != 401u || strcmp(descriptor.name, "a") != 0 || descriptor.width != 1u)
+        {
+            printf("[FAIL] executable draft input descriptor mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_output_descriptor_by_name(executable_draft, "y", &descriptor);
+        print_result("exec draft_output_descriptor_by_name(y)", res, BREADBOARD_OK);
+        if (descriptor.id != 403u || strcmp(descriptor.name, "y") != 0 || descriptor.width != 1u)
+        {
+            printf("[FAIL] executable draft output descriptor mismatch\n");
             exit(1);
         }
 
@@ -359,7 +393,7 @@ int main(void)
         print_result("exec draft_component_count", res, BREADBOARD_OK);
         res = breadboard_draft_connection_count(executable_draft, &connection_count);
         print_result("exec draft_connection_count", res, BREADBOARD_OK);
-        if (component_count != 2u || connection_count != 0u)
+        if (component_count != 2u || connection_count != 1u)
         {
             printf("[FAIL] executable draft structural count mismatch\n");
             exit(1);
@@ -391,6 +425,42 @@ int main(void)
 
         res = breadboard_artifact_draft_export_placeholder_size(executable_draft, &export_size);
         print_result("exec draft_export_placeholder_size", res, BREADBOARD_ERR_UNSUPPORTED);
+
+        res = breadboard_artifact_draft_export_fast_size(executable_draft, &export_size);
+        print_result("exec draft_export_fast_size", res, BREADBOARD_OK);
+        if (export_size == 0u)
+        {
+            printf("[FAIL] real fast export size should be non-zero\n");
+            exit(1);
+        }
+
+        {
+            unsigned char* export_bytes = (unsigned char*)malloc(export_size);
+            const StrataPlaceholderArtifactHeader* export_header;
+
+            if (!export_bytes)
+            {
+                printf("[FAIL] could not allocate real fast export bytes\n");
+                exit(1);
+            }
+
+            res = breadboard_artifact_draft_export_fast(
+                executable_draft,
+                export_bytes,
+                export_size,
+                &export_size);
+            print_result("exec draft_export_fast", res, BREADBOARD_OK);
+
+            export_header = (const StrataPlaceholderArtifactHeader*)export_bytes;
+            if (export_header->payload_kind != STRATA_PLACEHOLDER_PAYLOAD_FAST_EXECUTABLE_V1)
+            {
+                printf("[FAIL] real fast export payload kind mismatch\n");
+                free(export_bytes);
+                exit(1);
+            }
+
+            free(export_bytes);
+        }
 
         res = breadboard_module_add_executable_connection(NULL, &exec_ab);
         print_result("add_executable_connection(NULL, ...)", res, BREADBOARD_ERR_INVALID_HANDLE);

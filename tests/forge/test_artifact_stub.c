@@ -105,7 +105,7 @@ int main(void)
 
     if (info.backend_id != id ||
         info.format_version_major != 0 ||
-        info.format_version_minor != 10 ||
+        info.format_version_minor != 11 ||
         info.source_target_value != 1u ||
         info.source_has_placeholders != 1u ||
         info.source_approximate_size_bytes != 1024u ||
