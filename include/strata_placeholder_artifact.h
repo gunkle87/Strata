@@ -734,7 +734,6 @@ strata_placeholder_fast_payload_header_is_coherent(
     const StrataPlaceholderFastInputBinding* input_bindings;
     const StrataPlaceholderFastOutputBinding* output_bindings;
     const StrataPlaceholderFastSignalRecord* signals;
-    const StrataPlaceholderSerializedDescriptor* descriptors;
 
     payload_header = strata_placeholder_fast_payload_header(header);
     if (!payload_header)
@@ -764,9 +763,7 @@ strata_placeholder_fast_payload_header_is_coherent(
     primitives = strata_placeholder_fast_payload_primitives(payload_header);
     input_bindings = strata_placeholder_fast_payload_input_bindings(payload_header);
     output_bindings = strata_placeholder_fast_payload_output_bindings(payload_header);
-    descriptors = strata_placeholder_artifact_descriptors(header);
-    if (!signals || !primitives || !input_bindings || !output_bindings ||
-        !descriptors)
+    if (!signals || !primitives || !input_bindings || !output_bindings)
     {
         return 0;
     }
@@ -807,8 +804,7 @@ strata_placeholder_fast_payload_header_is_coherent(
 
     for (index = 0u; index < payload_header->input_binding_count; ++index)
     {
-        if (input_bindings[index].signal_index >= payload_header->signal_count ||
-            input_bindings[index].descriptor_id != descriptors[index].id)
+        if (input_bindings[index].signal_index >= payload_header->signal_count)
         {
             return 0;
         }
@@ -816,9 +812,7 @@ strata_placeholder_fast_payload_header_is_coherent(
 
     for (index = 0u; index < payload_header->output_binding_count; ++index)
     {
-        if (output_bindings[index].signal_index >= payload_header->signal_count ||
-            output_bindings[index].descriptor_id !=
-                descriptors[payload_header->input_binding_count + index].id)
+        if (output_bindings[index].signal_index >= payload_header->signal_count)
         {
             return 0;
         }

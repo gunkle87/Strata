@@ -175,6 +175,115 @@ exercise_real_fast_session_lifecycle(ForgeBackendId backend_id)
         return 1;
     }
 
+    {
+        ForgeSignalValue real_inputs[1] = { { 410u, FORGE_LOGIC_1 } };
+        ForgeSignalValue real_outputs[1];
+        ForgeSignalValue bad_inputs[1] = { { 999u, FORGE_LOGIC_1 } };
+        ForgeSignalValue bad_value_inputs[1] = { { 410u, (ForgeLogicValue)99 } };
+
+        result = forge_apply_inputs(session, real_inputs, 1u);
+        if (result != FORGE_OK)
+        {
+            fprintf(stderr, "FAIL: real FAST_4STATE apply inputs failed: %d\n",
+                (int)result);
+            forge_session_free(session);
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_step(session, 1u);
+        if (result != FORGE_OK)
+        {
+            fprintf(stderr, "FAIL: real FAST_4STATE step failed: %d\n",
+                (int)result);
+            forge_session_free(session);
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_read_outputs(session, real_outputs, 1u);
+        if (result != FORGE_OK ||
+            real_outputs[0].signal_id != 412u ||
+            real_outputs[0].value != FORGE_LOGIC_1)
+        {
+            fprintf(stderr, "FAIL: real FAST_4STATE output read mismatch\n");
+            forge_session_free(session);
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_step(session, 1u);
+        if (result != FORGE_OK)
+        {
+            fprintf(stderr, "FAIL: real FAST_4STATE repeated step failed: %d\n",
+                (int)result);
+            forge_session_free(session);
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_read_outputs(session, real_outputs, 1u);
+        if (result != FORGE_OK ||
+            real_outputs[0].signal_id != 412u ||
+            real_outputs[0].value != FORGE_LOGIC_1)
+        {
+            fprintf(stderr, "FAIL: real FAST_4STATE repeated output read mismatch\n");
+            forge_session_free(session);
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_apply_inputs(session, bad_inputs, 1u);
+        if (result != FORGE_ERR_OUT_OF_BOUNDS)
+        {
+            fprintf(stderr, "FAIL: real FAST_4STATE invalid input id should fail, got %d\n",
+                (int)result);
+            forge_session_free(session);
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_apply_inputs(session, bad_value_inputs, 1u);
+        if (result != FORGE_ERR_INVALID_ARGUMENT)
+        {
+            fprintf(stderr, "FAIL: real FAST_4STATE invalid input value should fail, got %d\n",
+                (int)result);
+            forge_session_free(session);
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_apply_inputs(NULL, real_inputs, 1u);
+        if (result != FORGE_ERR_INVALID_HANDLE)
+        {
+            fprintf(stderr, "FAIL: forge_apply_inputs(NULL, ...) expected INVALID_HANDLE, got %d\n",
+                (int)result);
+            forge_session_free(session);
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_step(NULL, 1u);
+        if (result != FORGE_ERR_INVALID_HANDLE)
+        {
+            fprintf(stderr, "FAIL: forge_step(NULL, ...) expected INVALID_HANDLE, got %d\n",
+                (int)result);
+            forge_session_free(session);
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_read_outputs(NULL, real_outputs, 1u);
+        if (result != FORGE_ERR_INVALID_HANDLE)
+        {
+            fprintf(stderr, "FAIL: forge_read_outputs(NULL, ...) expected INVALID_HANDLE, got %d\n",
+                (int)result);
+            forge_session_free(session);
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+    }
+
     result = forge_session_free(session);
     session = NULL;
     if (result != FORGE_OK)

@@ -478,7 +478,7 @@ main(void)
             unsigned char *tampered_bytes;
             const StrataPlaceholderArtifactHeader *tampered_header;
             const StrataPlaceholderFastExecutablePayloadHeader *tampered_payload_header;
-            const StrataPlaceholderFastInputBinding *tampered_input_bindings;
+            StrataPlaceholderFastInputBinding *tampered_input_bindings;
             ForgeArtifact *tampered_artifact;
 
             tampered_bytes = (unsigned char *)malloc(real_size);
@@ -494,8 +494,8 @@ main(void)
             memcpy(tampered_bytes, real_bytes, real_size);
             tampered_header = (const StrataPlaceholderArtifactHeader *)tampered_bytes;
             tampered_payload_header = strata_placeholder_fast_payload_header(tampered_header);
-            tampered_input_bindings = strata_placeholder_fast_payload_input_bindings(
-                tampered_payload_header);
+            tampered_input_bindings = (StrataPlaceholderFastInputBinding *)
+                strata_placeholder_fast_payload_input_bindings(tampered_payload_header);
             if (!tampered_payload_header || !tampered_input_bindings)
             {
                 fprintf(stderr, "FAIL: tampered FAST_4STATE payload is not addressable\n");
@@ -588,6 +588,84 @@ main(void)
             fprintf(stderr, "FAIL: real FAST_4STATE output descriptor lookup mismatch\n");
             forge_artifact_unload(artifact);
             return 1;
+        }
+
+        {
+            ForgeSession *real_session;
+            ForgeSignalValue real_inputs[2] = {
+                { 410u, FORGE_LOGIC_1 },
+                { 411u, FORGE_LOGIC_1 }
+            };
+            ForgeSignalValue real_outputs[1];
+
+            real_session = NULL;
+            result = forge_session_create(artifact, &real_session);
+            if (result != FORGE_OK || !real_session)
+            {
+                fprintf(stderr, "FAIL: real FAST_4STATE session should create, got %d\n",
+                    (int)result);
+                forge_artifact_unload(artifact);
+                return 1;
+            }
+
+            result = forge_apply_inputs(real_session, real_inputs, 2u);
+            if (result != FORGE_OK)
+            {
+                fprintf(stderr, "FAIL: real FAST_4STATE apply inputs failed: %d\n",
+                    (int)result);
+                forge_session_free(real_session);
+                forge_artifact_unload(artifact);
+                return 1;
+            }
+
+            result = forge_step(real_session, 1u);
+            if (result != FORGE_OK)
+            {
+                fprintf(stderr, "FAIL: real FAST_4STATE step failed: %d\n",
+                    (int)result);
+                forge_session_free(real_session);
+                forge_artifact_unload(artifact);
+                return 1;
+            }
+
+            result = forge_read_outputs(real_session, real_outputs, 1u);
+            if (result != FORGE_OK ||
+                real_outputs[0].signal_id != 412u ||
+                real_outputs[0].value != FORGE_LOGIC_0)
+            {
+                fprintf(stderr, "FAIL: real FAST_4STATE output read mismatch\n");
+                forge_session_free(real_session);
+                forge_artifact_unload(artifact);
+                return 1;
+            }
+
+            result = forge_step(real_session, 1u);
+            if (result != FORGE_OK)
+            {
+                fprintf(stderr, "FAIL: real FAST_4STATE repeated step failed: %d\n",
+                    (int)result);
+                forge_session_free(real_session);
+                forge_artifact_unload(artifact);
+                return 1;
+            }
+
+            result = forge_read_outputs(real_session, real_outputs, 1u);
+            if (result != FORGE_OK ||
+                real_outputs[0].signal_id != 412u ||
+                real_outputs[0].value != FORGE_LOGIC_0)
+            {
+                fprintf(stderr, "FAIL: real FAST_4STATE repeated output read mismatch\n");
+                forge_session_free(real_session);
+                forge_artifact_unload(artifact);
+                return 1;
+            }
+
+            if (forge_session_free(real_session) != FORGE_OK)
+            {
+                fprintf(stderr, "FAIL: could not free real FAST_4STATE session\n");
+                forge_artifact_unload(artifact);
+                return 1;
+            }
         }
 
         if (forge_artifact_unload(artifact) != FORGE_OK)

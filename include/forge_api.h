@@ -181,8 +181,9 @@ ForgeResult forge_backend_capabilities(ForgeBackendId backend_id, ForgeCapabilit
  * Accepts a backend-targeted executable artifact as a byte buffer and
  * validates basic compatibility with the named backend.
  *
- * In this skeleton: returns a minimal stub ForgeArtifact for known backends
- * with a validated placeholder header and stub payload.
+ * In this phase: accepts both temporary placeholder artifacts and the
+ * admitted real fast-path executable artifacts when their declared contracts
+ * are coherent.
  */
 ForgeResult forge_artifact_load(
     ForgeBackendId    backend_id,

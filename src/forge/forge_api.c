@@ -11,7 +11,9 @@
  * forge_api.c
  *
  * Artifact, descriptor, and session lifecycle for Forge.
- * No real backend execution is implemented here.
+ * Admitted real fast-path advancement is implemented here through the shared
+ * runtime boundary.
+ * Backend-specific execution kernels remain outside Forge.
  * All execution paths return explicit result codes.
  *
  * Backend discovery functions (forge_backend_count, forge_backend_id_at,
@@ -84,10 +86,222 @@ forge_session_reset_runtime_state(ForgeSession *session)
     }
 }
 
+static const StrataPlaceholderFastExecutablePayloadHeader *
+forge_artifact_fast_payload_header(const ForgeArtifact *artifact)
+{
+    if (!artifact ||
+        !artifact->payload_bytes ||
+        artifact->placeholder_flags != 0u ||
+        artifact->payload_size < sizeof(StrataPlaceholderFastExecutablePayloadHeader))
+    {
+        return NULL;
+    }
+
+    return (const StrataPlaceholderFastExecutablePayloadHeader *)artifact->payload_bytes;
+}
+
+static ForgeLogicValue
+forge_logic_not(ForgeLogicValue value)
+{
+    switch (value)
+    {
+        case FORGE_LOGIC_0:
+            return FORGE_LOGIC_1;
+        case FORGE_LOGIC_1:
+            return FORGE_LOGIC_0;
+        case FORGE_LOGIC_X:
+        case FORGE_LOGIC_Z:
+        default:
+            return FORGE_LOGIC_X;
+    }
+}
+
+static ForgeLogicValue
+forge_logic_and(ForgeLogicValue a, ForgeLogicValue b)
+{
+    if (a == FORGE_LOGIC_0 || b == FORGE_LOGIC_0)
+    {
+        return FORGE_LOGIC_0;
+    }
+
+    if (a == FORGE_LOGIC_1 && b == FORGE_LOGIC_1)
+    {
+        return FORGE_LOGIC_1;
+    }
+
+    return FORGE_LOGIC_X;
+}
+
+static ForgeLogicValue
+forge_logic_or(ForgeLogicValue a, ForgeLogicValue b)
+{
+    if (a == FORGE_LOGIC_1 || b == FORGE_LOGIC_1)
+    {
+        return FORGE_LOGIC_1;
+    }
+
+    if (a == FORGE_LOGIC_0 && b == FORGE_LOGIC_0)
+    {
+        return FORGE_LOGIC_0;
+    }
+
+    return FORGE_LOGIC_X;
+}
+
+static ForgeLogicValue
+forge_logic_xor(ForgeLogicValue a, ForgeLogicValue b)
+{
+    if (a == FORGE_LOGIC_X || a == FORGE_LOGIC_Z ||
+        b == FORGE_LOGIC_X || b == FORGE_LOGIC_Z)
+    {
+        return FORGE_LOGIC_X;
+    }
+
+    if (a == b)
+    {
+        return FORGE_LOGIC_0;
+    }
+
+    return FORGE_LOGIC_1;
+}
+
+static ForgeLogicValue
+forge_logic_value_from_opcode(
+    uint32_t opcode,
+    ForgeLogicValue input_a,
+    ForgeLogicValue input_b)
+{
+    switch (opcode)
+    {
+        case STRATA_FAST_EXEC_OPCODE_BUF:
+            return (input_a == FORGE_LOGIC_Z) ? FORGE_LOGIC_X : input_a;
+        case STRATA_FAST_EXEC_OPCODE_NOT:
+            return forge_logic_not(input_a);
+        case STRATA_FAST_EXEC_OPCODE_AND:
+            return forge_logic_and(input_a, input_b);
+        case STRATA_FAST_EXEC_OPCODE_OR:
+            return forge_logic_or(input_a, input_b);
+        case STRATA_FAST_EXEC_OPCODE_XOR:
+            return forge_logic_xor(input_a, input_b);
+        default:
+            return FORGE_LOGIC_X;
+    }
+}
+
+static ForgeResult
+forge_session_execute_real_fast(ForgeSession *session)
+{
+    const ForgeArtifact *artifact;
+    const StrataPlaceholderFastExecutablePayloadHeader *payload_header;
+    const StrataPlaceholderFastPrimitiveRecord *primitives;
+    const StrataPlaceholderFastInputBinding *input_bindings;
+    const StrataPlaceholderFastOutputBinding *output_bindings;
+    uint32_t index;
+
+    if (!session || !session->artifact || !session->signal_values ||
+        !session->output_values || !session->input_values)
+    {
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_step: real fast runtime state unavailable");
+    }
+
+    artifact = session->artifact;
+    payload_header = forge_artifact_fast_payload_header(artifact);
+    if (!payload_header)
+    {
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_step: real fast payload header unavailable");
+    }
+
+    primitives = strata_placeholder_fast_payload_primitives(payload_header);
+    input_bindings = strata_placeholder_fast_payload_input_bindings(payload_header);
+    output_bindings = strata_placeholder_fast_payload_output_bindings(payload_header);
+    if (!primitives || !input_bindings || !output_bindings)
+    {
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_step: real fast payload records unavailable");
+    }
+
+    if (session->signal_value_count != payload_header->signal_count ||
+        session->input_value_count != artifact->input_descriptor_count ||
+        session->output_value_count != artifact->output_descriptor_count)
+    {
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_step: real fast runtime dimensions changed unexpectedly");
+    }
+
+    for (index = 0u; index < session->signal_value_count; ++index)
+    {
+        session->signal_values[index] = FORGE_LOGIC_X;
+    }
+
+    for (index = 0u; index < session->input_value_count; ++index)
+    {
+        if (input_bindings[index].signal_index >= session->signal_value_count)
+        {
+            return forge_fail(FORGE_ERR_INTERNAL,
+                "forge_step: input binding signal index out of bounds");
+        }
+
+        session->signal_values[input_bindings[index].signal_index] =
+            session->input_values[index].value;
+    }
+
+    for (index = 0u; index < payload_header->primitive_count; ++index)
+    {
+        const StrataPlaceholderFastPrimitiveRecord *primitive;
+        ForgeLogicValue input_a;
+        ForgeLogicValue input_b;
+
+        primitive = &primitives[index];
+        if (primitive->output_signal_index >= session->signal_value_count ||
+            primitive->input_signal_index_a >= session->signal_value_count)
+        {
+            return forge_fail(FORGE_ERR_INTERNAL,
+                "forge_step: primitive signal index out of bounds");
+        }
+
+        input_a = session->signal_values[primitive->input_signal_index_a];
+        input_b = FORGE_LOGIC_X;
+        if (primitive->opcode != STRATA_FAST_EXEC_OPCODE_BUF &&
+            primitive->opcode != STRATA_FAST_EXEC_OPCODE_NOT)
+        {
+            if (primitive->input_signal_index_b >= session->signal_value_count)
+            {
+                return forge_fail(FORGE_ERR_INTERNAL,
+                    "forge_step: primitive secondary input signal index out of bounds");
+            }
+
+            input_b = session->signal_values[primitive->input_signal_index_b];
+        }
+
+        session->signal_values[primitive->output_signal_index] =
+            forge_logic_value_from_opcode(
+                primitive->opcode,
+                input_a,
+                input_b);
+    }
+
+    for (index = 0u; index < session->output_value_count; ++index)
+    {
+        if (output_bindings[index].signal_index >= session->signal_value_count)
+        {
+            return forge_fail(FORGE_ERR_INTERNAL,
+                "forge_step: output binding signal index out of bounds");
+        }
+
+        session->output_values[index].value =
+            session->signal_values[output_bindings[index].signal_index];
+    }
+
+    return FORGE_OK;
+}
+
 static ForgeResult
 forge_session_prepare_runtime_state(ForgeSession *session)
 {
     const ForgeArtifact *artifact;
+    const StrataPlaceholderFastExecutablePayloadHeader *payload_header;
     size_t input_count;
     size_t signal_count;
     size_t output_count;
@@ -100,7 +314,7 @@ forge_session_prepare_runtime_state(ForgeSession *session)
     }
 
     artifact = session->artifact;
-    if (artifact->placeholder_flags != 0u || artifact->source_has_placeholders != 0u)
+    if (artifact->placeholder_flags != 0u)
     {
         forge_session_release_runtime_state(session);
         return FORGE_OK;
@@ -108,7 +322,15 @@ forge_session_prepare_runtime_state(ForgeSession *session)
 
     input_count = artifact->input_descriptor_count;
     output_count = artifact->output_descriptor_count;
-    signal_count = input_count + (size_t)artifact->structure_component_count;
+    payload_header = forge_artifact_fast_payload_header(artifact);
+    if (!payload_header)
+    {
+        forge_session_release_runtime_state(session);
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_session_create: real fast payload header unavailable");
+    }
+
+    signal_count = payload_header->signal_count;
 
     if (signal_count < input_count)
     {
@@ -991,6 +1213,53 @@ forge_install_product_profile(ForgeProductProfileKind profile_kind)
     return FORGE_OK;
 }
 
+static ForgeResult
+forge_validate_fast_payload_descriptor_bindings(
+    const ForgeArtifactHeader *header,
+    const StrataPlaceholderFastExecutablePayloadHeader *payload_header,
+    const StrataPlaceholderSerializedDescriptor *descriptors)
+{
+    const StrataPlaceholderFastInputBinding *input_bindings;
+    const StrataPlaceholderFastOutputBinding *output_bindings;
+    uint32_t index;
+
+    if (!header || !payload_header || !descriptors)
+    {
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_artifact_load: fast payload binding validation received invalid input");
+    }
+
+    input_bindings = strata_placeholder_fast_payload_input_bindings(payload_header);
+    output_bindings = strata_placeholder_fast_payload_output_bindings(payload_header);
+    if (!input_bindings || !output_bindings)
+    {
+        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+            "forge_artifact_load: fast payload bindings are not addressable");
+    }
+
+    for (index = 0u; index < header->input_descriptor_count; ++index)
+    {
+        if (input_bindings[index].descriptor_id != descriptors[index].id)
+        {
+            return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+                "forge_artifact_load: input binding descriptor does not match artifact");
+        }
+    }
+
+    for (index = 0u; index < header->output_descriptor_count; ++index)
+    {
+        if (output_bindings[index].descriptor_id !=
+            descriptors[header->input_descriptor_count + index].id)
+        {
+            return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+                "forge_artifact_load: output binding descriptor does not match artifact");
+        }
+    }
+
+    forge_diag_set("");
+    return FORGE_OK;
+}
+
 ForgeResult
 forge_backend_id_at(uint32_t index, ForgeBackendId *out_id)
 {
@@ -1296,6 +1565,15 @@ forge_artifact_load(
         {
             return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
                 "forge_artifact_load: real fast payload header is not coherent");
+        }
+
+        if (forge_validate_fast_payload_descriptor_bindings(
+            header,
+            strata_placeholder_fast_payload_header(header),
+            serialized_descriptors) != FORGE_OK)
+        {
+            return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+                "forge_artifact_load: real fast payload bindings do not match descriptors");
         }
 
         if (admission_info->requirement_flags != STRATA_PLACEHOLDER_REQUIREMENT_NONE ||
@@ -1661,6 +1939,10 @@ forge_apply_inputs(
     const ForgeSignalValue *values,
     uint32_t count)
 {
+    uint32_t index;
+    uint32_t descriptor_index;
+    uint8_t *seen;
+
     if (!session)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
@@ -1679,8 +1961,84 @@ forge_apply_inputs(
             "forge_apply_inputs: common input submission denied by active profile");
     }
 
-    return forge_fail(FORGE_ERR_UNSUPPORTED,
-        "forge_apply_inputs: runtime input mapping not yet implemented");
+    if (!session->real_fast_runtime)
+    {
+        return forge_fail(FORGE_ERR_UNSUPPORTED,
+            "forge_apply_inputs: runtime input mapping not yet implemented");
+    }
+
+    if (count != session->input_value_count)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_apply_inputs: input count does not match descriptor count");
+    }
+
+    seen = NULL;
+    if (session->input_value_count != 0u)
+    {
+        seen = (uint8_t *)calloc(session->input_value_count, sizeof(uint8_t));
+        if (!seen)
+        {
+            return forge_fail(FORGE_ERR_INTERNAL,
+                "forge_apply_inputs: input tracking allocation failed");
+        }
+    }
+
+    for (index = 0u; index < count; ++index)
+    {
+        if (values[index].value < FORGE_LOGIC_0 ||
+            values[index].value > FORGE_LOGIC_Z)
+        {
+            free(seen);
+            return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+                "forge_apply_inputs: input value is not a supported common logic value");
+        }
+
+        descriptor_index = 0u;
+        while (descriptor_index < session->input_value_count)
+        {
+            if (session->input_values[descriptor_index].signal_id == values[index].signal_id)
+            {
+                break;
+            }
+
+            ++descriptor_index;
+        }
+
+        if (descriptor_index >= session->input_value_count)
+        {
+            free(seen);
+            return forge_fail(FORGE_ERR_OUT_OF_BOUNDS,
+                "forge_apply_inputs: input signal_id not found");
+        }
+
+        if (seen && seen[descriptor_index] != 0u)
+        {
+            free(seen);
+            return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+                "forge_apply_inputs: duplicate input signal_id");
+        }
+
+        session->input_values[descriptor_index].value = values[index].value;
+        if (seen)
+        {
+            seen[descriptor_index] = 1u;
+        }
+    }
+
+    for (index = 0u; index < session->input_value_count; ++index)
+    {
+        if (!seen || seen[index] == 0u)
+        {
+            free(seen);
+            return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+                "forge_apply_inputs: missing required input signal");
+        }
+    }
+
+    free(seen);
+    forge_diag_set("");
+    return FORGE_OK;
 }
 
 ForgeResult
@@ -1688,6 +2046,9 @@ forge_step(
     ForgeSession *session,
     uint32_t step_count)
 {
+    uint32_t index;
+    ForgeResult result;
+
     if (!session)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
@@ -1707,8 +2068,24 @@ forge_step(
             "forge_step: advanced stepping denied by active profile");
     }
 
-    return forge_fail(FORGE_ERR_UNSUPPORTED,
-        "forge_step: runtime advancement not yet implemented");
+    if (!session->real_fast_runtime)
+    {
+        return forge_fail(FORGE_ERR_UNSUPPORTED,
+            "forge_step: runtime advancement not yet implemented");
+    }
+
+    result = FORGE_OK;
+    for (index = 0u; index < step_count; ++index)
+    {
+        result = forge_session_execute_real_fast(session);
+        if (result != FORGE_OK)
+        {
+            return result;
+        }
+    }
+
+    forge_diag_set("");
+    return FORGE_OK;
 }
 
 ForgeResult
@@ -1717,6 +2094,8 @@ forge_read_outputs(
     ForgeSignalValue   *values,
     uint32_t count)
 {
+    uint32_t index;
+
     if (!session)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
@@ -1735,8 +2114,25 @@ forge_read_outputs(
             "forge_read_outputs: common observation denied by active profile");
     }
 
-    return forge_fail(FORGE_ERR_UNSUPPORTED,
-        "forge_read_outputs: runtime output mapping not yet implemented");
+    if (!session->real_fast_runtime)
+    {
+        return forge_fail(FORGE_ERR_UNSUPPORTED,
+            "forge_read_outputs: runtime output mapping not yet implemented");
+    }
+
+    if (count != session->output_value_count)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_read_outputs: output count does not match descriptor count");
+    }
+
+    for (index = 0u; index < count; ++index)
+    {
+        values[index] = session->output_values[index];
+    }
+
+    forge_diag_set("");
+    return FORGE_OK;
 }
 
 ForgeResult
