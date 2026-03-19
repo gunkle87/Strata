@@ -215,7 +215,14 @@ int main(void)
         BreadboardModule* executable_module = NULL;
         BreadboardArtifactDraft* executable_draft = NULL;
         BreadboardExecutableAssessment assessment;
+        BreadboardDraftInfo draft_info;
+        BreadboardDraftAdmissionInfo admission_info;
         BreadboardDiagnostic diagnostic;
+        BreadboardComponent component;
+        size_t diagnostic_count = 0u;
+        size_t component_count = 0u;
+        size_t connection_count = 0u;
+        size_t export_size = 0u;
         BreadboardDescriptorSpec input_a = { 401u, "a", 1u };
         BreadboardDescriptorSpec input_b = { 402u, "b", 1u };
         BreadboardDescriptorSpec output_y = { 403u, "y", 1u };
@@ -287,15 +294,103 @@ int main(void)
         print_result("exec compile(conflicting options)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
 
         res = breadboard_module_compile(executable_module, &opts_real, &executable_draft);
-        print_result("exec compile(require_real_executable)", res, BREADBOARD_ERR_UNSUPPORTED);
-
-        res = breadboard_module_get_last_diagnostic(executable_module, &diagnostic);
-        print_result("exec last_diagnostic", res, BREADBOARD_OK);
-        if (diagnostic.code != BREADBOARD_DIAG_CODE_EXECUTABLE_LOWERING_UNAVAILABLE)
+        if (res == BREADBOARD_OK)
         {
-            printf("[FAIL] executable lowering diagnostic mismatch\n");
+            printf("[PASS] exec compile(require_real_executable)\n");
+        }
+        else
+        {
+            printf("[FAIL] exec compile(require_real_executable) (Expected 0, got %d)\n", res);
+            res = breadboard_module_get_last_diagnostic(executable_module, &diagnostic);
+            print_result("exec last_diagnostic(after real compile)", res, BREADBOARD_OK);
+            if (res == BREADBOARD_OK)
+            {
+                printf("[FAIL] real compile diagnostic code=%d message=%s\n",
+                    diagnostic.code,
+                    diagnostic.message ? diagnostic.message : "(null)");
+            }
+        }
+
+        res = breadboard_module_get_diagnostic_count(executable_module, &diagnostic_count);
+        print_result("exec diagnostic_count", res, BREADBOARD_OK);
+        if (diagnostic_count != 0u)
+        {
+            printf("[FAIL] executable lowering should not emit diagnostics on success\n");
             exit(1);
         }
+
+        res = breadboard_artifact_draft_query_info(executable_draft, &draft_info);
+        print_result("exec draft_query_info", res, BREADBOARD_OK);
+        if (draft_info.target != BREADBOARD_TARGET_FAST_4STATE ||
+            draft_info.has_placeholders ||
+            draft_info.approximate_size_bytes !=
+                sizeof(StrataPlaceholderArtifactHeader) +
+                strata_placeholder_section_table_bytes(5u) +
+                sizeof(StrataPlaceholderAdmissionInfo) +
+                sizeof(StrataPlaceholderDraftSummary) +
+                strata_placeholder_structure_bytes_for_counts(2u, 0u) +
+                strata_placeholder_descriptor_bytes_for_counts(2u, 1u, 0u) +
+                strata_placeholder_fast_payload_bytes_for_counts(2u, 4u, 2u, 1u) ||
+            draft_info.source_module_id != 0u ||
+            strcmp(draft_info.source_module_name, "") != 0 ||
+            draft_info.declared_component_count != 2u ||
+            draft_info.declared_connection_count != 0u ||
+            draft_info.declared_stateful_node_count != 0u)
+        {
+            printf("[FAIL] executable draft info mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_query_admission_info(executable_draft, &admission_info);
+        print_result("exec draft_query_admission_info", res, BREADBOARD_OK);
+        if (admission_info.target != BREADBOARD_TARGET_FAST_4STATE ||
+            admission_info.is_placeholder ||
+            admission_info.extension_flags != 0u ||
+            admission_info.requires_advanced_controls ||
+            admission_info.requires_native_state_read ||
+            admission_info.requires_native_inputs ||
+            admission_info.native_only_behavior)
+        {
+            printf("[FAIL] executable admission info mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_component_count(executable_draft, &component_count);
+        print_result("exec draft_component_count", res, BREADBOARD_OK);
+        res = breadboard_draft_connection_count(executable_draft, &connection_count);
+        print_result("exec draft_connection_count", res, BREADBOARD_OK);
+        if (component_count != 2u || connection_count != 0u)
+        {
+            printf("[FAIL] executable draft structural count mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_component_at(executable_draft, 0u, &component);
+        print_result("exec draft_component_at(0)", res, BREADBOARD_OK);
+        if (component.id != 501u || strcmp(component.kind_name, "AND") != 0 || component.is_stateful)
+        {
+            printf("[FAIL] executable draft component 0 mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_component_at(executable_draft, 1u, &component);
+        print_result("exec draft_component_at(1)", res, BREADBOARD_OK);
+        if (component.id != 502u || strcmp(component.kind_name, "NOT") != 0 || component.is_stateful)
+        {
+            printf("[FAIL] executable draft component 1 mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_draft_component_by_id(executable_draft, 501u, &component);
+        print_result("exec draft_component_by_id(501)", res, BREADBOARD_OK);
+        if (component.id != 501u || strcmp(component.kind_name, "AND") != 0 || component.is_stateful)
+        {
+            printf("[FAIL] executable draft component-by-id mismatch\n");
+            exit(1);
+        }
+
+        res = breadboard_artifact_draft_export_placeholder_size(executable_draft, &export_size);
+        print_result("exec draft_export_placeholder_size", res, BREADBOARD_ERR_UNSUPPORTED);
 
         res = breadboard_module_add_executable_connection(NULL, &exec_ab);
         print_result("add_executable_connection(NULL, ...)", res, BREADBOARD_ERR_INVALID_HANDLE);

@@ -426,6 +426,413 @@ copy_declared_descriptors(
     return 1;
 }
 
+static void
+clear_fast_payload_records(BreadboardArtifactDraft* draft)
+{
+    if (!draft)
+    {
+        return;
+    }
+
+    free(draft->fast_signals);
+    free(draft->fast_primitives);
+    free(draft->fast_input_bindings);
+    free(draft->fast_output_bindings);
+
+    draft->fast_signals = NULL;
+    draft->fast_primitives = NULL;
+    draft->fast_input_bindings = NULL;
+    draft->fast_output_bindings = NULL;
+    draft->fast_signal_count = 0u;
+    draft->fast_primitive_count = 0u;
+    draft->fast_input_binding_count = 0u;
+    draft->fast_output_binding_count = 0u;
+}
+
+static BreadboardResult
+record_diagnostic(
+    BreadboardModule* module,
+    BreadboardDiagnosticSeverity severity,
+    BreadboardDiagnosticCode code,
+    const char* message);
+
+static BreadboardResult
+fail_real_fast_payload(
+    const BreadboardModule* module,
+    BreadboardArtifactDraft* draft,
+    const char* message)
+{
+    clear_fast_payload_records(draft);
+    if (module && message)
+    {
+        record_diagnostic(
+            (BreadboardModule*)module,
+            BREADBOARD_DIAG_ERROR,
+            BREADBOARD_DIAG_CODE_EXECUTABLE_LOWERING_UNAVAILABLE,
+            message);
+    }
+    return BREADBOARD_ERR_COMPILE_FAILED;
+}
+
+static uint32_t
+primitive_opcode_from_kind(BreadboardPrimitiveKind primitive_kind)
+{
+    switch (primitive_kind)
+    {
+        case BREADBOARD_PRIMITIVE_BUF:
+            return STRATA_FAST_EXEC_OPCODE_BUF;
+        case BREADBOARD_PRIMITIVE_NOT:
+            return STRATA_FAST_EXEC_OPCODE_NOT;
+        case BREADBOARD_PRIMITIVE_AND:
+            return STRATA_FAST_EXEC_OPCODE_AND;
+        case BREADBOARD_PRIMITIVE_OR:
+            return STRATA_FAST_EXEC_OPCODE_OR;
+        case BREADBOARD_PRIMITIVE_XOR:
+            return STRATA_FAST_EXEC_OPCODE_XOR;
+        default:
+            return STRATA_FAST_EXEC_OPCODE_INVALID;
+    }
+}
+
+static size_t
+real_fast_payload_bytes_for_counts(
+    size_t primitive_count,
+    size_t signal_count,
+    size_t input_binding_count,
+    size_t output_binding_count)
+{
+    if (primitive_count > (size_t)UINT32_MAX ||
+        signal_count > (size_t)UINT32_MAX ||
+        input_binding_count > (size_t)UINT32_MAX ||
+        output_binding_count > (size_t)UINT32_MAX)
+    {
+        return 0u;
+    }
+
+    return strata_placeholder_fast_payload_bytes_for_counts(
+        (uint32_t)primitive_count,
+        (uint32_t)signal_count,
+        (uint32_t)input_binding_count,
+        (uint32_t)output_binding_count);
+}
+
+static size_t
+real_fast_artifact_size_for_layout(
+    uint32_t input_count,
+    uint32_t output_count,
+    uint32_t probe_count,
+    size_t primitive_count,
+    size_t signal_count,
+    size_t input_binding_count,
+    size_t output_binding_count,
+    uint32_t component_count,
+    uint32_t connection_count)
+{
+    size_t payload_bytes;
+
+    payload_bytes = real_fast_payload_bytes_for_counts(
+        primitive_count,
+        signal_count,
+        input_binding_count,
+        output_binding_count);
+    if (payload_bytes == 0u)
+    {
+        return 0u;
+    }
+
+    return sizeof(StrataPlaceholderArtifactHeader) +
+        strata_placeholder_section_table_bytes(5u) +
+        sizeof(StrataPlaceholderAdmissionInfo) +
+        sizeof(StrataPlaceholderDraftSummary) +
+        strata_placeholder_structure_bytes_for_counts(
+            component_count,
+            connection_count) +
+        strata_placeholder_descriptor_bytes_for_counts(
+            input_count,
+            output_count,
+            probe_count) +
+        payload_bytes;
+}
+
+static int
+primitive_kind_from_name(
+    const char* kind_name,
+    BreadboardPrimitiveKind* out_kind);
+
+static uint32_t
+primitive_input_count(
+    BreadboardPrimitiveKind kind);
+
+static BreadboardResult
+build_real_fast_payload(
+    const BreadboardModule* module,
+    BreadboardArtifactDraft* draft)
+{
+    size_t component_index;
+    size_t connection_index;
+    size_t input_index;
+    size_t output_index;
+    size_t signal_count;
+    BreadboardPrimitiveKind primitive_kind;
+    uint32_t required_inputs;
+
+    if (!module || !draft)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    signal_count = module->input_count + module->component_count;
+    if (signal_count > (size_t)UINT32_MAX ||
+        module->component_count > (size_t)UINT32_MAX ||
+        module->input_count > (size_t)UINT32_MAX ||
+        module->output_count > (size_t)UINT32_MAX)
+    {
+        return BREADBOARD_ERR_INTERNAL;
+    }
+
+    clear_fast_payload_records(draft);
+
+    draft->fast_signal_count = signal_count;
+    draft->fast_primitive_count = module->component_count;
+    draft->fast_input_binding_count = module->input_count;
+    draft->fast_output_binding_count = module->output_count;
+
+    draft->fast_signals = (StrataPlaceholderFastSignalRecord*)calloc(
+        draft->fast_signal_count,
+        sizeof(StrataPlaceholderFastSignalRecord));
+    draft->fast_primitives = (StrataPlaceholderFastPrimitiveRecord*)calloc(
+        draft->fast_primitive_count,
+        sizeof(StrataPlaceholderFastPrimitiveRecord));
+    draft->fast_input_bindings = (StrataPlaceholderFastInputBinding*)calloc(
+        draft->fast_input_binding_count,
+        sizeof(StrataPlaceholderFastInputBinding));
+    draft->fast_output_bindings = (StrataPlaceholderFastOutputBinding*)calloc(
+        draft->fast_output_binding_count,
+        sizeof(StrataPlaceholderFastOutputBinding));
+
+    if ((draft->fast_signal_count != 0u && !draft->fast_signals) ||
+        (draft->fast_primitive_count != 0u && !draft->fast_primitives) ||
+        (draft->fast_input_binding_count != 0u && !draft->fast_input_bindings) ||
+        (draft->fast_output_binding_count != 0u && !draft->fast_output_bindings))
+    {
+        return fail_real_fast_payload(module, draft, "real fast payload: allocation failed");
+    }
+
+    for (input_index = 0u; input_index < module->input_count; ++input_index)
+    {
+        draft->fast_signals[input_index].source_kind =
+            STRATA_FAST_SIGNAL_SOURCE_MODULE_INPUT;
+        draft->fast_signals[input_index].source_record_index = (uint32_t)input_index;
+        draft->fast_signals[input_index].source_output_slot = 0u;
+        draft->fast_signals[input_index].reserved = 0u;
+
+        draft->fast_input_bindings[input_index].descriptor_id =
+            (uint32_t)module->inputs[input_index].id;
+        draft->fast_input_bindings[input_index].signal_index =
+            (uint32_t)input_index;
+    }
+
+    for (component_index = 0u; component_index < module->component_count; ++component_index)
+    {
+        size_t output_signal_index = module->input_count + component_index;
+
+        if (!primitive_kind_from_name(
+                module->components[component_index].kind_name,
+                &primitive_kind))
+        {
+            return fail_real_fast_payload(module, draft, "real fast payload: unsupported component kind");
+        }
+
+        draft->fast_signals[output_signal_index].source_kind =
+            STRATA_FAST_SIGNAL_SOURCE_PRIMITIVE_OUTPUT;
+        draft->fast_signals[output_signal_index].source_record_index =
+            (uint32_t)component_index;
+        draft->fast_signals[output_signal_index].source_output_slot = 0u;
+        draft->fast_signals[output_signal_index].reserved = 0u;
+
+        draft->fast_primitives[component_index].opcode =
+            primitive_opcode_from_kind(primitive_kind);
+        draft->fast_primitives[component_index].input_signal_index_a =
+            STRATA_PLACEHOLDER_FAST_EXECUTABLE_UNUSED_INDEX;
+        draft->fast_primitives[component_index].input_signal_index_b =
+            STRATA_PLACEHOLDER_FAST_EXECUTABLE_UNUSED_INDEX;
+        draft->fast_primitives[component_index].output_signal_index =
+            (uint32_t)output_signal_index;
+    }
+
+    for (output_index = 0u; output_index < module->output_count; ++output_index)
+    {
+        draft->fast_output_bindings[output_index].descriptor_id =
+            (uint32_t)module->outputs[output_index].id;
+        draft->fast_output_bindings[output_index].signal_index =
+            STRATA_PLACEHOLDER_FAST_EXECUTABLE_UNUSED_INDEX;
+    }
+
+    for (connection_index = 0u; connection_index < module->executable_connection_count; ++connection_index)
+    {
+        const BreadboardExecutableConnectionSpec* connection =
+            &module->executable_connections[connection_index];
+        uint32_t source_signal_index = STRATA_PLACEHOLDER_FAST_EXECUTABLE_UNUSED_INDEX;
+        size_t source_component_index = 0u;
+        size_t sink_component_index = 0u;
+        size_t sink_descriptor_index = 0u;
+        uint32_t required_inputs = 0u;
+
+        switch (connection->source.endpoint_class)
+        {
+            case BREADBOARD_ENDPOINT_MODULE_INPUT_SOURCE:
+                if (connection->source.component_id != 0u ||
+                    connection->source.slot_index != 0u ||
+                    !find_descriptor_index(
+                        module->inputs,
+                        module->input_count,
+                        connection->source.descriptor_id,
+                        &source_component_index))
+                {
+                    return fail_real_fast_payload(module, draft, "real fast payload: invalid module input source");
+                }
+
+                source_signal_index = (uint32_t)source_component_index;
+                break;
+
+            case BREADBOARD_ENDPOINT_COMPONENT_OUTPUT_SOURCE:
+                if (connection->source.descriptor_id != 0u ||
+                    connection->source.slot_index != 0u ||
+                    !module_find_component_index(
+                        module,
+                        connection->source.component_id,
+                        &source_component_index))
+                {
+                    return fail_real_fast_payload(module, draft, "real fast payload: invalid component output source");
+                }
+
+                source_signal_index =
+                    (uint32_t)(module->input_count + source_component_index);
+                break;
+
+            default:
+                return fail_real_fast_payload(module, draft, "real fast payload: invalid source endpoint class");
+        }
+
+        switch (connection->sink.endpoint_class)
+        {
+            case BREADBOARD_ENDPOINT_COMPONENT_INPUT_SINK:
+                if (connection->sink.descriptor_id != 0u ||
+                    !module_find_component_index(
+                        module,
+                        connection->sink.component_id,
+                        &sink_component_index) ||
+                    !primitive_kind_from_name(
+                        module->components[sink_component_index].kind_name,
+                        &primitive_kind))
+                {
+                    return fail_real_fast_payload(module, draft, "real fast payload: invalid component input sink");
+                }
+
+                required_inputs = primitive_input_count(primitive_kind);
+                if (connection->sink.slot_index >= required_inputs ||
+                    required_inputs == 0u)
+                {
+                    return fail_real_fast_payload(module, draft, "real fast payload: invalid primitive input slot");
+                }
+
+                if (connection->sink.slot_index == 0u)
+                {
+                    if (draft->fast_primitives[sink_component_index].input_signal_index_a !=
+                        STRATA_PLACEHOLDER_FAST_EXECUTABLE_UNUSED_INDEX)
+                    {
+                        return fail_real_fast_payload(module, draft, "real fast payload: duplicate primitive input driver");
+                    }
+                    draft->fast_primitives[sink_component_index].input_signal_index_a =
+                        source_signal_index;
+                }
+                else
+                {
+                    if (draft->fast_primitives[sink_component_index].input_signal_index_b !=
+                        STRATA_PLACEHOLDER_FAST_EXECUTABLE_UNUSED_INDEX)
+                    {
+                        return fail_real_fast_payload(module, draft, "real fast payload: duplicate primitive input driver");
+                    }
+                    draft->fast_primitives[sink_component_index].input_signal_index_b =
+                        source_signal_index;
+                }
+                break;
+
+            case BREADBOARD_ENDPOINT_MODULE_OUTPUT_SINK:
+                if (connection->sink.component_id != 0u ||
+                    connection->sink.slot_index != 0u ||
+                    !find_descriptor_index(
+                        module->outputs,
+                        module->output_count,
+                        connection->sink.descriptor_id,
+                        &sink_descriptor_index))
+                {
+                    return fail_real_fast_payload(module, draft, "real fast payload: invalid module output sink");
+                }
+
+                if (draft->fast_output_bindings[sink_descriptor_index].signal_index !=
+                    STRATA_PLACEHOLDER_FAST_EXECUTABLE_UNUSED_INDEX)
+                {
+                    return fail_real_fast_payload(module, draft, "real fast payload: duplicate module output driver");
+                }
+
+                draft->fast_output_bindings[sink_descriptor_index].signal_index =
+                    source_signal_index;
+                break;
+
+            default:
+                return fail_real_fast_payload(module, draft, "real fast payload: invalid sink endpoint class");
+        }
+    }
+
+    for (component_index = 0u; component_index < module->component_count; ++component_index)
+    {
+        if (!primitive_kind_from_name(
+                module->components[component_index].kind_name,
+                &primitive_kind))
+        {
+            return fail_real_fast_payload(module, draft, "real fast payload: validation could not resolve component kind");
+        }
+
+        required_inputs = primitive_input_count(primitive_kind);
+        if (required_inputs == 1u)
+        {
+            if (draft->fast_primitives[component_index].input_signal_index_a ==
+                STRATA_PLACEHOLDER_FAST_EXECUTABLE_UNUSED_INDEX ||
+                draft->fast_primitives[component_index].input_signal_index_b !=
+                STRATA_PLACEHOLDER_FAST_EXECUTABLE_UNUSED_INDEX)
+            {
+                return fail_real_fast_payload(module, draft, "real fast payload: unary primitive input mismatch");
+            }
+        }
+        else if (required_inputs == 2u)
+        {
+            if (draft->fast_primitives[component_index].input_signal_index_a ==
+                    STRATA_PLACEHOLDER_FAST_EXECUTABLE_UNUSED_INDEX ||
+                draft->fast_primitives[component_index].input_signal_index_b ==
+                    STRATA_PLACEHOLDER_FAST_EXECUTABLE_UNUSED_INDEX)
+            {
+                return fail_real_fast_payload(module, draft, "real fast payload: binary primitive input mismatch");
+            }
+        }
+        else
+        {
+            return fail_real_fast_payload(module, draft, "real fast payload: unsupported primitive arity");
+        }
+    }
+
+    for (output_index = 0u; output_index < module->output_count; ++output_index)
+    {
+        if (draft->fast_output_bindings[output_index].signal_index ==
+            STRATA_PLACEHOLDER_FAST_EXECUTABLE_UNUSED_INDEX)
+        {
+            return fail_real_fast_payload(module, draft, "real fast payload: missing module output driver");
+        }
+    }
+
+    return BREADBOARD_OK;
+}
+
 static BreadboardResult
 append_module_descriptor(
     BreadboardDescriptor** io_descriptors,
@@ -1633,17 +2040,11 @@ BreadboardResult breadboard_module_compile(
                 executable_assessment_reason_message(executable_assessment.reason));
             return BREADBOARD_ERR_COMPILE_FAILED;
         }
-
-        record_diagnostic(
-            module,
-            BREADBOARD_DIAG_ERROR,
-            BREADBOARD_DIAG_CODE_EXECUTABLE_LOWERING_UNAVAILABLE,
-            "Real executable fast-path lowering is not implemented yet");
-        return BREADBOARD_ERR_UNSUPPORTED;
     }
 
-    /* We are a skeleton. We cannot actually compile structure yet. */
-    if (!options || !options->allow_placeholders)
+    /* We are a skeleton unless the caller explicitly asks for the real fast path. */
+    if ((!options || !options->allow_placeholders) &&
+        !(options && options->require_real_executable))
     {
         record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_UNSUPPORTED_CONSTRUCT, "Compilation requires allow_placeholders in the current skeleton limit");
         return BREADBOARD_ERR_COMPILE_FAILED;
@@ -1778,14 +2179,6 @@ BreadboardResult breadboard_module_compile(
     }
 
     draft->info.target = module->target;
-    draft->info.has_placeholders =
-        (module->input_count == 0u && module->output_count == 0u && module->probe_count == 0u);
-    draft->info.approximate_size_bytes = strata_placeholder_artifact_size_for_layout(
-        (uint32_t)draft->input_count,
-        (uint32_t)draft->output_count,
-        (uint32_t)draft->probe_count,
-        (uint32_t)draft->component_count,
-        (uint32_t)draft->connection_count);
     draft->info.source_module_id = draft->source_module_id;
     draft->info.source_module_name = draft->source_module_name;
     draft->info.declared_component_count =
@@ -1795,37 +2188,86 @@ BreadboardResult breadboard_module_compile(
     draft->info.declared_stateful_node_count =
         draft->structure_summary.declared_stateful_node_count;
     draft->admission_info.target = module->target;
-    draft->admission_info.is_placeholder = true;
-    draft->admission_info.approximate_size_bytes = draft->info.approximate_size_bytes;
 
-    if (module->has_requirement_profile)
+    if (options && options->require_real_executable)
     {
-        draft->admission_info.extension_flags = module->requirement_profile.extension_flags;
-        draft->admission_info.requires_advanced_controls =
-            module->requirement_profile.requires_advanced_controls;
-        draft->admission_info.requires_native_state_read =
-            module->requirement_profile.requires_native_state_read;
-        draft->admission_info.requires_native_inputs =
-            module->requirement_profile.requires_native_inputs;
+        if (build_real_fast_payload(module, draft) != BREADBOARD_OK)
+        {
+            breadboard_artifact_draft_free(draft);
+            record_diagnostic(
+                module,
+                BREADBOARD_DIAG_ERROR,
+                BREADBOARD_DIAG_CODE_EXECUTABLE_LOWERING_UNAVAILABLE,
+                "Real executable fast-path lowering failed");
+            return BREADBOARD_ERR_COMPILE_FAILED;
+        }
+
+        draft->info.has_placeholders = false;
+        draft->info.approximate_size_bytes = real_fast_artifact_size_for_layout(
+            (uint32_t)draft->input_count,
+            (uint32_t)draft->output_count,
+            (uint32_t)draft->probe_count,
+            draft->fast_primitive_count,
+            draft->fast_signal_count,
+            draft->fast_input_binding_count,
+            draft->fast_output_binding_count,
+            (uint32_t)draft->component_count,
+            (uint32_t)draft->connection_count);
+        draft->admission_info.is_placeholder = false;
+        draft->admission_info.approximate_size_bytes = draft->info.approximate_size_bytes;
+        draft->admission_info.extension_flags = 0u;
+        draft->admission_info.requires_advanced_controls = false;
+        draft->admission_info.requires_native_state_read = false;
+        draft->admission_info.requires_native_inputs = false;
+        draft->admission_info.native_only_behavior = false;
     }
     else
     {
-        BreadboardRequirementProfile default_profile;
-        fill_default_requirement_profile(module->target, &default_profile);
-        draft->admission_info.extension_flags = default_profile.extension_flags;
-        draft->admission_info.requires_advanced_controls =
-            default_profile.requires_advanced_controls;
-        draft->admission_info.requires_native_state_read =
-            default_profile.requires_native_state_read;
-        draft->admission_info.requires_native_inputs =
-            default_profile.requires_native_inputs;
+        draft->info.has_placeholders =
+            (module->input_count == 0u &&
+             module->output_count == 0u &&
+             module->probe_count == 0u);
+        draft->info.approximate_size_bytes = strata_placeholder_artifact_size_for_layout(
+            (uint32_t)draft->input_count,
+            (uint32_t)draft->output_count,
+            (uint32_t)draft->probe_count,
+            (uint32_t)draft->component_count,
+            (uint32_t)draft->connection_count);
+        draft->admission_info.is_placeholder = true;
+        draft->admission_info.approximate_size_bytes = draft->info.approximate_size_bytes;
+
+        if (module->has_requirement_profile)
+        {
+            draft->admission_info.extension_flags = module->requirement_profile.extension_flags;
+            draft->admission_info.requires_advanced_controls =
+                module->requirement_profile.requires_advanced_controls;
+            draft->admission_info.requires_native_state_read =
+                module->requirement_profile.requires_native_state_read;
+            draft->admission_info.requires_native_inputs =
+                module->requirement_profile.requires_native_inputs;
+        }
+        else
+        {
+            BreadboardRequirementProfile default_profile;
+            fill_default_requirement_profile(module->target, &default_profile);
+            draft->admission_info.extension_flags = default_profile.extension_flags;
+            draft->admission_info.requires_advanced_controls =
+                default_profile.requires_advanced_controls;
+            draft->admission_info.requires_native_state_read =
+                default_profile.requires_native_state_read;
+            draft->admission_info.requires_native_inputs =
+                default_profile.requires_native_inputs;
+        }
+        draft->admission_info.native_only_behavior =
+            (draft->admission_info.requires_native_state_read ||
+             draft->admission_info.requires_native_inputs);
     }
-    draft->admission_info.native_only_behavior =
-        (draft->admission_info.requires_native_state_read ||
-         draft->admission_info.requires_native_inputs);
 
     /* Record a warning that placeholders were emitted */
-    record_diagnostic(module, BREADBOARD_DIAG_WARNING, BREADBOARD_DIAG_CODE_NONE, "Draft emitted with placeholder structures");
+    if (!options || !options->require_real_executable)
+    {
+        record_diagnostic(module, BREADBOARD_DIAG_WARNING, BREADBOARD_DIAG_CODE_NONE, "Draft emitted with placeholder structures");
+    }
 
     *out_draft = draft;
     return BREADBOARD_OK;
@@ -1848,6 +2290,7 @@ void breadboard_artifact_draft_free(BreadboardArtifactDraft* draft)
 {
     if (draft)
     {
+        clear_fast_payload_records(draft);
         free_component_array(draft->components, draft->component_count);
         free(draft->connections);
         free_descriptor_array(draft->inputs, draft->input_count);

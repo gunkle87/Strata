@@ -57,6 +57,14 @@ struct BreadboardArtifactDraft
     BreadboardComponent* components;
     size_t connection_count;
     BreadboardConnection* connections;
+    size_t fast_signal_count;
+    StrataPlaceholderFastSignalRecord* fast_signals;
+    size_t fast_primitive_count;
+    StrataPlaceholderFastPrimitiveRecord* fast_primitives;
+    size_t fast_input_binding_count;
+    StrataPlaceholderFastInputBinding* fast_input_bindings;
+    size_t fast_output_binding_count;
+    StrataPlaceholderFastOutputBinding* fast_output_bindings;
     BreadboardDraftInfo info;
     BreadboardDraftAdmissionInfo admission_info;
 
