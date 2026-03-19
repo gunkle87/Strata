@@ -2,17 +2,27 @@ CC = gcc
 CFLAGS = -Wall -Wextra -I../../include
 SRC_DIR = ../../src/breadboard
 
-all: test_breadboard_skeleton.exe
+TESTS = \
+	test_breadboard_skeleton \
+	test_executable_payload_contract
+
+TEST_EXES = $(addsuffix .exe, $(TESTS))
+
+all: $(TEST_EXES)
 
 test_breadboard_skeleton.exe: test_breadboard_skeleton.c $(SRC_DIR)/breadboard_api.c
 	$(CC) $(CFLAGS) -o $@ test_breadboard_skeleton.c $(SRC_DIR)/breadboard_api.c
 
+test_executable_payload_contract.exe: test_executable_payload_contract.c
+	$(CC) $(CFLAGS) -o $@ test_executable_payload_contract.c
+
 test: all
 	@echo --- Running Breadboard skeleton tests ---
 	@.\test_breadboard_skeleton.exe
+	@.\test_executable_payload_contract.exe
 	@echo --- All Breadboard skeleton tests passed ---
 
 clean:
-	cmd /C "del /Q /F test_breadboard_skeleton.exe 2>NUL"
+	cmd /C "del /Q /F $(TEST_EXES) 2>NUL"
 
 .PHONY: all test clean

@@ -16,11 +16,12 @@
 
 #define STRATA_PLACEHOLDER_ARTIFACT_MAGIC_LEN 4u
 #define STRATA_PLACEHOLDER_ARTIFACT_VERSION_MAJOR 0u
-#define STRATA_PLACEHOLDER_ARTIFACT_VERSION_MINOR 10u
+#define STRATA_PLACEHOLDER_ARTIFACT_VERSION_MINOR 11u
 #define STRATA_PLACEHOLDER_ARTIFACT_PAYLOAD_LEN 4u
 #define STRATA_PLACEHOLDER_DESCRIPTOR_NAME_CAPACITY 32u
 #define STRATA_PLACEHOLDER_MODULE_NAME_CAPACITY 64u
 #define STRATA_PLACEHOLDER_COMPONENT_KIND_CAPACITY 32u
+#define STRATA_PLACEHOLDER_FAST_EXECUTABLE_UNUSED_INDEX 0xFFFFFFFFu
 
 #define STRATA_PLACEHOLDER_BACKEND_ID_INVALID 0u
 #define STRATA_PLACEHOLDER_BACKEND_ID_LXS 1u
@@ -81,10 +82,11 @@ StrataPlaceholderArtifactHeader;
 
 typedef enum StrataPlaceholderPayloadKind
 {
-    STRATA_PLACEHOLDER_PAYLOAD_INVALID  = 0,
-    STRATA_PLACEHOLDER_PAYLOAD_BASELINE = 1,
-    STRATA_PLACEHOLDER_PAYLOAD_ADVANCED = 2,
-    STRATA_PLACEHOLDER_PAYLOAD_NATIVE   = 3
+    STRATA_PLACEHOLDER_PAYLOAD_INVALID            = 0,
+    STRATA_PLACEHOLDER_PAYLOAD_BASELINE           = 1,
+    STRATA_PLACEHOLDER_PAYLOAD_ADVANCED           = 2,
+    STRATA_PLACEHOLDER_PAYLOAD_NATIVE             = 3,
+    STRATA_PLACEHOLDER_PAYLOAD_FAST_EXECUTABLE_V1 = 4
 }
 StrataPlaceholderPayloadKind;
 
@@ -140,6 +142,66 @@ typedef struct StrataPlaceholderSerializedConnection
     uint64_t sink_component_id;
 }
 StrataPlaceholderSerializedConnection;
+
+typedef enum StrataPlaceholderFastExecutableOpcode
+{
+    STRATA_FAST_EXEC_OPCODE_INVALID = 0,
+    STRATA_FAST_EXEC_OPCODE_BUF     = 1,
+    STRATA_FAST_EXEC_OPCODE_NOT     = 2,
+    STRATA_FAST_EXEC_OPCODE_AND     = 3,
+    STRATA_FAST_EXEC_OPCODE_OR      = 4,
+    STRATA_FAST_EXEC_OPCODE_XOR     = 5
+}
+StrataPlaceholderFastExecutableOpcode;
+
+typedef enum StrataPlaceholderFastSignalSourceKind
+{
+    STRATA_FAST_SIGNAL_SOURCE_INVALID          = 0,
+    STRATA_FAST_SIGNAL_SOURCE_MODULE_INPUT     = 1,
+    STRATA_FAST_SIGNAL_SOURCE_PRIMITIVE_OUTPUT = 2
+}
+StrataPlaceholderFastSignalSourceKind;
+
+typedef struct StrataPlaceholderFastExecutablePayloadHeader
+{
+    uint32_t primitive_count;
+    uint32_t signal_count;
+    uint32_t input_binding_count;
+    uint32_t output_binding_count;
+}
+StrataPlaceholderFastExecutablePayloadHeader;
+
+typedef struct StrataPlaceholderFastSignalRecord
+{
+    uint32_t source_kind;
+    uint32_t source_record_index;
+    uint32_t source_output_slot;
+    uint32_t reserved;
+}
+StrataPlaceholderFastSignalRecord;
+
+typedef struct StrataPlaceholderFastPrimitiveRecord
+{
+    uint32_t opcode;
+    uint32_t input_signal_index_a;
+    uint32_t input_signal_index_b;
+    uint32_t output_signal_index;
+}
+StrataPlaceholderFastPrimitiveRecord;
+
+typedef struct StrataPlaceholderFastInputBinding
+{
+    uint32_t descriptor_id;
+    uint32_t signal_index;
+}
+StrataPlaceholderFastInputBinding;
+
+typedef struct StrataPlaceholderFastOutputBinding
+{
+    uint32_t descriptor_id;
+    uint32_t signal_index;
+}
+StrataPlaceholderFastOutputBinding;
 
 static const uint8_t k_strata_placeholder_artifact_magic[STRATA_PLACEHOLDER_ARTIFACT_MAGIC_LEN] =
     { 0x46, 0x41, 0x52, 0x54 }; /* "FART" */
@@ -301,6 +363,36 @@ strata_placeholder_payload_bytes(StrataPlaceholderPayloadKind payload_kind)
         default:
             return NULL;
     }
+}
+
+static inline int
+strata_placeholder_payload_kind_is_stub(
+    StrataPlaceholderPayloadKind payload_kind)
+{
+    return payload_kind == STRATA_PLACEHOLDER_PAYLOAD_BASELINE ||
+        payload_kind == STRATA_PLACEHOLDER_PAYLOAD_ADVANCED ||
+        payload_kind == STRATA_PLACEHOLDER_PAYLOAD_NATIVE;
+}
+
+static inline int
+strata_placeholder_payload_kind_is_real_fast_executable(
+    StrataPlaceholderPayloadKind payload_kind)
+{
+    return payload_kind == STRATA_PLACEHOLDER_PAYLOAD_FAST_EXECUTABLE_V1;
+}
+
+static inline size_t
+strata_placeholder_fast_payload_bytes_for_counts(
+    uint32_t primitive_count,
+    uint32_t signal_count,
+    uint32_t input_binding_count,
+    uint32_t output_binding_count)
+{
+    return sizeof(StrataPlaceholderFastExecutablePayloadHeader) +
+        ((size_t)signal_count * sizeof(StrataPlaceholderFastSignalRecord)) +
+        ((size_t)primitive_count * sizeof(StrataPlaceholderFastPrimitiveRecord)) +
+        ((size_t)input_binding_count * sizeof(StrataPlaceholderFastInputBinding)) +
+        ((size_t)output_binding_count * sizeof(StrataPlaceholderFastOutputBinding));
 }
 
 static inline int
@@ -547,6 +639,186 @@ strata_placeholder_artifact_payload(
     return strata_placeholder_find_section_data(
         header,
         STRATA_PLACEHOLDER_SECTION_PAYLOAD);
+}
+
+static inline const StrataPlaceholderFastExecutablePayloadHeader*
+strata_placeholder_fast_payload_header(
+    const StrataPlaceholderArtifactHeader* header)
+{
+    if (!header ||
+        !strata_placeholder_payload_kind_is_real_fast_executable(
+            (StrataPlaceholderPayloadKind)header->payload_kind))
+    {
+        return NULL;
+    }
+
+    if (header->payload_size < sizeof(StrataPlaceholderFastExecutablePayloadHeader))
+    {
+        return NULL;
+    }
+
+    return (const StrataPlaceholderFastExecutablePayloadHeader*)
+        (((const uint8_t*)header) + header->payload_offset);
+}
+
+static inline const StrataPlaceholderFastSignalRecord*
+strata_placeholder_fast_payload_signals(
+    const StrataPlaceholderFastExecutablePayloadHeader* payload_header)
+{
+    if (!payload_header)
+    {
+        return NULL;
+    }
+
+    return (const StrataPlaceholderFastSignalRecord*)
+        (((const uint8_t*)payload_header) +
+            sizeof(StrataPlaceholderFastExecutablePayloadHeader));
+}
+
+static inline const StrataPlaceholderFastPrimitiveRecord*
+strata_placeholder_fast_payload_primitives(
+    const StrataPlaceholderFastExecutablePayloadHeader* payload_header)
+{
+    const StrataPlaceholderFastSignalRecord* signals;
+
+    signals = strata_placeholder_fast_payload_signals(payload_header);
+    if (!signals)
+    {
+        return NULL;
+    }
+
+    return (const StrataPlaceholderFastPrimitiveRecord*)
+        (signals + payload_header->signal_count);
+}
+
+static inline const StrataPlaceholderFastInputBinding*
+strata_placeholder_fast_payload_input_bindings(
+    const StrataPlaceholderFastExecutablePayloadHeader* payload_header)
+{
+    const StrataPlaceholderFastPrimitiveRecord* primitives;
+
+    primitives = strata_placeholder_fast_payload_primitives(payload_header);
+    if (!primitives)
+    {
+        return NULL;
+    }
+
+    return (const StrataPlaceholderFastInputBinding*)
+        (primitives + payload_header->primitive_count);
+}
+
+static inline const StrataPlaceholderFastOutputBinding*
+strata_placeholder_fast_payload_output_bindings(
+    const StrataPlaceholderFastExecutablePayloadHeader* payload_header)
+{
+    const StrataPlaceholderFastInputBinding* input_bindings;
+
+    input_bindings = strata_placeholder_fast_payload_input_bindings(payload_header);
+    if (!input_bindings)
+    {
+        return NULL;
+    }
+
+    return (const StrataPlaceholderFastOutputBinding*)
+        (input_bindings + payload_header->input_binding_count);
+}
+
+static inline int
+strata_placeholder_fast_payload_header_is_coherent(
+    const StrataPlaceholderArtifactHeader* header)
+{
+    const StrataPlaceholderFastExecutablePayloadHeader* payload_header;
+    size_t expected_bytes;
+    uint32_t index;
+    const StrataPlaceholderFastPrimitiveRecord* primitives;
+    const StrataPlaceholderFastInputBinding* input_bindings;
+    const StrataPlaceholderFastOutputBinding* output_bindings;
+    const StrataPlaceholderFastSignalRecord* signals;
+
+    payload_header = strata_placeholder_fast_payload_header(header);
+    if (!payload_header)
+    {
+        return 0;
+    }
+
+    if (header->target_backend_id != STRATA_PLACEHOLDER_BACKEND_ID_LXS ||
+        header->probe_descriptor_count != 0u)
+    {
+        return 0;
+    }
+
+    expected_bytes = strata_placeholder_fast_payload_bytes_for_counts(
+        payload_header->primitive_count,
+        payload_header->signal_count,
+        payload_header->input_binding_count,
+        payload_header->output_binding_count);
+    if (header->payload_size != expected_bytes ||
+        header->input_descriptor_count != payload_header->input_binding_count ||
+        header->output_descriptor_count != payload_header->output_binding_count)
+    {
+        return 0;
+    }
+
+    signals = strata_placeholder_fast_payload_signals(payload_header);
+    primitives = strata_placeholder_fast_payload_primitives(payload_header);
+    input_bindings = strata_placeholder_fast_payload_input_bindings(payload_header);
+    output_bindings = strata_placeholder_fast_payload_output_bindings(payload_header);
+    if (!signals || !primitives || !input_bindings || !output_bindings)
+    {
+        return 0;
+    }
+
+    for (index = 0u; index < payload_header->signal_count; ++index)
+    {
+        if (signals[index].source_kind != STRATA_FAST_SIGNAL_SOURCE_MODULE_INPUT &&
+            signals[index].source_kind != STRATA_FAST_SIGNAL_SOURCE_PRIMITIVE_OUTPUT)
+        {
+            return 0;
+        }
+    }
+
+    for (index = 0u; index < payload_header->primitive_count; ++index)
+    {
+        if (primitives[index].opcode < STRATA_FAST_EXEC_OPCODE_BUF ||
+            primitives[index].opcode > STRATA_FAST_EXEC_OPCODE_XOR ||
+            primitives[index].output_signal_index >= payload_header->signal_count ||
+            primitives[index].input_signal_index_a >= payload_header->signal_count)
+        {
+            return 0;
+        }
+
+        if ((primitives[index].opcode == STRATA_FAST_EXEC_OPCODE_BUF ||
+             primitives[index].opcode == STRATA_FAST_EXEC_OPCODE_NOT))
+        {
+            if (primitives[index].input_signal_index_b !=
+                STRATA_PLACEHOLDER_FAST_EXECUTABLE_UNUSED_INDEX)
+            {
+                return 0;
+            }
+        }
+        else if (primitives[index].input_signal_index_b >= payload_header->signal_count)
+        {
+            return 0;
+        }
+    }
+
+    for (index = 0u; index < payload_header->input_binding_count; ++index)
+    {
+        if (input_bindings[index].signal_index >= payload_header->signal_count)
+        {
+            return 0;
+        }
+    }
+
+    for (index = 0u; index < payload_header->output_binding_count; ++index)
+    {
+        if (output_bindings[index].signal_index >= payload_header->signal_count)
+        {
+            return 0;
+        }
+    }
+
+    return 1;
 }
 
 static inline const StrataPlaceholderAdmissionInfo*
