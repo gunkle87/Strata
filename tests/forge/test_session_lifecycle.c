@@ -178,6 +178,7 @@ exercise_real_fast_session_lifecycle(ForgeBackendId backend_id)
     {
         ForgeSignalValue real_inputs[1] = { { 410u, FORGE_LOGIC_1 } };
         ForgeSignalValue real_outputs[1];
+        ForgeSignalValue too_many_outputs[2];
         ForgeSignalValue bad_inputs[1] = { { 999u, FORGE_LOGIC_1 } };
         ForgeSignalValue bad_value_inputs[1] = { { 410u, (ForgeLogicValue)99 } };
 
@@ -207,6 +208,16 @@ exercise_real_fast_session_lifecycle(ForgeBackendId backend_id)
             real_outputs[0].value != FORGE_LOGIC_1)
         {
             fprintf(stderr, "FAIL: real FAST_4STATE output read mismatch\n");
+            forge_session_free(session);
+            forge_artifact_unload(artifact);
+            return 1;
+        }
+
+        result = forge_read_outputs(session, too_many_outputs, 2u);
+        if (result != FORGE_ERR_OUT_OF_BOUNDS)
+        {
+            fprintf(stderr, "FAIL: real FAST_4STATE oversized output read should fail, got %d\n",
+                (int)result);
             forge_session_free(session);
             forge_artifact_unload(artifact);
             return 1;
@@ -312,6 +323,7 @@ int main(void)
     ForgeSession   *session = NULL;
     ForgeSessionInfo session_info;
     ForgeResult     result;
+    ForgeSignalValue values[2];
     unsigned char   artifact_bytes[strata_placeholder_artifact_size()];
 
     result = forge_backend_id_at(0, &id);
@@ -349,6 +361,18 @@ int main(void)
     {
         fprintf(stderr,
             "FAIL: session handle should be non-NULL after FORGE_OK\n");
+        forge_artifact_unload(art);
+        return 1;
+    }
+
+    result = forge_read_outputs(session, values, 2);
+
+    if (result != FORGE_ERR_UNSUPPORTED)
+    {
+        fprintf(stderr,
+            "FAIL: forge_read_outputs expected FORGE_ERR_UNSUPPORTED for stub session, got %d\n",
+            (int)result);
+        forge_session_free(session);
         forge_artifact_unload(art);
         return 1;
     }

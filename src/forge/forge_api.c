@@ -2120,14 +2120,33 @@ forge_read_outputs(
             "forge_read_outputs: runtime output mapping not yet implemented");
     }
 
+    if (count > session->output_value_count)
+    {
+        return forge_fail(FORGE_ERR_OUT_OF_BOUNDS,
+            "forge_read_outputs: output count exceeds descriptor count");
+    }
+
     if (count != session->output_value_count)
     {
         return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
             "forge_read_outputs: output count does not match descriptor count");
     }
 
+    if (!session->artifact || !session->artifact->descriptors)
+    {
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_read_outputs: output descriptor layout unavailable");
+    }
+
     for (index = 0u; index < count; ++index)
     {
+        if (session->output_values[index].signal_id !=
+            session->artifact->descriptors[session->artifact->input_descriptor_count + index].id)
+        {
+            return forge_fail(FORGE_ERR_INTERNAL,
+                "forge_read_outputs: output signal mapping inconsistent");
+        }
+
         values[index] = session->output_values[index];
     }
 
