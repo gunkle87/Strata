@@ -344,9 +344,9 @@ Only admit a checkpoint when its required test family passes.
 ## 15. Relationship To Other Docs
 
 This plan follows:
-- [STRATA_FORGE_RUNTIME_API_PLAN.md](STRATA_FORGE_RUNTIME_API_PLAN.md)
-- [STRATA_BACKEND_CAPABILITY_REGISTRY.md](STRATA_BACKEND_CAPABILITY_REGISTRY.md)
-- [STRATA_MULTI_AGENT_TRIAL_PROTOCOL.md](STRATA_MULTI_AGENT_TRIAL_PROTOCOL.md)
+- [STRATA_FORGE_RUNTIME_API_PLAN.md](/docs/boundaries/STRATA_FORGE_RUNTIME_API_PLAN.md)
+- [STRATA_BACKEND_CAPABILITY_REGISTRY.md](/docs/reference/STRATA_BACKEND_CAPABILITY_REGISTRY.md)
+- [STRATA_MULTI_AGENT_TRIAL_PROTOCOL.md](/docs/process/STRATA_MULTI_AGENT_TRIAL_PROTOCOL.md)
 
 This plan should be used when writing:
 - implementation directives
@@ -367,4 +367,5 @@ But they do need to prove that the runtime boundary is:
 - and honest about what is still stubbed.
 
 That is the admission bar for a usable Strata runtime boundary.
+
 

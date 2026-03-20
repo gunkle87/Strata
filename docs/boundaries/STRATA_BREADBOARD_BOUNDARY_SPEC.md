@@ -239,7 +239,7 @@ Hard rule
 - initialization-state handling required before steady-state execution.
 
 This must follow:
-- [STRATA_STATE_PROJECTION_POLICY.md](STRATA_STATE_PROJECTION_POLICY.md)
+- [STRATA_STATE_PROJECTION_POLICY.md](/docs/reference/STRATA_STATE_PROJECTION_POLICY.md)
 
 ### 5.7 Executable Artifact Emission
 
@@ -473,12 +473,12 @@ Important rule
 ## 17. Relationship To Other Design Docs
 
 This document follows:
-- [STRATA_FORGE_RUNTIME_API_PLAN.md](STRATA_FORGE_RUNTIME_API_PLAN.md)
-- [STRATA_STATE_PROJECTION_POLICY.md](STRATA_STATE_PROJECTION_POLICY.md)
+- [STRATA_FORGE_RUNTIME_API_PLAN.md](/docs/boundaries/STRATA_FORGE_RUNTIME_API_PLAN.md)
+- [STRATA_STATE_PROJECTION_POLICY.md](/docs/reference/STRATA_STATE_PROJECTION_POLICY.md)
 
 This document should guide:
-- `STRATA_BACKEND_CAPABILITY_REGISTRY.md`
-- `STRATA_SHARED_PLAN_DRAFT.md`
+- `docs/reference/STRATA_BACKEND_CAPABILITY_REGISTRY.md`
+- `docs/boundaries/STRATA_SHARED_PLAN_DRAFT.md`
 
 Key sequencing rule
 - the shared artifact draft must be derived from:
@@ -513,4 +513,5 @@ Current phase-close interpretation:
   truth, and executable artifact emission for the first `FAST_4STATE` slice.
 - This document must not be read as evidence of broad compiler completeness or
   temporal-backend readiness.
+
 

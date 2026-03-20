@@ -423,9 +423,9 @@ This is the beginning of a combined-engine program, not just an LXS refactor.
 ## 17. Relationship To Other Docs
 
 These notes pair with:
-- [ENGINE_LAYER_HIERARCHY_MAP.md](/c:/DEV/LXS/docs/ENGINE_LAYER_HIERARCHY_MAP.md)
-- [ENGINE_LAYER_HIERARCHY_BOTTOM_UP.md](/c:/DEV/LXS/docs/ENGINE_LAYER_HIERARCHY_BOTTOM_UP.md)
-- [COMBINED_ENGINE_ARCHITECTURE_PLAN.md](/c:/DEV/LXS/docs/COMBINED_ENGINE_ARCHITECTURE_PLAN.md)
+- [ENGINE_LAYER_HIERARCHY_MAP.md](/c:/DEV/LXS/docs/architecture/ENGINE_LAYER_HIERARCHY_MAP.md)
+- [ENGINE_LAYER_HIERARCHY_BOTTOM_UP.md](/c:/DEV/LXS/docs/architecture/ENGINE_LAYER_HIERARCHY_BOTTOM_UP.md)
+- [COMBINED_ENGINE_ARCHITECTURE_PLAN.md](/c:/DEV/LXS/docs/architecture/COMBINED_ENGINE_ARCHITECTURE_PLAN.md)
 - [HighZ-AUDIT.md](/c:/DEV/LXS/HighZ-AUDIT.md)
 - [HEBS_AUDIT.md](/c:/DEV/LXS/HEBS_AUDIT.md)
 
@@ -433,3 +433,4 @@ Role of this file
 - capture the reasoning and conclusions from the planning conversation
 - preserve the logic that produced the current architecture direction
 - reduce the chance of forgetting why these boundaries were chosen
+

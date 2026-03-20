@@ -279,7 +279,7 @@ The artifact must not require:
 ## 10. Relationship To State Projection Policy
 
 This artifact draft must honor:
-- [STRATA_STATE_PROJECTION_POLICY.md](STRATA_STATE_PROJECTION_POLICY.md)
+- [STRATA_STATE_PROJECTION_POLICY.md](/docs/reference/STRATA_STATE_PROJECTION_POLICY.md)
 
 That means:
 - backend-targeted projection happens before or during artifact emission,
@@ -298,7 +298,7 @@ Examples:
 ## 11. Relationship To Capability Registry
 
 This artifact draft must honor:
-- [STRATA_BACKEND_CAPABILITY_REGISTRY.md](STRATA_BACKEND_CAPABILITY_REGISTRY.md)
+- [STRATA_BACKEND_CAPABILITY_REGISTRY.md](/docs/reference/STRATA_BACKEND_CAPABILITY_REGISTRY.md)
 
 That means artifact compatibility must be expressible in terms of:
 - backend identity,
@@ -549,10 +549,10 @@ Important rule
 ## 24. Relationship To Other Design Docs
 
 This draft follows:
-- [STRATA_FORGE_RUNTIME_API_PLAN.md](STRATA_FORGE_RUNTIME_API_PLAN.md)
-- [STRATA_STATE_PROJECTION_POLICY.md](STRATA_STATE_PROJECTION_POLICY.md)
-- [STRATA_BREADBOARD_BOUNDARY_SPEC.md](STRATA_BREADBOARD_BOUNDARY_SPEC.md)
-- [STRATA_BACKEND_CAPABILITY_REGISTRY.md](STRATA_BACKEND_CAPABILITY_REGISTRY.md)
+- [STRATA_FORGE_RUNTIME_API_PLAN.md](/docs/boundaries/STRATA_FORGE_RUNTIME_API_PLAN.md)
+- [STRATA_STATE_PROJECTION_POLICY.md](/docs/reference/STRATA_STATE_PROJECTION_POLICY.md)
+- [STRATA_BREADBOARD_BOUNDARY_SPEC.md](/docs/boundaries/STRATA_BREADBOARD_BOUNDARY_SPEC.md)
+- [STRATA_BACKEND_CAPABILITY_REGISTRY.md](/docs/reference/STRATA_BACKEND_CAPABILITY_REGISTRY.md)
 
 This draft should guide later implementation of:
 - artifact headers,
@@ -585,4 +585,5 @@ Current phase-close interpretation:
 - that executable family is intentionally narrow and phase-scoped
 - the current temporary envelope is good enough for the first vertical path but
   must not be promoted to final artifact design language
+
 

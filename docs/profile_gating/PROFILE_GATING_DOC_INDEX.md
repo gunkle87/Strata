@@ -35,7 +35,8 @@ Placement rule
   should live in this directory by default.
 
 Nearby but separate topics
-- broad runtime API planning remains in `docs/STRATA_FORGE_RUNTIME_API_PLAN.md`
-- artifact planning remains in `docs/STRATA_SHARED_PLAN_DRAFT.md`
+- broad runtime API planning remains in `docs/boundaries/STRATA_FORGE_RUNTIME_API_PLAN.md`
+- artifact planning remains in `docs/boundaries/STRATA_SHARED_PLAN_DRAFT.md`
 - compiler/layer boundary planning remains in the main `docs` root unless it
   becomes specifically profile-gating related
+

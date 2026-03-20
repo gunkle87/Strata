@@ -23,13 +23,15 @@ Primary layer names
   - shared runtime API layer
 
 Current repository status
-- bootstrap phase
-- planning and protocol baseline installed
-- backend code migration has not started yet
+- first executable fast-path phase completed
+- pillar-based planning scaffold installed
+- broader backend, artifact, and capability pillars still ahead
 
 Initial repo layout
 - `docs/`
-  - architecture and planning documents
+  - categorized architecture, boundary, reference, notes, and process docs
+- `planning/`
+  - master pillar plan, per-pillar plans, trackers, and directive templates
 - `protocol/`
   - portable development and governance protocols
 - `src/authoring/`
@@ -55,9 +57,17 @@ Immediate source documents copied from LXS
 - combined-engine planning docs
 - hierarchy docs
 - cross-engine strength matrix
-- `PROBE_PROTOCOL.md`
-- `TAB_PROTOCOL.md`
+- `docs/reference/PROBE_PROTOCOL.md`
+- `docs/reference/TAB_PROTOCOL.md`
 - the portable engine-evolution protocol bundle
 
-The next intended major document is:
-- `STRATA_FORGE_RUNTIME_API_PLAN.md`
+Documentation entry points
+- `docs/README.md`
+  - category guide for the documentation tree
+- `docs/architecture/COMBINED_ENGINE_ARCHITECTURE_PLAN.md`
+  - top-level architecture intent
+- `planning/README.md`
+  - how the pillar-based planning/build process works
+- `planning/pillar_master_plan.md`
+  - top-level execution roadmap
+

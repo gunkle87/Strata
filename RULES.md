@@ -185,8 +185,8 @@ Hard rule
    explicit and documented.
 
 Canonical support files
-- `docs/PROBE_PROTOCOL.md`
-- `docs/TAB_PROTOCOL.md`
+- `docs/reference/PROBE_PROTOCOL.md`
+- `docs/reference/TAB_PROTOCOL.md`
 - `protocol/engine_evolution/*`
 
 ## 9. Response Style
@@ -259,3 +259,4 @@ When a requested change conflicts with these rules:
 Hard rule
 - architecture convenience is never a valid reason to violate a core repo rule
   without explicit documented change.
+

@@ -6,11 +6,11 @@ truth.
 
 ## Boundary and Runtime API
 
-- `STRATA_BREADBOARD_BOUNDARY_SPEC.md`
-- `STRATA_FORGE_RUNTIME_API_PLAN.md`
-- `STRATA_SHARED_PLAN_DRAFT.md`
-- `STRATA_BACKEND_CAPABILITY_REGISTRY.md`
-- `STRATA_STATE_PROJECTION_POLICY.md`
+- `docs/boundaries/STRATA_BREADBOARD_BOUNDARY_SPEC.md`
+- `docs/boundaries/STRATA_FORGE_RUNTIME_API_PLAN.md`
+- `docs/boundaries/STRATA_SHARED_PLAN_DRAFT.md`
+- `docs/reference/STRATA_BACKEND_CAPABILITY_REGISTRY.md`
+- `docs/reference/STRATA_STATE_PROJECTION_POLICY.md`
 
 ## Profile and Gating
 
@@ -40,3 +40,4 @@ truth.
 - `protocol/engine_evolution/PHASE_CLOSE_TEMPLATE.md`
 - `protocol/engine_evolution/PORTABILITY_ADOPTION_GUIDE.md`
 - `protocol/engine_evolution/REENTRY_AND_DEFER_POLICY.md`
+

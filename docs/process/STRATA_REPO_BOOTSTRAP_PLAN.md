@@ -66,13 +66,13 @@ Top-level directories
 These items are safe to bring over immediately.
 
 From LXS docs
-- `COMBINED_ENGINE_ARCHITECTURE_PLAN.md`
-- `COMBINED_ENGINE_FOUNDATION_NOTES.md`
-- `ENGINE_LAYER_HIERARCHY_MAP.md`
-- `ENGINE_LAYER_HIERARCHY_BOTTOM_UP.md`
-- `ITERATION_7_CROSS_ENGINE_STRENGTH_MATRIX.md`
-- `PROBE_PROTOCOL.md`
-- `TAB_PROTOCOL.md`
+- `docs/architecture/COMBINED_ENGINE_ARCHITECTURE_PLAN.md`
+- `docs/architecture/COMBINED_ENGINE_FOUNDATION_NOTES.md`
+- `docs/architecture/ENGINE_LAYER_HIERARCHY_MAP.md`
+- `docs/architecture/ENGINE_LAYER_HIERARCHY_BOTTOM_UP.md`
+- `docs/architecture/ITERATION_7_CROSS_ENGINE_STRENGTH_MATRIX.md`
+- `docs/reference/PROBE_PROTOCOL.md`
+- `docs/reference/TAB_PROTOCOL.md`
 
 From LXS protocol bundle
 - `protocol/engine_evolution/*`
@@ -154,11 +154,11 @@ Reason
 ## 8. Required Next Documents
 
 In order:
-1. `STRATA_FORGE_RUNTIME_API_PLAN.md`
-2. `STRATA_STATE_PROJECTION_POLICY.md`
-3. `STRATA_BREADBOARD_BOUNDARY_SPEC.md`
-4. `STRATA_BACKEND_CAPABILITY_REGISTRY.md`
-5. `STRATA_SHARED_PLAN_DRAFT.md`
+1. `docs/boundaries/STRATA_FORGE_RUNTIME_API_PLAN.md`
+2. `docs/reference/STRATA_STATE_PROJECTION_POLICY.md`
+3. `docs/boundaries/STRATA_BREADBOARD_BOUNDARY_SPEC.md`
+4. `docs/reference/STRATA_BACKEND_CAPABILITY_REGISTRY.md`
+5. `docs/boundaries/STRATA_SHARED_PLAN_DRAFT.md`
 
 Important sequencing rule
 - the shared runtime API comes before the shared plan contract
@@ -188,3 +188,4 @@ Bootstrap is complete when:
 - the naming baseline is fixed,
 - the next design documents are known,
 - no backend code has been copied prematurely.
+

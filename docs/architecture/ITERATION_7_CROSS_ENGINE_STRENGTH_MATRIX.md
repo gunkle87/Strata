@@ -57,10 +57,10 @@ Source audits used:
 - [HEBS_I1_AUDIT.md](/c:/DEV/LXS/HEBS_I1_AUDIT.md)
 
 Planning context documents used:
-- [COMBINED_ENGINE_FOUNDATION_NOTES.md](/c:/DEV/LXS/docs/COMBINED_ENGINE_FOUNDATION_NOTES.md)
-- [COMBINED_ENGINE_ARCHITECTURE_PLAN.md](/c:/DEV/LXS/docs/COMBINED_ENGINE_ARCHITECTURE_PLAN.md)
-- [ENGINE_LAYER_HIERARCHY_MAP.md](/c:/DEV/LXS/docs/ENGINE_LAYER_HIERARCHY_MAP.md)
-- [ENGINE_LAYER_HIERARCHY_BOTTOM_UP.md](/c:/DEV/LXS/docs/ENGINE_LAYER_HIERARCHY_BOTTOM_UP.md)
+- [COMBINED_ENGINE_FOUNDATION_NOTES.md](/c:/DEV/LXS/docs/architecture/COMBINED_ENGINE_FOUNDATION_NOTES.md)
+- [COMBINED_ENGINE_ARCHITECTURE_PLAN.md](/c:/DEV/LXS/docs/architecture/COMBINED_ENGINE_ARCHITECTURE_PLAN.md)
+- [ENGINE_LAYER_HIERARCHY_MAP.md](/c:/DEV/LXS/docs/architecture/ENGINE_LAYER_HIERARCHY_MAP.md)
+- [ENGINE_LAYER_HIERARCHY_BOTTOM_UP.md](/c:/DEV/LXS/docs/architecture/ENGINE_LAYER_HIERARCHY_BOTTOM_UP.md)
 
 ## 3. Selection Criteria
 
@@ -494,3 +494,4 @@ The winning architecture is:
 
 That is the cleanest path to making iteration 7 the first intentionally unified
 system rather than the next isolated engine experiment.
+

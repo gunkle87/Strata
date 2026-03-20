@@ -261,7 +261,7 @@ Each backend must report:
 - runtime counter availability through the common path or extension path
 
 Probe support must stay consistent with:
-- [PROBE_PROTOCOL.md](PROBE_PROTOCOL.md)
+- [PROBE_PROTOCOL.md](/docs/reference/PROBE_PROTOCOL.md)
 
 Examples
 
@@ -562,12 +562,12 @@ Important rule
 ## 26. Relationship To Other Design Docs
 
 This document follows:
-- [STRATA_FORGE_RUNTIME_API_PLAN.md](STRATA_FORGE_RUNTIME_API_PLAN.md)
-- [STRATA_STATE_PROJECTION_POLICY.md](STRATA_STATE_PROJECTION_POLICY.md)
-- [STRATA_BREADBOARD_BOUNDARY_SPEC.md](STRATA_BREADBOARD_BOUNDARY_SPEC.md)
+- [STRATA_FORGE_RUNTIME_API_PLAN.md](/docs/boundaries/STRATA_FORGE_RUNTIME_API_PLAN.md)
+- [STRATA_STATE_PROJECTION_POLICY.md](/docs/reference/STRATA_STATE_PROJECTION_POLICY.md)
+- [STRATA_BREADBOARD_BOUNDARY_SPEC.md](/docs/boundaries/STRATA_BREADBOARD_BOUNDARY_SPEC.md)
 
 This document should guide:
-- `STRATA_SHARED_PLAN_DRAFT.md`
+- `docs/boundaries/STRATA_SHARED_PLAN_DRAFT.md`
 
 ------------------------------------------------------------------------
 
@@ -584,4 +584,5 @@ If this stays explicit and machine-readable:
 - the common API stays stable,
 - and the later artifact draft can be built on real constraints instead of
   guesses.
+
 

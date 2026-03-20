@@ -332,7 +332,7 @@ The common probe contract should support:
 - portable counter reads relevant to runtime inspection.
 
 Probe design must remain consistent with:
-- [PROBE_PROTOCOL.md](PROBE_PROTOCOL.md)
+- [PROBE_PROTOCOL.md](/docs/reference/PROBE_PROTOCOL.md)
 
 Important rule
 - probe support belongs in the runtime boundary, not in benchmark-only tools.
@@ -550,16 +550,16 @@ Critical validation rule
 
 After this plan, the next design documents should be:
 
-1. `STRATA_STATE_PROJECTION_POLICY.md`
+1. `docs/reference/STRATA_STATE_PROJECTION_POLICY.md`
    - define portable-state observation and backend-targeted projection rules
 
-2. `STRATA_BREADBOARD_BOUNDARY_SPEC.md`
+2. `docs/boundaries/STRATA_BREADBOARD_BOUNDARY_SPEC.md`
    - define what `Breadboard` produces and what `Forge` consumes
 
-3. `STRATA_BACKEND_CAPABILITY_REGISTRY.md`
+3. `docs/reference/STRATA_BACKEND_CAPABILITY_REGISTRY.md`
    - define the machine-readable capability surface
 
-4. `STRATA_SHARED_PLAN_DRAFT.md`
+4. `docs/boundaries/STRATA_SHARED_PLAN_DRAFT.md`
    - derive executable artifact contract from the runtime and compiler
      boundaries already defined
 
@@ -588,4 +588,5 @@ Current phase-close interpretation:
   and output reads.
 - Placeholder load paths, broader probes, storage inspection, and temporal
   controls remain outside this completed phase.
+
 

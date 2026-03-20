@@ -317,9 +317,9 @@ The system must make these failure modes impossible or explicitly rejected:
 ## 13. Relationship To Other Strata Docs
 
 This model constrains:
-- `STRATA_FORGE_RUNTIME_API_PLAN.md`
-- `STRATA_BACKEND_CAPABILITY_REGISTRY.md`
-- `STRATA_SHARED_PLAN_DRAFT.md`
+- `docs/boundaries/STRATA_FORGE_RUNTIME_API_PLAN.md`
+- `docs/reference/STRATA_BACKEND_CAPABILITY_REGISTRY.md`
+- `docs/boundaries/STRATA_SHARED_PLAN_DRAFT.md`
 
 This model does not replace them.
 
@@ -359,3 +359,4 @@ It should solve it with:
 
 That is the clean path that preserves architecture integrity while still
 allowing sharply different products to ship from the same system.
+

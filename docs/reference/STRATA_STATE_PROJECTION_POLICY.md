@@ -437,12 +437,12 @@ Important rule
 ## 15. Relationship To Other Design Docs
 
 This policy follows:
-- [STRATA_FORGE_RUNTIME_API_PLAN.md](STRATA_FORGE_RUNTIME_API_PLAN.md)
+- [STRATA_FORGE_RUNTIME_API_PLAN.md](/docs/boundaries/STRATA_FORGE_RUNTIME_API_PLAN.md)
 
 This policy should guide:
-- `STRATA_BREADBOARD_BOUNDARY_SPEC.md`
-- `STRATA_BACKEND_CAPABILITY_REGISTRY.md`
-- `STRATA_SHARED_PLAN_DRAFT.md`
+- `docs/boundaries/STRATA_BREADBOARD_BOUNDARY_SPEC.md`
+- `docs/reference/STRATA_BACKEND_CAPABILITY_REGISTRY.md`
+- `docs/boundaries/STRATA_SHARED_PLAN_DRAFT.md`
 
 Key dependency rule
 - the shared plan draft must honor this projection policy,
@@ -465,4 +465,5 @@ That is the only clean way to keep:
 - `HighZ` temporal,
 - `Forge` stable,
 - and `Breadboard` honest about semantic approximation.
+
 
