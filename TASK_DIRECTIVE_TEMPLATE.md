@@ -161,6 +161,13 @@ You MUST NOT:
 - generalize beyond task intent
 - improve design beyond requirements
 
+Forward-coverage exception:
+- do not intentionally build future tasks ahead of sequence
+- but if a small amount of immediately upcoming work is naturally coupled to
+  the current task and is implemented correctly, it may remain in place
+- if that happens, you MUST disclose it explicitly in the final summary
+- do NOT add broad speculative work under this exception
+
 ---
 
 PRE-IMPLEMENTATION DECLARATION (REQUIRED):
@@ -271,7 +278,11 @@ After implementation, you MUST provide:
 3. Explicit list:
    - files changed
    - functions added/modified
-4. Confirmation that tracker boxes were updated appropriately
+4. Forward coverage disclosure:
+   - state `NONE` if the task stayed fully isolated
+   - otherwise list any immediately upcoming task areas that were naturally
+     covered early
+5. Confirmation that tracker boxes were updated appropriately
 
 ---
 
@@ -285,6 +296,9 @@ OUTPUT FORMAT:
 
 --- POST-IMPLEMENTATION SUMMARY ---
 [what was done]
+
+--- FORWARD COVERAGE ---
+[none or explicit list]
 
 --- VALIDATION ---
 - Scope respected: YES/NO

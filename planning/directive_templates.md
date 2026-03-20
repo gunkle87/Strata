@@ -84,6 +84,9 @@ Hard rule:
 7. Do not leave trailing whitespace on any line.
 8. When editing a tracker block, function, or similar known section, prefer
    full-block replacement over fragile whitespace-sensitive partial edits.
+9. Do not intentionally implement future tasks early, but if a small amount of
+   immediately upcoming work is naturally coupled and correct, disclose it
+   instead of hiding it.
 
 ## Required Reporting Policy
 At completion, report only:
@@ -91,13 +94,16 @@ At completion, report only:
 2. Files touched
 3. Tests executed (command + result)
 4. Open blockers/non-blockers
-5. Implementation-only effort rating:
+5. Forward coverage:
+   - `NONE`
+   - or a short list of immediately upcoming task areas covered early
+6. Implementation-only effort rating:
    - `TOO_EASY`
    - `EASY`
    - `PERFECT`
    - `HARD`
    - `TOO_HARD`
-6. Next handoff recommendation
+7. Next handoff recommendation
 
 ## Tracker Update Policy
 - Update tracker only for this task.
@@ -193,25 +199,29 @@ Hard rule:
 4. Boundary compliance
 5. Test evidence validity
 6. Regression risk in touched files
+7. Whether any scope overreach is harmless forward coverage rather than a real
+   defect
 
 ## Required Reporting Policy
 Report using this exact structure:
-1. Verdict: `PASS` or `FAIL`
+1. Verdict: `PASS`, `PASS WITH FORWARD COVERAGE`, or `FAIL`
 2. Blockers (must be empty for `PASS`)
-3. Non-blockers (must be empty for `PASS`)
-4. File-by-file findings
-5. Required fixes (if `FAIL`)
-6. Recommended next step
+3. Non-blockers
+4. Forward coverage notes
+5. File-by-file findings
+6. Required fixes (if `FAIL`)
+7. Recommended next step
 
 ## Tracker Update Policy
 - Do not alter implementation checkbox state.
-- If verdict is `PASS`, mark only the **Audit passed** checkbox for this task
-  as `[x]`.
+- If verdict is `PASS` or `PASS WITH FORWARD COVERAGE`, mark only the
+  **Audit passed** checkbox for this task as `[x]`.
 - If verdict is `FAIL`, do not mark audit checkbox.
 - Do not mark commit/push checkboxes in this directive.
 
 Hard rule:
-- If any blocker or non-blocker is reported, verdict must be `FAIL`.
+- If any blocker is reported, verdict must be `FAIL`.
+- Non-blockers that are only harmless forward coverage do not require `FAIL`.
 
 ## Completion Condition
 - Audit report delivered.

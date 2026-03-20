@@ -66,16 +66,16 @@ Brief: Implement backend enumeration and identity query behavior.
 
 Brief: Implement machine-readable common capability reporting.
 
-- [ ] Implementation complete - `YYYY-MM-DD HH:MM TZ`
-- [ ] Tests passed (current + previous = 100%) -
-      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
-- [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
-      `YYYY-MM-DD HH:MM TZ` - `<evidence>`
-- [ ] Audit passed (100%, blockers=0, non-blockers=0) -
-      `YYYY-MM-DD HH:MM TZ`
+- [x] Implementation complete - 2026-03-20 01:58 UTC
+- [x] Tests passed (current + previous = 100%) -
+      2026-03-20 01:58 UTC - runner: make -C tests/forge clean; make -C tests/forge test
+- [x] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      2026-03-20 01:58 UTC - forge suite: total=10 passed=10 failed=0 failed_ids=none; reruns=none
+- [x] Audit passed (100%, blockers=0, non-blockers=0) -
+      `2026-03-19 21:14 CDT`
 - [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
-- [ ] Effort rating recorded (implementation only) -
-      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+- [x] Effort rating recorded (implementation only) -
+      `2026-03-19 21:14 CDT` - `rating: PERFECT`
 
 ## Task 2.4 - Extension Family Discovery Surface
 

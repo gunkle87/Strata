@@ -1,4 +1,4 @@
-﻿#include <stdlib.h>
+#include <stdlib.h>
 #include <string.h>
 #include "../../include/forge_api.h"
 #include "../../include/strata_placeholder_artifact.h"
@@ -1332,86 +1332,86 @@ forge_backend_info(ForgeBackendId backend_id, ForgeBackendInfo *out_info)
 
 ForgeResult
 forge_backend_capabilities(ForgeBackendId backend_id, ForgeCapabilities *out_caps)
-{
-    const ForgeBackendRecord *rec;
-    ForgeEffectiveProfile profile;
-    uint32_t source_index;
-    uint32_t output_index;
+	{
+	const ForgeBackendRecord *rec;
+	ForgeEffectiveProfile profile;
+	uint32_t source_index;
+	uint32_t output_index;
 
-    if (!out_caps)
-    {
-        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
-            "forge_backend_capabilities: out_caps is NULL");
-    }
+	if (!out_caps)
+		{
+		return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+			"forge_backend_capabilities: out_caps is NULL");
+		}
 
-    rec = forge_registry_backend_by_id(backend_id);
+	rec = forge_registry_backend_by_id(backend_id);
 
-    forge_policy_get_library_effective_profile(&profile);
+	forge_policy_get_library_effective_profile(&profile);
 
-    if (!rec || !forge_policy_backend_visible(&profile, backend_id))
-    {
-        return forge_fail(FORGE_ERR_BACKEND_UNAVAILABLE,
-            "forge_backend_capabilities: backend_id not registered");
-    }
+	if (!rec || !forge_policy_backend_visible(&profile, backend_id))
+		{
+		return forge_fail(FORGE_ERR_BACKEND_UNAVAILABLE,
+			"forge_backend_capabilities: backend_id not registered");
+		}
 
-    *out_caps = rec->capabilities;
+	*out_caps = rec->capabilities;
 
-    if (!profile.allow_common_observation)
-    {
-        out_caps->reads.output_read = FORGE_SUPPORT_NONE;
-        out_caps->reads.portable_signal_read = FORGE_SUPPORT_NONE;
-        out_caps->reads.descriptor_enumeration = FORGE_SUPPORT_NONE;
-        out_caps->reads.name_lookup = FORGE_SUPPORT_NONE;
-        out_caps->reads.id_lookup = FORGE_SUPPORT_NONE;
-    }
+	if (!profile.allow_common_observation)
+		{
+		out_caps->reads.output_read = FORGE_SUPPORT_NONE;
+		out_caps->reads.portable_signal_read = FORGE_SUPPORT_NONE;
+		out_caps->reads.descriptor_enumeration = FORGE_SUPPORT_NONE;
+		out_caps->reads.name_lookup = FORGE_SUPPORT_NONE;
+		out_caps->reads.id_lookup = FORGE_SUPPORT_NONE;
+		}
 
-    if (!profile.allow_common_probes)
-    {
-        out_caps->probe_support = FORGE_SUPPORT_NONE;
-    }
+	if (!profile.allow_common_probes)
+		{
+		out_caps->probe_support = FORGE_SUPPORT_NONE;
+		}
 
-    if (!profile.allow_advanced_controls)
-    {
-        out_caps->common_multi_step_advance = FORGE_SUPPORT_NONE;
-        out_caps->temporal_substep = 0u;
-        out_caps->delta_phase_stepping = 0u;
-    }
+	if (!profile.allow_advanced_controls)
+		{
+		out_caps->common_multi_step_advance = FORGE_SUPPORT_NONE;
+		out_caps->temporal_substep = 0u;
+		out_caps->delta_phase_stepping = 0u;
+		}
 
-    output_index = 0u;
+	output_index = 0u;
 
-    for (source_index = 0u; source_index < rec->capabilities.extension_family_count;
-         ++source_index)
-    {
-        ForgeExtensionFamily extension_family;
+	for (source_index = 0u; source_index < rec->capabilities.extension_family_count;
+		 ++source_index)
+		{
+		ForgeExtensionFamily extension_family;
 
-        extension_family = rec->capabilities.extension_families[source_index];
+		extension_family = rec->capabilities.extension_families[source_index];
 
-        if (!forge_policy_extension_allowed(&profile, extension_family))
-        {
-            continue;
-        }
+		if (!forge_policy_extension_allowed(&profile, extension_family))
+			{
+			continue;
+			}
 
-        if (extension_family == FORGE_EXT_NATIVE_STATE_READ &&
-            !profile.allow_native_state_read)
-        {
-            continue;
-        }
+		if (extension_family == FORGE_EXT_NATIVE_STATE_READ &&
+			!profile.allow_native_state_read)
+			{
+			continue;
+			}
 
-        if (extension_family == FORGE_EXT_TEMPORAL_CONTROL &&
-            !profile.allow_advanced_controls)
-        {
-            continue;
-        }
+		if (extension_family == FORGE_EXT_TEMPORAL_CONTROL &&
+			!profile.allow_advanced_controls)
+			{
+			continue;
+			}
 
-        out_caps->extension_families[output_index] = extension_family;
-        ++output_index;
-    }
+		out_caps->extension_families[output_index] = extension_family;
+		++output_index;
+		}
 
-    out_caps->extension_family_count = output_index;
+	out_caps->extension_family_count = output_index;
 
-    forge_diag_set("");
-    return FORGE_OK;
-}
+	forge_diag_set("");
+	return FORGE_OK;
+	}
 
 /* -------------------------------------------------------------------------
  * Artifact Lifecycle

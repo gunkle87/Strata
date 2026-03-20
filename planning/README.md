@@ -34,6 +34,13 @@ Each task follows this lifecycle:
 Hard rule:
 - no task may begin unless all previous tasks are complete
 
+Forward coverage rule:
+- if a task correctly and harmlessly completes a small amount of immediately
+  upcoming planned work, that does not require rollback
+- the work must be disclosed
+- the audit must distinguish harmless forward coverage from real defects
+- only real defects or harmful drift should force a task failure
+
 Completion gate rule:
 - "complete" means the previous task has all of these marked `[x]`:
   - Implementation complete
@@ -83,6 +90,8 @@ It records:
 No task should proceed out of order.
 No task should proceed while the previous task's local commit box is still
 unchecked.
+But harmless forward coverage inside an already-active task does not need to be
+removed just because it also belongs to the next planned step.
 
 ### `directive_templates.md`
 This contains the working templates for:

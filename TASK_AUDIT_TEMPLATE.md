@@ -21,9 +21,10 @@ Audit one completed task exactly as implemented.
 
 The goal is to determine whether the task:
 - satisfies its stated intent
-- stays within scope
+- stays within acceptable scope
 - preserves architectural and phase boundaries
 - has complete tracker evidence before commit
+- distinguishes real defects from harmless forward coverage
 
 ---
 
@@ -97,6 +98,25 @@ REQUIRED CHECKS:
 6. test evidence validity
 7. tracker completeness for pre-commit readiness
 
+FORWARD COVERAGE RULE:
+
+If the implementation includes work that naturally reaches into the immediately
+upcoming task or tasks, the audit MUST distinguish between:
+- harmful scope drift
+- harmless forward coverage
+
+Harmless forward coverage means ALL of the following are true:
+- the code is functionally correct
+- the code does not violate architecture or phase boundaries
+- the code does not make false claims about completed behavior
+- the code belongs to an immediately upcoming planned task
+- the code does not make later work harder or more confusing
+
+If all of the above are true:
+- do NOT require rollback
+- do NOT classify this alone as FAIL
+- record it explicitly as forward coverage
+
 ---
 
 TRACKER UPDATE REQUIREMENT:
@@ -128,16 +148,22 @@ STRICT PROHIBITIONS:
 
 OUTPUT FORMAT:
 
-1. Verdict: PASS or FAIL
+1. Verdict: PASS, PASS WITH FORWARD COVERAGE, or FAIL
 2. Blockers
 3. Non-blockers
-4. File-by-file findings
-5. Tracker gate verification
-6. Tracker update performed: YES/NO
-7. Recommended next step
+4. Forward coverage notes
+5. File-by-file findings
+6. Tracker gate verification
+7. Tracker update performed: YES/NO
+8. Recommended next step
 
 Hard rule:
-- If any blocker or non-blocker exists, verdict must be FAIL
+- If any blocker exists, verdict must be FAIL
+- Non-blockers that are only harmless forward coverage do NOT force FAIL
+- PASS WITH FORWARD COVERAGE is allowed only when there are:
+  - no blockers
+  - no architectural violations
+  - no correctness failures
 
 ---
 
@@ -148,6 +174,7 @@ FAIL CONDITIONS (INVALID OUTPUT):
 - tracker evidence not checked before audit
 - scope expansion
 - missing blockers/non-blockers structure
+- harmless forward coverage incorrectly forced to FAIL without a real defect
 - audit pass box marked despite findings
 - non-English output
 
