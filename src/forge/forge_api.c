@@ -1,4 +1,4 @@
-#include <stdlib.h>
+﻿#include <stdlib.h>
 #include <string.h>
 #include "../../include/forge_api.h"
 #include "../../include/strata_placeholder_artifact.h"
@@ -1358,7 +1358,11 @@ forge_backend_capabilities(ForgeBackendId backend_id, ForgeCapabilities *out_cap
 
     if (!profile.allow_common_observation)
     {
-        out_caps->observation = FORGE_SUPPORT_NONE;
+        out_caps->reads.output_read = FORGE_SUPPORT_NONE;
+        out_caps->reads.portable_signal_read = FORGE_SUPPORT_NONE;
+        out_caps->reads.descriptor_enumeration = FORGE_SUPPORT_NONE;
+        out_caps->reads.name_lookup = FORGE_SUPPORT_NONE;
+        out_caps->reads.id_lookup = FORGE_SUPPORT_NONE;
     }
 
     if (!profile.allow_common_probes)
@@ -1368,6 +1372,7 @@ forge_backend_capabilities(ForgeBackendId backend_id, ForgeCapabilities *out_cap
 
     if (!profile.allow_advanced_controls)
     {
+        out_caps->common_multi_step_advance = FORGE_SUPPORT_NONE;
         out_caps->temporal_substep = 0u;
         out_caps->delta_phase_stepping = 0u;
     }
@@ -2689,3 +2694,5 @@ forge_last_error_string(void)
 {
     return forge_diag_get();
 }
+
+

@@ -1,4 +1,4 @@
-#ifndef FORGE_API_H
+﻿#ifndef FORGE_API_H
 #define FORGE_API_H
 
 #include <stddef.h>
@@ -327,3 +327,5 @@ const char *forge_last_error_string(void);
 #endif
 
 #endif /* FORGE_API_H */
+
+

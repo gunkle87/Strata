@@ -1,8 +1,8 @@
-/*
+﻿/*
  * test_capabilities.c
  *
- * Verify that forge_backend_capabilities returns structured data and
- * that LXS and HighZ have the expected differentiating capability values.
+ * Verify that forge_backend_capabilities returns structured capability data
+ * and that LXS and HighZ still differ where expected.
  */
 
 #include <stdio.h>
@@ -40,15 +40,38 @@ int main(void)
             return 1;
         }
 
-        /* Every admitted backend must report FULL lifecycle. */
-        if (caps.lifecycle != FORGE_SUPPORT_FULL)
+        if (caps.lifecycle.artifact_load != FORGE_SUPPORT_FULL ||
+            caps.lifecycle.session_create != FORGE_SUPPORT_FULL ||
+            caps.lifecycle.session_reset != FORGE_SUPPORT_FULL ||
+            caps.lifecycle.session_destroy != FORGE_SUPPORT_FULL ||
+            caps.lifecycle.lifecycle_query != FORGE_SUPPORT_FULL)
         {
             fprintf(stderr,
-                "FAIL: backend %u does not report FULL lifecycle\n", (unsigned)id);
+                "FAIL: backend %u does not report full lifecycle support\n",
+                (unsigned)id);
             return 1;
         }
 
-        /* Extension count must fit inside the array bound. */
+        if (caps.common_single_step_advance != FORGE_SUPPORT_FULL ||
+            caps.common_multi_step_advance != FORGE_SUPPORT_FULL)
+        {
+            fprintf(stderr,
+                "FAIL: backend %u does not report expected common advancement support\n",
+                (unsigned)id);
+            return 1;
+        }
+
+        if (caps.reads.output_read == FORGE_SUPPORT_NONE ||
+            caps.reads.descriptor_enumeration == FORGE_SUPPORT_NONE ||
+            caps.reads.name_lookup == FORGE_SUPPORT_NONE ||
+            caps.reads.id_lookup == FORGE_SUPPORT_NONE)
+        {
+            fprintf(stderr,
+                "FAIL: backend %u reports missing required common read support\n",
+                (unsigned)id);
+            return 1;
+        }
+
         if (caps.extension_family_count > FORGE_MAX_EXTENSION_FAMILIES)
         {
             fprintf(stderr,
@@ -60,8 +83,6 @@ int main(void)
         }
     }
 
-    /* Check LXS-specific expectations. */
-    /* LXS name is always first backend; use info name to identify. */
     result = forge_backend_id_at(0, &id);
 
     if (result == FORGE_OK)
@@ -81,7 +102,6 @@ int main(void)
         }
     }
 
-    /* Check HighZ-specific expectations. */
     result = forge_backend_id_at(1, &id);
 
     if (result == FORGE_OK)
@@ -101,7 +121,6 @@ int main(void)
         }
     }
 
-    /* NULL out-param must be rejected. */
     result = forge_backend_id_at(0, &id);
 
     if (result == FORGE_OK)
@@ -117,7 +136,6 @@ int main(void)
         }
     }
 
-    /* Unknown backend ID must be rejected. */
     result = forge_backend_capabilities((ForgeBackendId)0xFFFF, &caps);
 
     if (result != FORGE_ERR_BACKEND_UNAVAILABLE)

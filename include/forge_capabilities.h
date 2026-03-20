@@ -1,4 +1,4 @@
-#ifndef FORGE_CAPABILITIES_H
+﻿#ifndef FORGE_CAPABILITIES_H
 #define FORGE_CAPABILITIES_H
 
 #include <stdint.h>
@@ -36,10 +36,10 @@ ForgeSupportLevel;
  * ------------------------------------------------------------------------- */
 typedef enum ForgeStateModelClass
 {
-    /* 4-state: 0, 1, X, Z — LXS native model. */
+    /* 4-state: 0, 1, X, Z -- LXS native model. */
     FORGE_STATE_MODEL_4STATE = 0,
 
-    /* 7-state: richer model including strength distinctions — HighZ native model. */
+    /* 7-state: richer model including strength distinctions -- HighZ native model. */
     FORGE_STATE_MODEL_7STATE = 1
 
 }
@@ -87,6 +87,41 @@ ForgeExtensionFamily;
 #define FORGE_MAX_EXTENSION_FAMILIES 8
 
 /* -------------------------------------------------------------------------
+ * ForgeLifecycleCapabilities
+ *
+ * Support levels for the common Forge lifecycle families.
+ * These fields describe support for the public runtime lifecycle, not
+ * backend-private lifecycle mechanics.
+ * ------------------------------------------------------------------------- */
+typedef struct ForgeLifecycleCapabilities
+{
+    ForgeSupportLevel artifact_load;
+    ForgeSupportLevel session_create;
+    ForgeSupportLevel session_reset;
+    ForgeSupportLevel session_destroy;
+    ForgeSupportLevel lifecycle_query;
+
+}
+ForgeLifecycleCapabilities;
+
+/* -------------------------------------------------------------------------
+ * ForgeReadCapabilities
+ *
+ * Support levels for the common Forge read and lookup families.
+ * These fields describe portable common-runtime observation only.
+ * ------------------------------------------------------------------------- */
+typedef struct ForgeReadCapabilities
+{
+    ForgeSupportLevel output_read;
+    ForgeSupportLevel portable_signal_read;
+    ForgeSupportLevel descriptor_enumeration;
+    ForgeSupportLevel name_lookup;
+    ForgeSupportLevel id_lookup;
+
+}
+ForgeReadCapabilities;
+
+/* -------------------------------------------------------------------------
  * ForgeBackendInfo
  *
  * Identity information for a registered backend.
@@ -118,14 +153,15 @@ ForgeBackendInfo;
  * ------------------------------------------------------------------------- */
 typedef struct ForgeCapabilities
 {
-    /* Common lifecycle support level (load, create, reset, free). */
-    ForgeSupportLevel lifecycle;
+    /* Common Forge lifecycle families. */
+    ForgeLifecycleCapabilities lifecycle;
 
-    /* Common single-step and multi-step advancement support. */
-    ForgeSupportLevel advancement;
+    /* Common advancement support. */
+    ForgeSupportLevel common_single_step_advance;
+    ForgeSupportLevel common_multi_step_advance;
 
-    /* Common portable state observation and output read support. */
-    ForgeSupportLevel observation;
+    /* Common observation and lookup support. */
+    ForgeReadCapabilities reads;
 
     /* Common probe enumeration and value read support. */
     ForgeSupportLevel probe_support;

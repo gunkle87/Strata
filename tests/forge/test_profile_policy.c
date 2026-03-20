@@ -1,4 +1,4 @@
-/*
+﻿/*
  * test_profile_policy.c
  *
  * Verify that internal Forge policy objects narrow public discovery and
@@ -115,6 +115,7 @@ int main(void)
         fprintf(stderr, "FAIL: common-only profile did not disable advanced controls\n");
         return 1;
     }
+
 
     if (caps.extension_family_count != 1u ||
         caps.extension_families[0] != FORGE_EXT_RUNTIME_DIAGNOSTICS)
@@ -305,3 +306,5 @@ int main(void)
     printf("PASS: test_profile_policy\n");
     return 0;
 }
+
+

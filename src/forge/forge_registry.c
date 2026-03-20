@@ -1,4 +1,4 @@
-#include "forge_registry.h"
+﻿#include "forge_registry.h"
 
 enum
 {
@@ -19,9 +19,22 @@ static const ForgeBackendRecord s_backend_records[] =
             FORGE_STATE_MODEL_4STATE
         },
         {
+            {
+                FORGE_SUPPORT_FULL,
+                FORGE_SUPPORT_FULL,
+                FORGE_SUPPORT_FULL,
+                FORGE_SUPPORT_FULL,
+                FORGE_SUPPORT_FULL
+            },
             FORGE_SUPPORT_FULL,
             FORGE_SUPPORT_FULL,
-            FORGE_SUPPORT_FULL,
+            {
+                FORGE_SUPPORT_FULL,
+                FORGE_SUPPORT_FULL,
+                FORGE_SUPPORT_FULL,
+                FORGE_SUPPORT_FULL,
+                FORGE_SUPPORT_FULL
+            },
             FORGE_SUPPORT_FULL,
             FORGE_SUPPORT_FULL,
             0,
@@ -44,9 +57,22 @@ static const ForgeBackendRecord s_backend_records[] =
             FORGE_STATE_MODEL_7STATE
         },
         {
+            {
+                FORGE_SUPPORT_FULL,
+                FORGE_SUPPORT_FULL,
+                FORGE_SUPPORT_FULL,
+                FORGE_SUPPORT_FULL,
+                FORGE_SUPPORT_FULL
+            },
             FORGE_SUPPORT_FULL,
             FORGE_SUPPORT_FULL,
-            FORGE_SUPPORT_PARTIAL,
+            {
+                FORGE_SUPPORT_FULL,
+                FORGE_SUPPORT_PARTIAL,
+                FORGE_SUPPORT_FULL,
+                FORGE_SUPPORT_FULL,
+                FORGE_SUPPORT_FULL
+            },
             FORGE_SUPPORT_FULL,
             FORGE_SUPPORT_FULL,
             1,
