@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include "strata_projection.h"
 
 /*
  * breadboard_types.h

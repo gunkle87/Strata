@@ -38,7 +38,8 @@ TESTS = \
     test_profile_policy \
     test_extensions \
     test_compatibility_plumbing \
-    test_refusal_paths
+    test_refusal_paths \
+    test_projection_contract
 
 TEST_EXES = $(addsuffix .exe, $(TESTS))
 
@@ -83,6 +84,9 @@ test_compatibility_plumbing.exe: test_compatibility_plumbing.c $(FORGE_SRCS)
 test_refusal_paths.exe: test_refusal_paths.c $(FORGE_SRCS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(FORGE_SRCS)
 
+test_projection_contract.exe: test_projection_contract.c
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $<
+
 test: all
 	@echo --- Running Forge skeleton tests ---
 	@test_backend_enum.exe
@@ -98,6 +102,7 @@ test: all
 	@test_extensions.exe
 	@test_compatibility_plumbing.exe
 	@test_refusal_paths.exe
+	@test_projection_contract.exe
 	@echo --- All Forge skeleton tests passed ---
 
 clean:

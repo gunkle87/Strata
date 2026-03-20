@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include "strata_projection.h"
 
 /*
  * forge_types.h

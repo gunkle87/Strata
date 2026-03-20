@@ -1,0 +1,187 @@
+# Pillar 3 Tracker: State Projection Policy Implementation
+
+Use this file as the live tracker for Pillar 3 execution.
+
+References:
+- `planning/pillar_3_plan.md`
+- `planning/pillar_master_plan.md`
+
+## Pillar Status
+
+- [x] Pillar 3 started
+- [ ] Pillar 3 completed
+
+## Effort Scale (User-Reported)
+
+Use this scale at task completion:
+- `TOO_EASY`
+- `EASY`
+- `PERFECT`
+- `HARD`
+- `TOO_HARD`
+
+Important rule:
+- this rating applies only to implementation effort
+- audit and commit work are not part of the difficulty score
+
+## Pre-Task Gate (Required Before Each Task)
+
+- [x] All previous pillar tasks complete
+- [x] No unresolved blockers or non-blockers carried forward
+- [x] Pillar 3 task planning verified against current repo state before Task 3.1
+
+---
+
+## Task 3.1 - Projection Policy Data Contracts
+
+Brief: Define projection policy enums, records, and reporting surfaces.
+
+- [x] Implementation complete - `2026-03-20 06:31 CDT`
+- [x] Tests passed (current + previous = 100%) -
+      `2026-03-20 06:31 CDT` - `runner: manual execution of each test executable (total=14 passed=14 failed=0)`
+- [x] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      `2026-03-20 06:31 CDT` - `forge suite: total=14 passed=14 failed=0 failed_ids=none; reruns=none`
+- [x] Audit passed (100%, blockers=0, non-blockers=0) -
+      `2026-03-20 06:35 CDT`
+- [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
+- [x] Effort rating recorded (implementation only) -
+      `2026-03-20 06:39 CDT` - `rating: PERFECT`
+
+## Task 3.2 - Targeted Projection Compile Controls
+
+Brief: Implement explicit compile controls and target-selection plumbing for
+projection-aware lowering.
+
+- [ ] Implementation complete - `YYYY-MM-DD HH:MM TZ`
+- [ ] Tests passed (current + previous = 100%) -
+      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
+- [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      `YYYY-MM-DD HH:MM TZ" - `<evidence>`
+- [ ] Audit passed (100%, blockers=0, non-blockers=0) -
+      `YYYY-MM-DD HH:MM TZ`
+- [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
+- [ ] Effort rating recorded (implementation only) -
+      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+
+## Task 3.3 - Backend-Targeted State Legality Checks
+
+Brief: Detect unsupported state distinctions before runtime for reduced-state
+targets.
+
+- [ ] Implementation complete - `YYYY-MM-DD HH:MM TZ`
+- [ ] Tests passed (current + previous = 100%) -
+      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
+- [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      `YYYY-MM-DD HH:MM TZ" - `<evidence>`
+- [ ] Audit passed (100%, blockers=0, non-blockers=0) -
+      `YYYY-MM-DD HH:MM TZ`
+- [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
+- [ ] Effort rating recorded (implementation only) -
+      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+
+## Task 3.4 - `UNINIT` Projection Handling
+
+Brief: Implement lowering rules that keep `UNINIT` out of ordinary steady-state
+fast-backend execution.
+
+- [ ] Implementation complete - `YYYY-MM-DD HH:MM TZ`
+- [ ] Tests passed (current + previous = 100%) -
+      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
+- [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      `YYYY-MM-DD HH:MM TZ" - `<evidence>`
+- [ ] Audit passed (100%, blockers=0, non-blockers=0) -
+      `YYYY-MM-DD HH:MM TZ`
+- [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
+- [ ] Effort rating recorded (implementation only) -
+      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+
+## Task 3.5 - Strength-State Projection Handling
+
+Brief: Implement lowering rules for richer strength distinctions when targeting
+reduced-state backends.
+
+- [ ] Implementation complete - `YYYY-MM-DD HH:MM TZ`
+- [ ] Tests passed (current + previous = 100%) -
+      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
+- [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      `YYYY-MM-DD HH:MM TZ" - `<evidence>`
+- [ ] Audit passed (100%, blockers=0, non-blockers=0) -
+      `YYYY-MM-DD HH:MM TZ`
+- [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
+- [ ] Effort rating recorded (implementation only) -
+      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+
+## Task 3.6 - Projection Metadata Plumbing
+
+Brief: Surface projection and approximation outcomes through emitted metadata.
+
+- [ ] Implementation complete - `YYYY-MM-DD HH:MM TZ`
+- [ ] Tests passed (current + previous = 100%) -
+      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
+- [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      `YYYY-MM-DD HH:MM TZ" - `<evidence>`
+- [ ] Audit passed (100%, blockers=0, non-blockers=0) -
+      `YYYY-MM-DD HH:MM TZ`
+- [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
+- [ ] Effort rating recorded (implementation only) -
+      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+
+## Task 3.7 - Forge Projection Visibility Surface
+
+Brief: Expose projection metadata and portable observation truth through the
+shared runtime boundary.
+
+- [ ] Implementation complete - `YYYY-MM-DD HH:MM TZ`
+- [ ] Tests passed (current + previous = 100%) -
+      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
+- [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      `YYYY-MM-DD HH:MM TZ" - `<evidence>`
+- [ ] Audit passed (100%, blockers=0, non-blockers=0) -
+      `YYYY-MM-DD HH:MM TZ`
+- [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
+- [ ] Effort rating recorded (implementation only) -
+      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+
+## Task 3.8 - Public Tests For Projection And Approximation Reporting
+
+Brief: Add public-boundary tests for legality checks, projection behavior, and
+projection metadata visibility.
+
+- [ ] Implementation complete - `YYYY-MM-DD HH:MM TZ`
+- [ ] Tests passed (current + previous = 100%) -
+      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
+- [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      `YYYY-MM-DD HH:MM TZ" - `<evidence>`
+- [ ] Audit passed (100%, blockers=0, non-blockers=0) -
+      `YYYY-MM-DD HH:MM TZ`
+- [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
+- [ ] Effort rating recorded (implementation only) -
+      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+
+## Task 3.9 - Pillar Integration And Validation
+
+Brief: Integrate the projection policy end to end and produce pillar-close
+evidence.
+
+- [ ] Implementation complete - `YYYY-MM-DD HH:MM TZ`
+- [ ] Tests passed (current + previous = 100%) -
+      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
+- [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      `YYYY-MM-DD HH:MM TZ" - `<evidence>`
+- [ ] Audit passed (100%, blockers=0, non-blockers=0) -
+      `YYYY-MM-DD HH:MM TZ`
+- [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
+- [ ] Effort rating recorded (implementation only) -
+      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+
+---
+
+## Pillar 3 Closure
+
+- [ ] All 9 tasks complete - `YYYY-MM-DD HH:MM TZ`
+- [ ] Required pillar test sweep passed (100%) -
+      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
+- [ ] Full pillar audit passed (100%) - `YYYY-MM-DD HH:MM TZ`
+- [ ] Pillar completion recorded - `YYYY-MM-DD HH:MM TZ`
+- [ ] Local pillar commit recorded - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
+- [ ] GitHub push complete - `YYYY-MM-DD HH:MM TZ` - `ref: <branch/ref>`
