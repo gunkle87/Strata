@@ -34,6 +34,7 @@ struct ForgeArtifact
     uint32_t requires_advanced_controls;
     uint32_t requires_native_state_read;
     uint32_t requires_native_inputs;
+    ForgeProjectionMetadata projection_metadata;
     StrataPlaceholderSerializedDescriptor *descriptors;
     uint32_t structure_component_count;
     uint32_t structure_connection_count;

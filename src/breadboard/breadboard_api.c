@@ -344,6 +344,36 @@ fill_projection_metadata(
 }
 
 static void
+fill_placeholder_draft_summary_projection_metadata(
+    const BreadboardProjectionMetadata* metadata,
+    StrataPlaceholderDraftSummary* out_summary)
+{
+    if (!out_summary)
+    {
+        return;
+    }
+
+    out_summary->required_projection_families_mask = 0u;
+    out_summary->lowered_projection_families_mask = 0u;
+    out_summary->projection_occurred = 0u;
+    out_summary->approximation_occurred = 0u;
+
+    if (!metadata)
+    {
+        return;
+    }
+
+    out_summary->required_projection_families_mask =
+        metadata->required_projection_families_mask;
+    out_summary->lowered_projection_families_mask =
+        metadata->lowered_projection_families_mask;
+    out_summary->projection_occurred =
+        metadata->projection_occurred ? 1u : 0u;
+    out_summary->approximation_occurred =
+        metadata->approximation_occurred ? 1u : 0u;
+}
+
+static void
 free_descriptor_array(
     BreadboardDescriptor* descriptors,
     size_t count)
@@ -2928,6 +2958,9 @@ BreadboardResult breadboard_artifact_draft_export_placeholder(
         draft->structure_summary.declared_connection_count;
     draft_summary.declared_stateful_node_count =
         draft->structure_summary.declared_stateful_node_count;
+    fill_placeholder_draft_summary_projection_metadata(
+        &draft->info.projection_metadata,
+        &draft_summary);
 
     total_descriptor_count = draft->input_count +
         draft->output_count +
@@ -3126,6 +3159,9 @@ BreadboardResult breadboard_artifact_draft_export_fast(
         draft->structure_summary.declared_connection_count;
     draft_summary.declared_stateful_node_count =
         draft->structure_summary.declared_stateful_node_count;
+    fill_placeholder_draft_summary_projection_metadata(
+        &draft->info.projection_metadata,
+        &draft_summary);
 
     total_descriptor_count = draft->input_count +
         draft->output_count +

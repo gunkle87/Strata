@@ -1896,6 +1896,18 @@ forge_artifact_load(
         art->requires_advanced_controls = requires_advanced_controls;
         art->requires_native_state_read = requires_native_state_read;
         art->requires_native_inputs = requires_native_inputs;
+        art->projection_metadata.required_projection_families_mask =
+            draft_summary->required_projection_families_mask;
+        art->projection_metadata.lowered_projection_families_mask =
+            draft_summary->lowered_projection_families_mask;
+        art->projection_metadata.projection_occurred =
+            draft_summary->projection_occurred;
+        art->projection_metadata.approximation_occurred =
+            draft_summary->approximation_occurred;
+        memset(
+            art->projection_metadata.reserved,
+            0,
+            sizeof(art->projection_metadata.reserved));
         art->structure_component_count = structure_summary->component_count;
         art->structure_connection_count = structure_summary->connection_count;
         art->descriptors = NULL;
@@ -2023,6 +2035,7 @@ forge_artifact_info(
     out_info->requires_advanced_controls = artifact->requires_advanced_controls;
     out_info->requires_native_state_read = artifact->requires_native_state_read;
     out_info->requires_native_inputs = artifact->requires_native_inputs;
+    out_info->projection_metadata = artifact->projection_metadata;
     out_info->source_size = artifact->source_size;
 
     forge_diag_set("");
@@ -3069,5 +3082,6 @@ forge_last_error_string(void)
 {
     return forge_diag_get();
 }
+
 
 

@@ -78,6 +78,7 @@ typedef struct ForgeArtifactInfo
     uint32_t requires_advanced_controls;
     uint32_t requires_native_state_read;
     uint32_t requires_native_inputs;
+    ForgeProjectionMetadata projection_metadata;
     size_t source_size;
 
 }

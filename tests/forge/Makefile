@@ -84,8 +84,8 @@ test_compatibility_plumbing.exe: test_compatibility_plumbing.c $(FORGE_SRCS)
 test_refusal_paths.exe: test_refusal_paths.c $(FORGE_SRCS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(FORGE_SRCS)
 
-test_projection_contract.exe: test_projection_contract.c
-	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $<
+test_projection_contract.exe: test_projection_contract.c $(FORGE_SRCS) $(BREADBOARD_SRCS)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(FORGE_SRCS) $(BREADBOARD_SRCS)
 
 test: all
 	@echo --- Running Forge skeleton tests ---

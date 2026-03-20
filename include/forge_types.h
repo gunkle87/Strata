@@ -31,6 +31,23 @@ typedef uint32_t ForgeBackendId;
 #define FORGE_BACKEND_ID_INVALID ((ForgeBackendId)0)
 
 /*
+ * ForgeProjectionMetadata
+ *
+ * Descriptive projection visibility surface exposed through Forge. This is a
+ * reporting-only view of compiler-emitted metadata and does not imply any
+ * runtime-side projection behavior.
+ */
+typedef struct ForgeProjectionMetadata
+{
+    uint32_t required_projection_families_mask;
+    uint32_t lowered_projection_families_mask;
+    uint32_t projection_occurred;
+    uint32_t approximation_occurred;
+    uint32_t reserved[4];
+}
+ForgeProjectionMetadata;
+
+/*
  * ForgeArtifact
  *
  * Opaque handle to a loaded backend-targeted executable artifact.

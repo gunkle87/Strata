@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "strata_projection.h"
+
 /*
  * strata_placeholder_artifact.h
  *
@@ -50,6 +52,10 @@ typedef struct StrataPlaceholderDraftSummary
     uint32_t declared_component_count;
     uint32_t declared_connection_count;
     uint32_t declared_stateful_node_count;
+    uint32_t required_projection_families_mask;
+    uint32_t lowered_projection_families_mask;
+    uint32_t projection_occurred;
+    uint32_t approximation_occurred;
 }
 StrataPlaceholderDraftSummary;
 
@@ -465,6 +471,10 @@ strata_placeholder_expected_draft_summary_for_backend(
     out_summary->declared_component_count = 0u;
     out_summary->declared_connection_count = 0u;
     out_summary->declared_stateful_node_count = 0u;
+    out_summary->required_projection_families_mask = 0u;
+    out_summary->lowered_projection_families_mask = 0u;
+    out_summary->projection_occurred = 0u;
+    out_summary->approximation_occurred = 0u;
 
     switch (backend_id)
     {
