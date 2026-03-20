@@ -145,24 +145,24 @@ and refusal paths.
 Brief: Integrate the capability surface end to end and prepare pillar-close
 evidence.
 
-- [ ] Implementation complete - `YYYY-MM-DD HH:MM TZ`
-- [ ] Tests passed (current + previous = 100%) -
-      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
-- [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
-      `YYYY-MM-DD HH:MM TZ" - `<evidence>`
-- [ ] Audit passed (100%, blockers=0, non-blockers=0) -
-      `YYYY-MM-DD HH:MM TZ`
+- [x] Implementation complete - `2026-03-19 22:50 CDT`
+- [x] Tests passed (current + previous = 100%) -
+      `2026-03-19 22:50 CDT` - `runner: make -C tests/forge clean; make -C tests/forge test`
+- [x] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      `2026-03-19 22:50 CDT` - `forge suite: total=13 passed=13 failed=0 failed_ids=none; reruns=none`
+- [x] Audit passed (100%, blockers=0, non-blockers=0) -
+      `2026-03-19 22:53 CDT`
 - [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
-- [ ] Effort rating recorded (implementation only) -
-      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+- [x] Effort rating recorded (implementation only) -
+      `2026-03-19 22:53 CDT` - `rating: EASY`
 
 ---
 
 ## Pillar 2 Closure
 
-- [ ] All 8 tasks complete - `YYYY-MM-DD HH:MM TZ`
-- [ ] Required pillar test sweep passed (100%) -
-      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
+- [x] All 8 tasks complete - `2026-03-19 22:50 CDT`
+- [x] Required pillar test sweep passed (100%) -
+      `2026-03-19 22:50 CDT` - `runner: make -C tests/forge clean; make -C tests/forge test`
 - [ ] Full pillar audit passed (100%) - `YYYY-MM-DD HH:MM TZ`
 - [ ] Pillar completion recorded - `YYYY-MM-DD HH:MM TZ`
 - [ ] Local pillar commit recorded - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
