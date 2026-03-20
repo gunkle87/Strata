@@ -163,7 +163,7 @@ evidence.
 - [x] All 8 tasks complete - `2026-03-19 22:50 CDT`
 - [x] Required pillar test sweep passed (100%) -
       `2026-03-19 22:50 CDT` - `runner: make -C tests/forge clean; make -C tests/forge test`
-- [ ] Full pillar audit passed (100%) - `YYYY-MM-DD HH:MM TZ`
-- [ ] Pillar completion recorded - `YYYY-MM-DD HH:MM TZ`
+- [x] Full pillar audit passed (100%) - `2026-03-19 23:02 CDT`
+- [x] Pillar completion recorded - `2026-03-19 23:02 CDT`
 - [ ] Local pillar commit recorded - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
 - [ ] GitHub push complete - `YYYY-MM-DD HH:MM TZ` - `ref: <branch/ref>`
