@@ -203,6 +203,30 @@ int main(void)
         return 1;
     }
 
+    result = forge_step(session, 2u);
+
+    if (result != FORGE_ERR_FORBIDDEN)
+    {
+        fprintf(stderr, "FAIL: common-only session profile should forbid advanced stepping, got %d\n",
+            (int)result);
+        forge_session_free(session);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
+    probe_value.probe_id = 0u;
+    probe_value.value = 0u;
+    result = forge_read_probes(session, &probe_value, 1u);
+
+    if (result != FORGE_ERR_UNSUPPORTED)
+    {
+        fprintf(stderr, "FAIL: common-only session profile should forbid probe reads via missing capability, got %d\n",
+            (int)result);
+        forge_session_free(session);
+        forge_artifact_unload(artifact);
+        return 1;
+    }
+
     if (forge_session_free(session) != FORGE_OK ||
         forge_artifact_unload(artifact) != FORGE_OK)
     {
