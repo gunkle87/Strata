@@ -107,9 +107,9 @@ reduced-state backends.
       `2026-03-20 09:01 CDT` - `breadboard suite: total=4 passed=4 failed=0 failed_ids=none; reruns=none; integration suite: PASS: test_breadboard_forge_placeholder_handoff`
 - [x] Audit passed (100%, blockers=0, non-blockers=0) -
       `2026-03-20 09:01 CDT`
-- [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
-- [ ] Effort rating recorded (implementation only) -
-      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+- [x] Local commit created - `2026-03-20 09:01 CDT` - `commit: 4585736`
+- [x] Effort rating recorded (implementation only) -
+      `2026-03-20 09:01 CDT` - `rating: PERFECT`
 
 ## Task 3.6 - Projection Metadata Plumbing
 
