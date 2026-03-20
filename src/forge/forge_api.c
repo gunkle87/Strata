@@ -1413,6 +1413,191 @@ forge_backend_capabilities(ForgeBackendId backend_id, ForgeCapabilities *out_cap
 	return FORGE_OK;
 	}
 
+ForgeResult
+forge_extension_family_count(ForgeBackendId backend_id, uint32_t *out_count)
+	{
+	const ForgeBackendRecord *rec;
+	ForgeEffectiveProfile profile;
+	uint32_t source_index;
+	uint32_t output_count;
+
+	if (!out_count)
+		{
+		return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+			"forge_extension_family_count: out_count is NULL");
+		}
+
+	rec = forge_registry_backend_by_id(backend_id);
+	forge_policy_get_library_effective_profile(&profile);
+
+	if (!rec || !forge_policy_backend_visible(&profile, backend_id))
+		{
+		return forge_fail(FORGE_ERR_BACKEND_UNAVAILABLE,
+			"forge_extension_family_count: backend_id not registered");
+		}
+
+	output_count = 0u;
+
+	for (source_index = 0u; source_index < rec->capabilities.extension_family_count;
+		 ++source_index)
+		{
+		ForgeExtensionFamily extension_family;
+
+		extension_family = rec->capabilities.extension_families[source_index];
+
+		if (!forge_policy_extension_allowed(&profile, extension_family))
+			{
+			continue;
+			}
+
+		if (extension_family == FORGE_EXT_NATIVE_STATE_READ &&
+			!profile.allow_native_state_read)
+			{
+			continue;
+			}
+
+		if (extension_family == FORGE_EXT_TEMPORAL_CONTROL &&
+			!profile.allow_advanced_controls)
+			{
+			continue;
+			}
+
+		++output_count;
+		}
+
+	*out_count = output_count;
+
+	forge_diag_set("");
+	return FORGE_OK;
+	}
+
+ForgeResult
+forge_extension_family_at(
+	ForgeBackendId backend_id,
+	uint32_t index,
+	ForgeExtensionFamily *out_family)
+	{
+	const ForgeBackendRecord *rec;
+	ForgeEffectiveProfile profile;
+	uint32_t source_index;
+	uint32_t output_count;
+
+	if (!out_family)
+		{
+		return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+			"forge_extension_family_at: out_family is NULL");
+		}
+
+	rec = forge_registry_backend_by_id(backend_id);
+	forge_policy_get_library_effective_profile(&profile);
+
+	if (!rec || !forge_policy_backend_visible(&profile, backend_id))
+		{
+		return forge_fail(FORGE_ERR_BACKEND_UNAVAILABLE,
+			"forge_extension_family_at: backend_id not registered");
+		}
+
+	output_count = 0u;
+
+	for (source_index = 0u; source_index < rec->capabilities.extension_family_count;
+		 ++source_index)
+		{
+		ForgeExtensionFamily extension_family;
+
+		extension_family = rec->capabilities.extension_families[source_index];
+
+		if (!forge_policy_extension_allowed(&profile, extension_family))
+			{
+			continue;
+			}
+
+		if (extension_family == FORGE_EXT_NATIVE_STATE_READ &&
+			!profile.allow_native_state_read)
+			{
+			continue;
+			}
+
+		if (extension_family == FORGE_EXT_TEMPORAL_CONTROL &&
+			!profile.allow_advanced_controls)
+			{
+			continue;
+			}
+
+		if (output_count == index)
+			{
+			*out_family = extension_family;
+			forge_diag_set("");
+			return FORGE_OK;
+			}
+
+		++output_count;
+		}
+
+	return forge_fail(FORGE_ERR_OUT_OF_BOUNDS,
+		"forge_extension_family_at: index out of range");
+	}
+
+ForgeResult
+forge_backend_supports_extension(
+	ForgeBackendId backend_id,
+	ForgeExtensionFamily extension_family,
+	uint32_t *out_supported)
+	{
+	const ForgeBackendRecord *rec;
+	ForgeEffectiveProfile profile;
+	uint32_t source_index;
+
+	if (!out_supported)
+		{
+		return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+			"forge_backend_supports_extension: out_supported is NULL");
+		}
+
+	*out_supported = 0u;
+
+	rec = forge_registry_backend_by_id(backend_id);
+	forge_policy_get_library_effective_profile(&profile);
+
+	if (!rec || !forge_policy_backend_visible(&profile, backend_id))
+		{
+		return forge_fail(FORGE_ERR_BACKEND_UNAVAILABLE,
+			"forge_backend_supports_extension: backend_id not registered");
+		}
+
+	if (!forge_policy_extension_allowed(&profile, extension_family))
+		{
+		forge_diag_set("");
+		return FORGE_OK;
+		}
+
+	if (extension_family == FORGE_EXT_NATIVE_STATE_READ &&
+		!profile.allow_native_state_read)
+		{
+		forge_diag_set("");
+		return FORGE_OK;
+		}
+
+	if (extension_family == FORGE_EXT_TEMPORAL_CONTROL &&
+		!profile.allow_advanced_controls)
+		{
+		forge_diag_set("");
+		return FORGE_OK;
+		}
+
+	for (source_index = 0u; source_index < rec->capabilities.extension_family_count;
+		 ++source_index)
+		{
+		if (rec->capabilities.extension_families[source_index] == extension_family)
+			{
+			*out_supported = 1u;
+			break;
+			}
+		}
+
+	forge_diag_set("");
+	return FORGE_OK;
+	}
+
 /* -------------------------------------------------------------------------
  * Artifact Lifecycle
  * ------------------------------------------------------------------------- */

@@ -81,16 +81,16 @@ Brief: Implement machine-readable common capability reporting.
 
 Brief: Implement explicit extension-family discovery and lookup behavior.
 
-- [ ] Implementation complete - `YYYY-MM-DD HH:MM TZ`
-- [ ] Tests passed (current + previous = 100%) -
-      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
-- [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
-      `YYYY-MM-DD HH:MM TZ` - `<evidence>`
-- [ ] Audit passed (100%, blockers=0, non-blockers=0) -
-      `YYYY-MM-DD HH:MM TZ`
+- [x] Implementation complete - 2026-03-20 02:25 UTC
+- [x] Tests passed (current + previous = 100%) -
+      2026-03-20 02:25 UTC - runner: make -C tests/forge clean; make -C tests/forge test
+- [x] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      2026-03-20 02:25 UTC - forge suite: total=11 passed=11 failed=0 failed_ids=none; reruns=none
+- [x] Audit passed (100%, blockers=0, non-blockers=0) -
+      2026-03-20 03:00 UTC
 - [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
-- [ ] Effort rating recorded (implementation only) -
-      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+- [x] Effort rating recorded (implementation only) -
+      `2026-03-19 21:36 CDT` - `rating: PERFECT`
 
 ## Task 2.5 - Artifact Compatibility Capability Plumbing
 

@@ -1,4 +1,4 @@
-﻿#ifndef FORGE_API_H
+#ifndef FORGE_API_H
 #define FORGE_API_H
 
 #include <stddef.h>
@@ -174,6 +174,20 @@ ForgeResult forge_backend_id_at(uint32_t index, ForgeBackendId *out_id);
 ForgeResult forge_backend_info(ForgeBackendId backend_id, ForgeBackendInfo *out_info);
 
 ForgeResult forge_backend_capabilities(ForgeBackendId backend_id, ForgeCapabilities *out_caps);
+
+ForgeResult forge_extension_family_count(
+    ForgeBackendId backend_id,
+    uint32_t *out_count);
+
+ForgeResult forge_extension_family_at(
+    ForgeBackendId backend_id,
+    uint32_t index,
+    ForgeExtensionFamily *out_family);
+
+ForgeResult forge_backend_supports_extension(
+    ForgeBackendId backend_id,
+    ForgeExtensionFamily extension_family,
+    uint32_t *out_supported);
 
 /*
  * forge_artifact_load
