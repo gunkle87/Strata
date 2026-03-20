@@ -1383,7 +1383,7 @@ int main(void)
         BreadboardModule* native_module = NULL;
         BreadboardArtifactDraft* native_draft = NULL;
         BreadboardRequirementProfile native_profile = {
-            1u, false, true, true
+            1u, false, true, true, 0u
         };
         size_t export_size = 0;
         unsigned char export_bytes[strata_placeholder_artifact_size()];
@@ -1615,7 +1615,7 @@ int main(void)
     }
 
     {
-        BreadboardRequirementProfile invalid_profile = { 0u, false, true, true };
+        BreadboardRequirementProfile invalid_profile = { 0u, false, true, true, 0u };
         BreadboardModule* fast_module = NULL;
         res = breadboard_module_create(&fast_module);
         print_result("fast module_create(for invalid profile)", res, BREADBOARD_OK);

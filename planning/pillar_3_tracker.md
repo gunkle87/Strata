@@ -68,16 +68,16 @@ projection-aware lowering.
 Brief: Detect unsupported state distinctions before runtime for reduced-state
 targets.
 
-- [ ] Implementation complete - `YYYY-MM-DD HH:MM TZ`
-- [ ] Tests passed (current + previous = 100%) -
-      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
-- [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
-      `YYYY-MM-DD HH:MM TZ" - `<evidence>`
-- [ ] Audit passed (100%, blockers=0, non-blockers=0) -
-      `YYYY-MM-DD HH:MM TZ`
+- [x] Implementation complete - `2026-03-20 08:35 CDT`
+- [x] Tests passed (current + previous = 100%) -
+      `2026-03-20 08:35 CDT` - `runner: make -C tests/breadboard clean; make -C tests/breadboard test CFLAGS="-Wall -Wextra -Werror -std=c99"`
+- [x] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      `2026-03-20 08:35 CDT` - `breadboard suite: total=3 passed=3 failed=0 failed_ids=none; reruns=none`
+- [x] Audit passed (100%, blockers=0, non-blockers=0) -
+      `2026-03-20 08:04 CDT`
 - [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
-- [ ] Effort rating recorded (implementation only) -
-      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+- [x] Effort rating recorded (implementation only) -
+      `2026-03-20 08:06 CDT` - `rating: PERFECT`
 
 ## Task 3.4 - `UNINIT` Projection Handling
 

@@ -65,7 +65,8 @@ typedef enum BreadboardDiagnosticCode
     BREADBOARD_DIAG_CODE_TARGET_DENIED_BY_POLICY = 4,
     BREADBOARD_DIAG_CODE_EXECUTABLE_SUBSET_REQUIRED = 5,
     BREADBOARD_DIAG_CODE_EXECUTABLE_SUBSET_INVALID = 6,
-    BREADBOARD_DIAG_CODE_EXECUTABLE_LOWERING_UNAVAILABLE = 7
+    BREADBOARD_DIAG_CODE_EXECUTABLE_LOWERING_UNAVAILABLE = 7,
+    BREADBOARD_DIAG_CODE_STATE_DISTINCTION_UNSUPPORTED = 8
 }
 BreadboardDiagnosticCode;
 
@@ -337,6 +338,7 @@ typedef struct BreadboardRequirementProfile
     bool requires_advanced_controls;
     bool requires_native_state_read;
     bool requires_native_inputs;
+    uint32_t required_projection_families_mask;
 }
 BreadboardRequirementProfile;
 

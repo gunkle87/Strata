@@ -2188,6 +2188,68 @@ BreadboardResult breadboard_module_compile(
         return BREADBOARD_ERR_COMPILE_FAILED;
     }
 
+    if (module->has_requirement_profile)
+    {
+        uint32_t target_native_mask = target_allowed_projection_families_mask(module->target);
+        uint32_t required_mask = module->requirement_profile.required_projection_families_mask;
+        uint32_t unsupported_mask = required_mask & ~target_native_mask;
+
+        if (unsupported_mask != 0u)
+        {
+            BreadboardProjectionPolicy policy;
+            bool deny_approx = false;
+            bool strict_proj = false;
+            uint32_t allowed_mask;
+
+            if (module->has_projection_policy)
+            {
+                policy = module->projection_policy;
+            }
+            else
+            {
+                fill_default_projection_policy(module->target, &policy);
+            }
+
+            allowed_mask = policy.allowed_families_mask;
+            deny_approx = policy.deny_approximation;
+            strict_proj = policy.strict_projection;
+
+            if (options)
+            {
+                if (options->allowed_projection_families_mask != 0u)
+                {
+                    allowed_mask = options->allowed_projection_families_mask;
+                }
+                if (options->deny_approximation)
+                {
+                    deny_approx = true;
+                }
+                if (options->strict_projection)
+                {
+                    strict_proj = true;
+                }
+            }
+
+            if ((unsupported_mask & ~allowed_mask) != 0u)
+            {
+                record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_STATE_DISTINCTION_UNSUPPORTED, "Module requires state distinctions that are unsupported by the target and denied by the projection policy");
+                return BREADBOARD_ERR_COMPILE_FAILED;
+            }
+
+            if (deny_approx)
+            {
+                record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_STATE_DISTINCTION_UNSUPPORTED, "Module requires state projection, but approximation is denied by policy");
+                return BREADBOARD_ERR_COMPILE_FAILED;
+            }
+
+            if (strict_proj && (unsupported_mask & (1u << STRATA_PROJECTION_FAMILY_BACKEND_SPECIFIC)) != 0u)
+            {
+                record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_STATE_DISTINCTION_UNSUPPORTED, "Module requires backend-specific state projection, but strict projection policy forbids lossy backend-specific projection");
+                return BREADBOARD_ERR_COMPILE_FAILED;
+            }
+        }
+    }
+
     if (options &&
         options->require_real_executable &&
         options->allow_placeholders)
