@@ -83,9 +83,11 @@ Style baseline:
 - UPPER_SNAKE_CASE for constants and macros
 - keep core logic flat and data-oriented
 - no object-oriented design patterns in core engine code
-- Opening brace on new line, one tab beyond the parent declaration or command.
-- Body aligned to the opening brace indentation.
-- Closing brace on its own line, followed by a blank line.
+- opening brace on new line, one tab beyond the parent declaration or command
+- body aligned to the opening brace indentation
+- closing brace on its own line, followed by a blank line
+- use 1 tab for all indentation levels; do not use spaces for indentation
+- no trailing whitespace on any line
 
 Conflict handling:
 - if the task conflicts with these rules, STOP
@@ -103,6 +105,8 @@ TASK CONTEXT:
 
 - Pillar: [PILLAR]
 - Task ID: [TASK XX]
+- Plan File: [PLAN FILE PATH]
+- Tracker File: [TRACKER FILE PATH]
 
 Task Directive:
 [PASTE TASK DIRECTIVE]
@@ -114,6 +118,31 @@ GOVERNING PRIORITY:
 1. Task intent (absolute authority)
 2. Phase constraints (allowed temporary behavior)
 3. Architecture (final system rules)
+
+---
+
+PRE-EXECUTION GATE (REQUIRED):
+
+Before implementation, you MUST verify in the tracker:
+1. all previous tasks are fully complete
+2. the current task is the next allowed task in sequence
+3. there are no unresolved blockers or non-blockers carried forward
+
+Definition of "fully complete" for every previous task:
+- Implementation complete = `[x]`
+- Tests passed = `[x]`
+- Test evidence recorded = `[x]`
+- Audit passed = `[x]`
+- Local commit created = `[x]`
+
+Hard gate:
+- If any previous task is missing its local commit checkbox, the next task is
+  LOCKED and MUST NOT begin.
+
+If any gate fails:
+- STOP
+- report the gate failure
+- do not implement
 
 ---
 
@@ -145,6 +174,15 @@ Before writing code, you MUST state:
 RULE:
 - No code before this step
 - If unclear -> STOP and request clarification
+
+FILE-EDIT RELIABILITY RULE:
+
+When modifying an existing task block, tracker block, function, or similar
+known context:
+- prefer replacing the entire block over surgical in-line matching
+- prefer whole-block overwrite behavior over regex-based shell edits
+- do not rely on fragile whitespace-sensitive partial replacements when a full
+  block replacement is practical
 
 ---
 
@@ -189,6 +227,26 @@ TEST ALIGNMENT:
 
 ---
 
+TRACKER UPDATE REQUIREMENT:
+
+After implementation, update the tracker for this task only.
+
+You MUST mark as complete when true:
+- Implementation complete
+- Tests passed (current + previous = 100%)
+- Test evidence recorded
+
+You MUST NOT mark:
+- Audit passed
+- Local commit created
+- GitHub push complete
+
+If implementation-only effort rating is required by the tracker:
+- record it only if the user provided it
+- otherwise leave it unmarked
+
+---
+
 STRICT PROHIBITIONS:
 
 - NO unrelated refactoring
@@ -196,6 +254,8 @@ STRICT PROHIBITIONS:
 - NO performance optimization unless required
 - NO speculative improvements
 - NO undocumented behavior
+- NO mixed indentation styles
+- NO trailing whitespace
 
 ---
 
@@ -208,10 +268,10 @@ After implementation, you MUST provide:
    - scope was not exceeded
    - no unrelated files were modified
    - architectural boundaries were preserved
-
 3. Explicit list:
    - files changed
    - functions added/modified
+4. Confirmation that tracker boxes were updated appropriately
 
 ---
 
@@ -230,6 +290,7 @@ OUTPUT FORMAT:
 - Scope respected: YES/NO
 - Boundaries preserved: YES/NO
 - Extra changes introduced: YES/NO
+- Tracker updated correctly: YES/NO
 
 ---
 
@@ -241,6 +302,9 @@ FAIL CONDITIONS (INVALID OUTPUT):
 - undocumented changes
 - architectural boundary violations
 - speculative additions
+- tracker gate not checked first
+- previous task commit gate ignored
+- tracker not updated after implementation
 - non-English output
 
 ---

@@ -1,4 +1,4 @@
-# Directive Templates (Implementation + Audit)
+﻿# Directive Templates (Implementation + Audit)
 
 Use these templates when handing work to a new model with zero context.
 
@@ -36,8 +36,20 @@ Copy and fill this template for each implementation task.
 
 ## Pre-Execution Gate (Required)
 1. Verify all previous tasks are marked complete in the tracker.
-2. If any previous task is incomplete, stop and report. Do not implement.
-3. Confirm this directive scope matches the current task ID.
+2. Verify the current task is the next allowed task in sequence.
+3. Verify there are no unresolved blockers or non-blockers carried forward.
+4. If any gate fails, stop and report. Do not implement.
+
+Definition of "marked complete" for every previous task:
+- Implementation complete = `[x]`
+- Tests passed = `[x]`
+- Test evidence recorded = `[x]`
+- Audit passed = `[x]`
+- Local commit created = `[x]`
+
+Hard rule:
+- If the previous task does not have **Local commit created** marked `[x]`,
+  the next task is locked and must not begin.
 
 ## Task Scope
 - Objective: `<exact expected outcome>`
@@ -68,6 +80,10 @@ Copy and fill this template for each implementation task.
 3. Do not make speculative refactors.
 4. Do not change governance or planning files unless explicitly authorized.
 5. Keep implementation effort sized to the task objective only.
+6. Use 1 tab for all indentation levels; do not use spaces for indentation.
+7. Do not leave trailing whitespace on any line.
+8. When editing a tracker block, function, or similar known section, prefer
+   full-block replacement over fragile whitespace-sensitive partial edits.
 
 ## Required Reporting Policy
 At completion, report only:
@@ -90,13 +106,14 @@ At completion, report only:
 - Mark **Test evidence recorded** as `[x]` after command/result evidence is
   entered.
 - Mark **Effort rating recorded** as `[x]` after the implementation-only
-  rating is entered.
+  rating is entered, but only if the user provided the rating.
 - Do not mark audit/commit checkboxes in this directive.
 
 ## Completion Condition
 - Implementation is complete and reported.
-- Tracker implementation + tests passed + test evidence + effort rating
-  checkboxes for this task are marked `[x]`.
+- Tracker implementation + tests passed + test evidence checkboxes for this
+  task are marked `[x]`.
+- Effort rating checkbox is marked only if a user-provided rating exists.
 ```
 
 ---
@@ -125,11 +142,23 @@ Copy and fill this template for each task audit.
 4. `<task-scope code/docs only>`
 
 ## Pre-Execution Gate (Required)
-1. Verify target task implementation checkbox is `[x]`.
-2. Verify previous required task documentation is complete in the tracker
-   before auditing.
-3. Verify audit scope file list is present.
-4. If any prerequisite is missing, stop and report `FAIL`.
+1. Verify all previous tasks are marked complete in the tracker.
+2. Verify target task implementation checkbox is `[x]`.
+3. Verify target task tests-passed checkbox is `[x]`.
+4. Verify target task test-evidence checkbox is `[x]`.
+5. Verify audit scope file list is present.
+6. If any prerequisite is missing, stop and report `FAIL`.
+
+Definition of "marked complete" for every previous task:
+- Implementation complete = `[x]`
+- Tests passed = `[x]`
+- Test evidence recorded = `[x]`
+- Audit passed = `[x]`
+- Local commit created = `[x]`
+
+Hard rule:
+- If the previous task does not have **Local commit created** marked `[x]`,
+  the audit must stop and report `FAIL`.
 
 ## Audit Scope (Strict)
 - Audit only files touched by prior implementation:
@@ -148,6 +177,14 @@ Copy and fill this template for each task audit.
   - `NONE` unless explicitly authorized in this directive
 - Allowed to delete:
   - `NONE`
+
+## Format And Matching Rules
+- Use 1 tab for all indentation levels; do not use spaces for indentation.
+- Do not leave trailing whitespace on any line.
+- When a tracker update is required, prefer replacing the full task block or
+  known section rather than attempting whitespace-sensitive surgical edits.
+- Prefer whole-block overwrite behavior over regex-based shell edits when a
+  structured block replacement is practical.
 
 ## Audit Checks
 1. Scope compliance
@@ -171,6 +208,7 @@ Report using this exact structure:
 - If verdict is `PASS`, mark only the **Audit passed** checkbox for this task
   as `[x]`.
 - If verdict is `FAIL`, do not mark audit checkbox.
+- Do not mark commit/push checkboxes in this directive.
 
 Hard rule:
 - If any blocker or non-blocker is reported, verdict must be `FAIL`.
@@ -201,7 +239,16 @@ committed.
 2. Verify tests-passed checkbox is `[x]`.
 3. Verify test-evidence checkbox is `[x]`.
 4. Verify audit-passed checkbox is `[x]`.
-5. If any prerequisite is incomplete, stop and report.
+5. Verify all previous tasks remain complete.
+6. If any prerequisite is incomplete, stop and report.
+
+Definition of "all previous tasks remain complete":
+- every previous task must retain `[x]` for:
+  - Implementation complete
+  - Tests passed
+  - Test evidence recorded
+  - Audit passed
+  - Local commit created
 
 ## Commit Scope
 - Commit only files belonging to the task scope.

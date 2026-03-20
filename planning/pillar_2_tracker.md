@@ -8,7 +8,7 @@ References:
 
 ## Pillar Status
 
-- [ ] Pillar 2 started
+- [x] Pillar 2 started
 - [ ] Pillar 2 completed
 
 ## Effort Scale (User-Reported)
@@ -28,7 +28,7 @@ Important rule:
 
 - [x] All previous pillar tasks complete
 - [x] No unresolved blockers or non-blockers carried forward
-- [ ] Pillar 2 task planning verified against current repo state before Task 2.1
+- [x] Pillar 2 task planning verified against current repo state before Task 2.1
 
 ---
 
@@ -36,31 +36,31 @@ Important rule:
 
 Brief: Define core capability records, enums, flags, and result surfaces.
 
-- [ ] Implementation complete - `YYYY-MM-DD HH:MM TZ`
-- [ ] Tests passed (current + previous = 100%) -
-      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
-- [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
-      `YYYY-MM-DD HH:MM TZ` - `<evidence>`
-- [ ] Audit passed (100%, blockers=0, non-blockers=0) -
-      `YYYY-MM-DD HH:MM TZ`
-- [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
-- [ ] Effort rating recorded (implementation only) -
-      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+- [x] Implementation complete - `2026-03-19 19:57 CDT`
+- [x] Tests passed (current + previous = 100%) -
+      `2026-03-19 19:57 CDT` - `runner: make clean; make test CFLAGS="-Wall -Wextra -Werror -std=c99" (in tests/forge)`
+- [x] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      `2026-03-19 19:57 CDT` - `forge suite: total=10 passed=10 failed=0 failed_ids=none; reruns=none`
+- [x] Audit passed (100%, blockers=0, non-blockers=0) -
+      `2026-03-19 20:05 CDT`
+- [x] Local commit created - `2026-03-19 20:19 CDT` - `commit: 2950d0e`
+- [x] Effort rating recorded (implementation only) -
+      `2026-03-19 20:05 CDT` - `rating: PERFECT`
 
 ## Task 2.2 - Backend Enumeration Surface
 
 Brief: Implement backend enumeration and identity query behavior.
 
-- [ ] Implementation complete - `YYYY-MM-DD HH:MM TZ`
-- [ ] Tests passed (current + previous = 100%) -
-      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
-- [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
-      `YYYY-MM-DD HH:MM TZ` - `<evidence>`
-- [ ] Audit passed (100%, blockers=0, non-blockers=0) -
-      `YYYY-MM-DD HH:MM TZ`
+- [x] Implementation complete - 2026-03-20 01:45 UTC
+- [x] Tests passed (current + previous = 100%) -
+      2026-03-20 01:45 UTC - runner: make -C tests/forge clean; make -C tests/forge test
+- [x] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      2026-03-20 01:45 UTC - forge suite: total=10 passed=10 failed=0 failed_ids=none; reruns=none
+- [x] Audit passed (100%, blockers=0, non-blockers=0) -
+      2026-03-20 02:00 UTC
 - [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
-- [ ] Effort rating recorded (implementation only) -
-      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+- [x] Effort rating recorded (implementation only) -
+      `2026-03-19 20:53 CDT` - `rating: PERFECT`
 
 ## Task 2.3 - Common Capability Query Surface
 
@@ -133,7 +133,7 @@ and refusal paths.
 - [ ] Tests passed (current + previous = 100%) -
       `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
 - [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
-      `YYYY-MM-DD HH:MM TZ` - `<evidence>`
+      `YYYY-MM-DD HH:MM TZ" - `<evidence>`
 - [ ] Audit passed (100%, blockers=0, non-blockers=0) -
       `YYYY-MM-DD HH:MM TZ`
 - [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
@@ -149,7 +149,7 @@ evidence.
 - [ ] Tests passed (current + previous = 100%) -
       `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
 - [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
-      `YYYY-MM-DD HH:MM TZ` - `<evidence>`
+      `YYYY-MM-DD HH:MM TZ" - `<evidence>`
 - [ ] Audit passed (100%, blockers=0, non-blockers=0) -
       `YYYY-MM-DD HH:MM TZ`
 - [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`

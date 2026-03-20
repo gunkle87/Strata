@@ -34,6 +34,16 @@ Each task follows this lifecycle:
 Hard rule:
 - no task may begin unless all previous tasks are complete
 
+Completion gate rule:
+- "complete" means the previous task has all of these marked `[x]`:
+  - Implementation complete
+  - Tests passed
+  - Test evidence recorded
+  - Audit passed
+  - Local commit created
+- if the prior task's local commit box is unchecked, the next task is locked
+  and must not begin
+
 ## File Roles
 
 ### `pillar_master_plan.md`
@@ -71,6 +81,8 @@ It records:
 - implementation-only effort rating
 
 No task should proceed out of order.
+No task should proceed while the previous task's local commit box is still
+unchecked.
 
 ### `directive_templates.md`
 This contains the working templates for:

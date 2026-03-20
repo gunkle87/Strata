@@ -1,261 +1,168 @@
-TASK SLICE COMPLIANCE AUDIT DIRECTIVE
-(READ-ONLY, NO EXECUTION, PHASE-AWARE)
+﻿# Task Audit Template
+
+STRICT TASK AUDIT DIRECTIVE
+(READ-ONLY, NO EXECUTION-DRIFT, TASK-LOCKED)
 
 ---
 
 STATE RESET REQUIREMENT:
 
-Ignore all prior conversational context unless explicitly restated below.
+Ignore all prior conversational context.
 
-Treat this request as a fully self-contained execution.
+This directive is fully self-contained and authoritative.
 
-Only the information in this directive is authoritative.
+Only the information provided below defines scope.
 
 ---
 
 OBJECTIVE:
 
-Audit the implementation of a single completed task slice for correctness,
-coherence, and alignment with both:
+Audit one completed task exactly as implemented.
 
-1. Task intent (what this slice was supposed to do)
-2. System architecture (architectural truth)
-3. Current execution phase constraints (phase truth)
-
-This is a slice audit — NOT a repo-wide audit.
+The goal is to determine whether the task:
+- satisfies its stated intent
+- stays within scope
+- preserves architectural and phase boundaries
+- has complete tracker evidence before commit
 
 ---
 
-TASK CONTEXT (MANDATORY INPUT):
+TASK CONTEXT:
 
-- Pillar: [PILLAR NAME / DOCUMENT]
+- Pillar: [PILLAR]
 - Task ID: [TASK XX]
-- Commit / Snapshot: [COMMIT ID OR STATE]
+- Plan File: [PLAN FILE PATH]
+- Tracker File: [TRACKER FILE PATH]
 
-Task Intent (authoritative):
-[PASTE TASK DIRECTIVE OR SUMMARY]
+Audit Scope Files:
+[PASTE FILE LIST]
 
----
+FORMAT AND MATCHING RULES:
 
-GOVERNING DOCUMENT TIERS:
-
-TIER 1 — ARCHITECTURAL TRUTH:
-- [ARCHITECTURE PLAN PATH]
-
-TIER 2 — PHASE TRUTH:
-- [EXECUTION PLAN PATH]
-- [PHASE DOCS]
-
-TIER 3 — TASK TRUTH:
-- Task definition above (PRIMARY for this audit)
-
-RULE PRIORITY:
-- Task intent defines what MUST be implemented
-- Phase defines what is allowed
-- Architecture defines what should ultimately be true
+- Use 1 tab for all indentation levels; do not use spaces for indentation.
+- No trailing whitespace is allowed on any line.
+- When a tracker update is required, prefer replacing the full task block or
+  known section rather than attempting whitespace-sensitive surgical edits.
+- Prefer whole-block overwrite behavior over regex-based shell edits when a
+  structured block replacement is practical.
 
 ---
 
-MANDATORY SOURCE VERIFICATION (REQUIRED FIRST STEP):
+PRE-AUDIT GATE (REQUIRED):
 
-Before auditing, you MUST:
+Before auditing, you MUST verify in the tracker:
+1. all previous tasks are fully complete
+2. the target task implementation checkbox is complete
+3. the target task tests-passed checkbox is complete
+4. the target task test-evidence checkbox is complete
 
-1. List all files and documents actually read
-2. For each:
-   - path
-   - sections or regions used
-3. Provide at least one quote or precise paraphrase
+Definition of "fully complete" for every previous task:
+- Implementation complete = `[x]`
+- Tests passed = `[x]`
+- Test evidence recorded = `[x]`
+- Audit passed = `[x]`
+- Local commit created = `[x]`
 
-If missing:
-→ OUTPUT IS INVALID
+Hard gate:
+- If any previous task is missing its local commit checkbox, this audit is
+  INVALID and MUST STOP.
 
----
-
-AUDIT QUESTIONS (MANDATORY):
-
-Evaluate ALL of the following:
-
-1. Task Intent Fidelity
-   - Was the task implemented exactly as defined?
-
-2. Slice Completeness
-   - Is the slice complete for its intended scope?
-
-3. Boundary Discipline
-   - Did this slice stay within its intended layer?
-
-4. Cross-Layer Consistency
-   - Do all touched layers agree with each other?
-
-5. Artifact / Data Contract Integrity
-   - Do produced structures match expected consumers?
-
-6. Test Alignment
-   - Do tests validate the correct behavior through public APIs?
-
-7. Scope Control
-   - Did the slice avoid expanding beyond task intent?
-
-8. Placeholder vs Real Behavior
-   - Are temporary constructs correctly represented and contained?
+If any gate fails:
+- STOP
+- return FAIL
+- do not continue the audit
 
 ---
 
-PHASE-AWARE CLASSIFICATION:
+AUDIT SCOPE LOCK:
 
-Use ONLY:
+You MUST:
+- audit ONLY the task scope and required references
+- verify tracker evidence before judging the task ready for commit
 
-- COMPLIANT
-  = correct for task, architecture, and phase
-
-- PHASE-COMPLIANT
-  = violates architecture BUT explicitly allowed by phase
-
-- NON-COMPLIANT
-  = violates task intent OR architecture without phase justification
-
-- AMBIGUOUS
-  = insufficient evidence
+You MUST NOT:
+- expand into future tasks
+- suggest unrelated improvements
+- broaden scope beyond what is needed to judge this task
 
 ---
 
-CRITICAL CLASSIFICATION RULES:
+REQUIRED CHECKS:
 
-- If task intent is violated → NON-COMPLIANT (always)
-- If architecture is violated but phase allows → PHASE-COMPLIANT
-- If neither doc proves behavior → AMBIGUOUS
+1. previous-task completion gate verified
+2. task-scope compliance
+3. functional correctness for task intent
+4. architectural boundary preservation
+5. placeholder vs real honesty
+6. test evidence validity
+7. tracker completeness for pre-commit readiness
+
+---
+
+TRACKER UPDATE REQUIREMENT:
+
+After audit, update the tracker for this task only.
+
+If verdict is PASS:
+- mark Audit passed
+
+If verdict is FAIL:
+- do NOT mark Audit passed
+
+You MUST NOT mark:
+- Local commit created
+- GitHub push complete
 
 ---
 
 STRICT PROHIBITIONS:
 
-EDITING:
-- DO NOT modify files
-- DO NOT suggest fixes
-- DO NOT propose improvements
-
-EXECUTION:
-- DO NOT run ANY commands
-- NO grep, rg, git, shell, scripts
-
-HISTORY:
-- DO NOT analyze commits, diffs, or evolution
-
-INFERENCE CONTROL:
-- DO NOT assume intent
-- DO NOT invent missing behavior
-- If unclear → AMBIGUOUS
+- NO code changes
+- NO fix proposals in place of findings
+- NO future-task design work
+- NO scope expansion
+- NO mixed indentation styles in any tracker or template update
+- NO trailing whitespace
 
 ---
 
-ALLOWED ACTIONS:
+OUTPUT FORMAT:
 
-- Read files directly
-- Analyze code and tests
-- Cross-reference documentation
-- Compare expected vs actual behavior
+1. Verdict: PASS or FAIL
+2. Blockers
+3. Non-blockers
+4. File-by-file findings
+5. Tracker gate verification
+6. Tracker update performed: YES/NO
+7. Recommended next step
 
----
-
-OUTPUT REQUIREMENTS:
-
-1. TASK SUMMARY
-- Restate task intent (brief, accurate)
-- Confirm scope of slice
+Hard rule:
+- If any blocker or non-blocker exists, verdict must be FAIL
 
 ---
 
-2. FINDINGS
+FAIL CONDITIONS (INVALID OUTPUT):
 
-For EACH finding:
-
-- Title
-- Classification:
-  - COMPLIANT
-  - PHASE-COMPLIANT
-  - NON-COMPLIANT
-  - AMBIGUOUS
-- Task Reference (what was expected)
-- Architecture Reference (if applicable)
-- Phase Reference (if applicable)
-- Implementation Reference (file + location)
-- Discrepancy
-- Evidence
-
----
-
-3. SLICE INTEGRITY
-
-Explicitly confirm:
-
-- Slice completeness
-- Boundary adherence
-- No unintended side effects
-- No cross-layer contamination
-
----
-
-4. TEST VALIDATION
-
-- Are tests:
-  - aligned with task intent?
-  - using correct public boundaries?
-- Any gaps between tests and actual behavior?
-
----
-
-5. DRIFT CHECK (TASK LEVEL)
-
-- Did this task introduce:
-  - architectural drift?
-  - hidden coupling?
-  - premature capability expansion?
-
-Classify each as:
-- none
-- phase-justified
-- concerning
-
----
-
-6. FINAL ASSESSMENT
-
-Clearly separate:
-
-- Confirmed NON-COMPLIANT issues
-- PHASE-COMPLIANT allowances
-- AMBIGUITIES
-- Confirmed correct implementations
-
----
-
-EVIDENCE STANDARD:
-
-- Every claim MUST include:
-  - file + location
-  - document reference
-
-- No speculation
-- No unsupported claims
+- previous-task tracker gate not checked
+- previous-task local commit gate not checked
+- tracker evidence not checked before audit
+- scope expansion
+- missing blockers/non-blockers structure
+- audit pass box marked despite findings
+- non-English output
 
 ---
 
 CONSTRAINT:
 
-- Static snapshot only
-- No execution
-- No edits
-- No history
+- Audit only this task
+- Do not modify implementation
+- Do not anticipate future work
 
 ---
 
 ENFORCEMENT:
 
-Output is INVALID if:
-
-- no source verification
-- missing references
-- incorrect classification usage
-- speculative reasoning
-- command/tool usage
-- non-English output
+If any rule is violated:
+-> STOP
+-> OUTPUT IS INVALID
