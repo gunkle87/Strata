@@ -450,7 +450,10 @@ BreadboardCompileOptions;
 typedef struct BreadboardTargetInfo
 {
     BreadboardTarget target;
-    /* Bitmask of projection families natively supported by this target */
+    /*
+     * Bitmask of projection families Breadboard can accept for this target,
+     * either through native representation or compiler-owned lowering.
+     */
     uint32_t allowed_projection_families_mask;
     /* Reserved for future target capability fields */
     uint32_t reserved[3];

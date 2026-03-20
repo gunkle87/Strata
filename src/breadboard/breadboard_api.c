@@ -184,14 +184,46 @@ fill_default_requirement_profile(
     }
 }
 
+typedef struct BreadboardProjectionLoweringDecision
+{
+    uint32_t required_families_mask;
+    uint32_t native_families_mask;
+    uint32_t lowerable_families_mask;
+    uint32_t projected_families_mask;
+    uint32_t allowed_families_mask;
+    bool deny_approximation;
+    bool strict_projection;
+}
+BreadboardProjectionLoweringDecision;
+
+static uint32_t
+target_native_projection_families_mask(BreadboardTarget target)
+{
+    switch (target)
+    {
+        case BREADBOARD_TARGET_FAST_4STATE:
+            /* Reduced-state fast targets do not natively preserve richer families. */
+            return 0u;
+        case BREADBOARD_TARGET_TEMPORAL:
+            /* TEMPORAL preserves the currently admitted richer families natively. */
+            return (1u << STRATA_PROJECTION_FAMILY_INITIALIZATION) |
+                   (1u << STRATA_PROJECTION_FAMILY_STRENGTH_DISTINCTION) |
+                   (1u << STRATA_PROJECTION_FAMILY_BACKEND_SPECIFIC);
+        default:
+            return 0u;
+    }
+}
+
 static uint32_t
 target_allowed_projection_families_mask(BreadboardTarget target)
 {
     switch (target)
     {
         case BREADBOARD_TARGET_FAST_4STATE:
-            /* FAST_4STATE supports initialization and strength distinction,
-               but not backend-specific (since it's a reduced-state backend). */
+            /*
+             * FAST_4STATE can accept a bounded set of richer authored families
+             * only through Breadboard-owned lowering.
+             */
             return (1u << STRATA_PROJECTION_FAMILY_INITIALIZATION) |
                    (1u << STRATA_PROJECTION_FAMILY_STRENGTH_DISTINCTION);
         case BREADBOARD_TARGET_TEMPORAL:
@@ -221,6 +253,67 @@ fill_default_projection_policy(
     out_policy->deny_approximation = false;
     out_policy->strict_projection = false;
     out_policy->generate_report = false;
+}
+
+static void
+resolve_projection_lowering_decision(
+    const BreadboardModule* module,
+    const BreadboardCompileOptions* options,
+    BreadboardProjectionLoweringDecision* out_decision)
+{
+    BreadboardProjectionPolicy policy;
+
+    if (!module || !out_decision)
+    {
+        return;
+    }
+
+    memset(out_decision, 0, sizeof(*out_decision));
+    out_decision->native_families_mask =
+        target_native_projection_families_mask(module->target);
+    out_decision->lowerable_families_mask =
+        target_allowed_projection_families_mask(module->target);
+
+    if (module->has_requirement_profile)
+    {
+        out_decision->required_families_mask =
+            module->requirement_profile.required_projection_families_mask;
+    }
+
+    out_decision->projected_families_mask =
+        out_decision->required_families_mask & ~out_decision->native_families_mask;
+
+    if (module->has_projection_policy)
+    {
+        policy = module->projection_policy;
+    }
+    else
+    {
+        fill_default_projection_policy(module->target, &policy);
+    }
+
+    out_decision->allowed_families_mask = policy.allowed_families_mask;
+    out_decision->deny_approximation = policy.deny_approximation;
+    out_decision->strict_projection = policy.strict_projection;
+
+    if (options)
+    {
+        if (options->allowed_projection_families_mask != 0u)
+        {
+            out_decision->allowed_families_mask =
+                options->allowed_projection_families_mask;
+        }
+
+        if (options->deny_approximation)
+        {
+            out_decision->deny_approximation = true;
+        }
+
+        if (options->strict_projection)
+        {
+            out_decision->strict_projection = true;
+        }
+    }
 }
 
 static void
@@ -2206,6 +2299,7 @@ BreadboardResult breadboard_module_compile(
     BreadboardArtifactDraft** out_draft)
 {
     BreadboardExecutableAssessment executable_assessment;
+    BreadboardProjectionLoweringDecision projection_decision;
     int contains_uninit;
 
     if (!module || !out_draft)
@@ -2237,65 +2331,56 @@ BreadboardResult breadboard_module_compile(
         return BREADBOARD_ERR_COMPILE_FAILED;
     }
 
-    if (module->has_requirement_profile)
+    resolve_projection_lowering_decision(module, options, &projection_decision);
+    if (projection_decision.required_families_mask != 0u)
     {
-        uint32_t target_native_mask = target_allowed_projection_families_mask(module->target);
-        uint32_t required_mask = module->requirement_profile.required_projection_families_mask;
-        uint32_t unsupported_mask = required_mask & ~target_native_mask;
+        uint32_t unlowerable_mask =
+            projection_decision.required_families_mask &
+            ~projection_decision.lowerable_families_mask;
+        uint32_t denied_projection_mask =
+            projection_decision.projected_families_mask &
+            ~projection_decision.allowed_families_mask;
 
-        if (unsupported_mask != 0u)
+        if (unlowerable_mask != 0u)
         {
-            BreadboardProjectionPolicy policy;
-            bool deny_approx = false;
-            bool strict_proj = false;
-            uint32_t allowed_mask;
+            record_diagnostic(
+                module,
+                BREADBOARD_DIAG_ERROR,
+                BREADBOARD_DIAG_CODE_STATE_DISTINCTION_UNSUPPORTED,
+                "Module requires strength/state distinctions that the selected target cannot lower");
+            return BREADBOARD_ERR_COMPILE_FAILED;
+        }
 
-            if (module->has_projection_policy)
-            {
-                policy = module->projection_policy;
-            }
-            else
-            {
-                fill_default_projection_policy(module->target, &policy);
-            }
+        if (denied_projection_mask != 0u)
+        {
+            record_diagnostic(
+                module,
+                BREADBOARD_DIAG_ERROR,
+                BREADBOARD_DIAG_CODE_STATE_DISTINCTION_UNSUPPORTED,
+                "Module requires strength/state projection, but the projection policy denies the required lowering family");
+            return BREADBOARD_ERR_COMPILE_FAILED;
+        }
 
-            allowed_mask = policy.allowed_families_mask;
-            deny_approx = policy.deny_approximation;
-            strict_proj = policy.strict_projection;
+        if (projection_decision.deny_approximation &&
+            projection_decision.projected_families_mask != 0u)
+        {
+            record_diagnostic(
+                module,
+                BREADBOARD_DIAG_ERROR,
+                BREADBOARD_DIAG_CODE_STATE_DISTINCTION_UNSUPPORTED,
+                "Module requires strength/state projection, but approximation is denied by policy");
+            return BREADBOARD_ERR_COMPILE_FAILED;
+        }
 
-            if (options)
-            {
-                if (options->allowed_projection_families_mask != 0u)
-                {
-                    allowed_mask = options->allowed_projection_families_mask;
-                }
-                if (options->deny_approximation)
-                {
-                    deny_approx = true;
-                }
-                if (options->strict_projection)
-                {
-                    strict_proj = true;
-                }
-            }
-
-            if ((unsupported_mask & ~allowed_mask) != 0u)
-            {
-                record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_STATE_DISTINCTION_UNSUPPORTED, "Module requires state distinctions that are unsupported by the target and denied by the projection policy");
-                return BREADBOARD_ERR_COMPILE_FAILED;
-            }
-
-            if (deny_approx)
-            {
-                record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_STATE_DISTINCTION_UNSUPPORTED, "Module requires state projection, but approximation is denied by policy");
-                return BREADBOARD_ERR_COMPILE_FAILED;
-            }
-
-            if (strict_proj && (unsupported_mask & (1u << STRATA_PROJECTION_FAMILY_BACKEND_SPECIFIC)) != 0u)
-            {
-                record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_STATE_DISTINCTION_UNSUPPORTED, "Module requires backend-specific state projection, but strict projection policy forbids lossy backend-specific projection");
-                return BREADBOARD_ERR_COMPILE_FAILED;
-            }
+        if (projection_decision.strict_projection &&
+            projection_decision.projected_families_mask != 0u)
+        {
+            record_diagnostic(
+                module,
+                BREADBOARD_DIAG_ERROR,
+                BREADBOARD_DIAG_CODE_STATE_DISTINCTION_UNSUPPORTED,
+                "Module requires strength/state projection, but strict projection forbids lossy lowering to the selected target");
+            return BREADBOARD_ERR_COMPILE_FAILED;
         }
     }
 
@@ -2350,14 +2435,6 @@ BreadboardResult breadboard_module_compile(
         !(options && options->require_real_executable))
     {
         record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_UNSUPPORTED_CONSTRUCT, "Compilation requires allow_placeholders in the current skeleton limit");
-        return BREADBOARD_ERR_COMPILE_FAILED;
-    }
-
-    /* If strict projection is demanded, emit a diagnostic noting that structural analysis is incomplete. */
-    if (options &&
-        (options->strict_projection || options->deny_approximation))
-    {
-        record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_UNSUPPORTED_CONSTRUCT, "Approximation denial and strict projection are not yet supported without real structural analysis");
         return BREADBOARD_ERR_COMPILE_FAILED;
     }
 
