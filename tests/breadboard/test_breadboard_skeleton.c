@@ -1640,6 +1640,127 @@ int main(void)
         print_result("draft_export_placeholder(short buffer)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
     }
 
+    /* 17. Projection policy and target selection plumbing */
+    {
+        BreadboardModule* proj_module = NULL;
+        BreadboardTargetInfo target_info;
+        BreadboardProjectionPolicy policy;
+        BreadboardProjectionPolicy retrieved_policy;
+        BreadboardArtifactDraft* proj_draft = NULL;
+        BreadboardCompileOptions proj_opts = {
+            .allow_placeholders = true,
+            .deny_approximation = false,
+            .strict_projection = false,
+            .require_real_executable = false,
+            .allowed_projection_families_mask = 0u,
+            .generate_projection_report = false
+        };
+
+        res = breadboard_module_create(&proj_module);
+        print_result("proj module_create", res, BREADBOARD_OK);
+
+        /* Test target info projection capabilities for FAST_4STATE */
+        res = breadboard_module_set_target(proj_module, BREADBOARD_TARGET_FAST_4STATE);
+        print_result("proj module_set_target(FAST_4STATE)", res, BREADBOARD_OK);
+        res = breadboard_module_query_target_info(proj_module, &target_info);
+        print_result("proj module_query_target_info", res, BREADBOARD_OK);
+        if (target_info.target != BREADBOARD_TARGET_FAST_4STATE)
+        {
+            printf("[FAIL] target info target mismatch\n");
+            exit(1);
+        }
+        /* FAST_4STATE should support INITIALIZATION and STRENGTH_DISTINCTION, not BACKEND_SPECIFIC */
+        uint32_t expected_mask = (1u << STRATA_PROJECTION_FAMILY_INITIALIZATION) |
+                                 (1u << STRATA_PROJECTION_FAMILY_STRENGTH_DISTINCTION);
+        if (target_info.allowed_projection_families_mask != expected_mask)
+        {
+            printf("[FAIL] FAST_4STATE allowed projection families mask mismatch (got 0x%x, expected 0x%x)\n",
+                target_info.allowed_projection_families_mask, expected_mask);
+            exit(1);
+        }
+
+        /* Test default projection policy */
+        res = breadboard_module_get_projection_policy(proj_module, &retrieved_policy);
+        print_result("proj module_get_projection_policy(default)", res, BREADBOARD_OK);
+        if (retrieved_policy.allowed_families_mask != expected_mask ||
+            retrieved_policy.deny_approximation ||
+            retrieved_policy.strict_projection ||
+            retrieved_policy.generate_report)
+        {
+            printf("[FAIL] default projection policy mismatch\n");
+            exit(1);
+        }
+
+        /* Set a custom projection policy */
+        policy.allowed_families_mask = (1u << STRATA_PROJECTION_FAMILY_INITIALIZATION);
+        policy.deny_approximation = true;
+        policy.strict_projection = true;
+        policy.generate_report = true;
+        memset(policy.reserved, 0, sizeof(policy.reserved));
+        res = breadboard_module_set_projection_policy(proj_module, &policy);
+        print_result("proj module_set_projection_policy", res, BREADBOARD_OK);
+
+        /* Retrieve and verify */
+        res = breadboard_module_get_projection_policy(proj_module, &retrieved_policy);
+        print_result("proj module_get_projection_policy(custom)", res, BREADBOARD_OK);
+        if (retrieved_policy.allowed_families_mask != policy.allowed_families_mask ||
+            retrieved_policy.deny_approximation != policy.deny_approximation ||
+            retrieved_policy.strict_projection != policy.strict_projection ||
+            retrieved_policy.generate_report != policy.generate_report)
+        {
+            printf("[FAIL] retrieved projection policy mismatch\n");
+            exit(1);
+        }
+
+        /* Test compile with projection options (just ensure they are accepted) */
+        proj_opts.allowed_projection_families_mask = (1u << STRATA_PROJECTION_FAMILY_STRENGTH_DISTINCTION);
+        proj_opts.generate_projection_report = true;
+        res = breadboard_module_compile(proj_module, &proj_opts, &proj_draft);
+        print_result("proj module_compile with projection options", res, BREADBOARD_OK);
+        breadboard_artifact_draft_free(proj_draft);
+        proj_draft = NULL;
+
+        /* Test TEMPORAL target capabilities */
+        res = breadboard_module_set_target(proj_module, BREADBOARD_TARGET_TEMPORAL);
+        print_result("proj module_set_target(TEMPORAL)", res, BREADBOARD_OK);
+        res = breadboard_module_query_target_info(proj_module, &target_info);
+        print_result("proj module_query_target_info(TEMPORAL)", res, BREADBOARD_OK);
+        expected_mask = (1u << STRATA_PROJECTION_FAMILY_INITIALIZATION) |
+                        (1u << STRATA_PROJECTION_FAMILY_STRENGTH_DISTINCTION) |
+                        (1u << STRATA_PROJECTION_FAMILY_BACKEND_SPECIFIC);
+        if (target_info.allowed_projection_families_mask != expected_mask)
+        {
+            printf("[FAIL] TEMPORAL allowed projection families mask mismatch (got 0x%x, expected 0x%x)\n",
+                target_info.allowed_projection_families_mask, expected_mask);
+            exit(1);
+        }
+
+        /* Default projection policy for TEMPORAL should reflect target capabilities */
+        res = breadboard_module_get_projection_policy(proj_module, &retrieved_policy);
+        print_result("proj module_get_projection_policy(TEMPORAL default)", res, BREADBOARD_OK);
+        if (retrieved_policy.allowed_families_mask != expected_mask)
+        {
+            printf("[FAIL] TEMPORAL default projection policy mask mismatch\n");
+            exit(1);
+        }
+
+        /* Test invalid arguments */
+        res = breadboard_module_set_projection_policy(NULL, &policy);
+        print_result("module_set_projection_policy(NULL, ...)", res, BREADBOARD_ERR_INVALID_HANDLE);
+        res = breadboard_module_set_projection_policy(proj_module, NULL);
+        print_result("module_set_projection_policy(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        res = breadboard_module_get_projection_policy(NULL, &retrieved_policy);
+        print_result("module_get_projection_policy(NULL, ...)", res, BREADBOARD_ERR_INVALID_HANDLE);
+        res = breadboard_module_get_projection_policy(proj_module, NULL);
+        print_result("module_get_projection_policy(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        res = breadboard_module_query_target_info(NULL, &target_info);
+        print_result("module_query_target_info(NULL, ...)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+        res = breadboard_module_query_target_info(proj_module, NULL);
+        print_result("module_query_target_info(..., NULL)", res, BREADBOARD_ERR_INVALID_ARGUMENT);
+
+        breadboard_module_free(proj_module);
+    }
+
     /* 16. Free up */
     breadboard_artifact_draft_free(draft_fast);
     breadboard_artifact_draft_free(draft);

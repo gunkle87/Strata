@@ -22,6 +22,8 @@ struct BreadboardModule
     bool has_requirement_profile;
     BreadboardStructureSummary structure_summary;
     bool has_structure_summary;
+    BreadboardProjectionPolicy projection_policy;
+    bool has_projection_policy;
     size_t component_count;
     size_t stateful_component_count;
     BreadboardComponent* components;

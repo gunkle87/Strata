@@ -102,6 +102,28 @@ BreadboardResult breadboard_module_set_structure_summary(
     const BreadboardStructureSummary* summary);
 
 /*
+ * breadboard_module_set_projection_policy
+ *
+ * Sets compile-time projection policy for state lowering.
+ * This configures which projection families are allowed and whether semantic
+ * approximation or backend-specific loss is permitted.
+ */
+BreadboardResult breadboard_module_set_projection_policy(
+    BreadboardModule* module,
+    const BreadboardProjectionPolicy* policy);
+
+/*
+ * breadboard_module_get_projection_policy
+ *
+ * Retrieves the current compile-time projection policy for the module.
+ * If no policy has been set, returns a default policy appropriate for the
+ * current target.
+ */
+BreadboardResult breadboard_module_get_projection_policy(
+    const BreadboardModule* module,
+    BreadboardProjectionPolicy* out_policy);
+
+/*
  * breadboard_module_add_component_instance
  *
  * Declares a minimal authored structural component instance on the module.

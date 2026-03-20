@@ -1,5 +1,6 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -I../../include
+CFLAGS ?= -Wall -Wextra -std=c99
+INCLUDES = -I../../include
 SRC_DIR = ../../src/breadboard
 
 TESTS = \
@@ -11,10 +12,10 @@ TEST_EXES = $(addsuffix .exe, $(TESTS))
 all: $(TEST_EXES)
 
 test_breadboard_skeleton.exe: test_breadboard_skeleton.c $(SRC_DIR)/breadboard_api.c
-	$(CC) $(CFLAGS) -o $@ test_breadboard_skeleton.c $(SRC_DIR)/breadboard_api.c
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ test_breadboard_skeleton.c $(SRC_DIR)/breadboard_api.c
 
 test_executable_payload_contract.exe: test_executable_payload_contract.c
-	$(CC) $(CFLAGS) -o $@ test_executable_payload_contract.c
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ test_executable_payload_contract.c
 
 test: all
 	@echo --- Running Breadboard skeleton tests ---

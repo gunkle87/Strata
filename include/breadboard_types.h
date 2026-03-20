@@ -426,6 +426,15 @@ typedef struct BreadboardCompileOptions
 
     /* If true, require the first real executable path and disallow placeholder fallback. */
     bool require_real_executable;
+
+    /* Bitmask of projection families allowed for this compile (0 = use module policy) */
+    uint32_t allowed_projection_families_mask;
+
+    /* If true, generate projection report metadata for this compile */
+    bool generate_projection_report;
+
+    /* Reserved for future extension */
+    uint32_t reserved[2];
 }
 BreadboardCompileOptions;
 
@@ -437,7 +446,10 @@ BreadboardCompileOptions;
 typedef struct BreadboardTargetInfo
 {
     BreadboardTarget target;
-    /* Target capabilities could be added here later. */
+    /* Bitmask of projection families natively supported by this target */
+    uint32_t allowed_projection_families_mask;
+    /* Reserved for future target capability fields */
+    uint32_t reserved[3];
 }
 BreadboardTargetInfo;
 
@@ -459,6 +471,32 @@ typedef struct BreadboardDraftInfo
     uint32_t declared_stateful_node_count;
 }
 BreadboardDraftInfo;
+
+/*
+ * BreadboardProjectionPolicy
+ *
+ * Compile-time projection policy configuration.
+ * This structure defines how state projection should be applied during
+ * lowering for backend-targeted compilation.
+ */
+typedef struct BreadboardProjectionPolicy
+{
+    /* Bitmask of allowed projection families (StrataProjectionFamily). */
+    uint32_t allowed_families_mask;
+
+    /* If true, reject any semantic approximation (collapse/resolution). */
+    bool deny_approximation;
+
+    /* If true, enforce strict projection rules (no backend-specific loss). */
+    bool strict_projection;
+
+    /* If true, generate projection report metadata. */
+    bool generate_report;
+
+    /* Reserved for future extension. */
+    uint32_t reserved[4];
+}
+BreadboardProjectionPolicy;
 
 /*
  * BreadboardDraftAdmissionInfo

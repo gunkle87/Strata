@@ -56,7 +56,7 @@ build_and_export_draft(
 {
     BreadboardModule *module;
     BreadboardArtifactDraft *draft;
-    BreadboardCompileOptions options;
+    BreadboardCompileOptions options = { 0 };
     BreadboardResult bb_result;
     unsigned char *buffer;
     size_t size;
@@ -366,7 +366,7 @@ main(void)
     {
         BreadboardModule *real_module;
         BreadboardArtifactDraft *real_draft;
-        BreadboardCompileOptions real_options;
+        BreadboardCompileOptions real_options = { 0 };
         BreadboardModuleIdentity real_identity = { 0x4545u, "fast_executable_path" };
         BreadboardStructureSummary real_summary = { 2u, 1u, 0u };
         BreadboardDescriptorSpec real_input_a = { 410u, "real_a", 1u };
@@ -678,7 +678,7 @@ main(void)
     {
         BreadboardModule *module;
         BreadboardArtifactDraft *draft;
-        BreadboardCompileOptions options;
+        BreadboardCompileOptions options = { 0 };
         BreadboardDescriptorSpec input_spec = { 1000u, "user_in", 4u };
         BreadboardDescriptorSpec output_spec = { 2000u, "user_out", 2u };
         BreadboardDescriptorSpec probe_spec = { 3000u, "user_probe", 1u };
@@ -849,7 +849,7 @@ main(void)
         }
 
         {
-            BreadboardCompileOptions options;
+            BreadboardCompileOptions options = { 0 };
             options.allow_placeholders = true;
             options.deny_approximation = false;
             options.strict_projection = false;
@@ -1039,7 +1039,7 @@ main(void)
         }
 
         {
-            BreadboardCompileOptions options;
+            BreadboardCompileOptions options = { 0 };
             options.allow_placeholders = true;
             options.deny_approximation = false;
             options.strict_projection = false;

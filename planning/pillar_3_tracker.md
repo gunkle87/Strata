@@ -52,16 +52,16 @@ Brief: Define projection policy enums, records, and reporting surfaces.
 Brief: Implement explicit compile controls and target-selection plumbing for
 projection-aware lowering.
 
-- [ ] Implementation complete - `YYYY-MM-DD HH:MM TZ`
-- [ ] Tests passed (current + previous = 100%) -
-      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
-- [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
-      `YYYY-MM-DD HH:MM TZ" - `<evidence>`
-- [ ] Audit passed (100%, blockers=0, non-blockers=0) -
-      `YYYY-MM-DD HH:MM TZ`
+- [x] Implementation complete - `2026-03-20 07:35 CDT`
+- [x] Tests passed (current + previous = 100%) -
+      `2026-03-20 07:35 CDT` - `runner: make -C tests/breadboard clean; make -C tests/breadboard test CFLAGS="-Wall -Wextra -Werror -std=c99"; make -C tests/forge clean; make -C tests/forge test CFLAGS="-Wall -Wextra -Werror -std=c99"; make -C tests/integration clean; make -C tests/integration test CFLAGS="-Wall -Wextra -Werror -std=c99"`
+- [x] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      `2026-03-20 07:35 CDT` - `breadboard suite: passed; forge suite: total=14 passed=14 failed=0 failed_ids=none; reruns=none; integration suite: passed`
+- [x] Audit passed (100%, blockers=0, non-blockers=0) -
+      `2026-03-20 07:35 CDT`
 - [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
-- [ ] Effort rating recorded (implementation only) -
-      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+- [x] Effort rating recorded (implementation only) -
+      `2026-03-20 07:45 CDT` - `rating: PERFECT`
 
 ## Task 3.3 - Backend-Targeted State Legality Checks
 

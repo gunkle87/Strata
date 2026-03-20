@@ -184,6 +184,45 @@ fill_default_requirement_profile(
     }
 }
 
+static uint32_t
+target_allowed_projection_families_mask(BreadboardTarget target)
+{
+    switch (target)
+    {
+        case BREADBOARD_TARGET_FAST_4STATE:
+            /* FAST_4STATE supports initialization and strength distinction,
+               but not backend-specific (since it's a reduced-state backend). */
+            return (1u << STRATA_PROJECTION_FAMILY_INITIALIZATION) |
+                   (1u << STRATA_PROJECTION_FAMILY_STRENGTH_DISTINCTION);
+        case BREADBOARD_TARGET_TEMPORAL:
+            /* TEMPORAL supports all families (full-state backend). */
+            return (1u << STRATA_PROJECTION_FAMILY_INITIALIZATION) |
+                   (1u << STRATA_PROJECTION_FAMILY_STRENGTH_DISTINCTION) |
+                   (1u << STRATA_PROJECTION_FAMILY_BACKEND_SPECIFIC);
+        default:
+            /* Unknown target: allow none. */
+            return 0u;
+    }
+}
+
+static void
+fill_default_projection_policy(
+    BreadboardTarget target,
+    BreadboardProjectionPolicy* out_policy)
+{
+    if (!out_policy)
+    {
+        return;
+    }
+
+    memset(out_policy, 0, sizeof(*out_policy));
+    out_policy->allowed_families_mask = target_allowed_projection_families_mask(target);
+    /* Approximation denial and strict projection default to false. */
+    out_policy->deny_approximation = false;
+    out_policy->strict_projection = false;
+    out_policy->generate_report = false;
+}
+
 static void
 free_descriptor_array(
     BreadboardDescriptor* descriptors,
@@ -1839,6 +1878,7 @@ BreadboardResult breadboard_module_set_target(
     }
 
     module->target = target;
+    module->has_projection_policy = false;
     return BREADBOARD_OK;
 }
 
@@ -2002,6 +2042,50 @@ BreadboardResult breadboard_module_set_structure_summary(
     return BREADBOARD_OK;
 }
 
+BreadboardResult breadboard_module_set_projection_policy(
+    BreadboardModule* module,
+    const BreadboardProjectionPolicy* policy)
+{
+    if (!module)
+    {
+        return BREADBOARD_ERR_INVALID_HANDLE;
+    }
+
+    if (!policy)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    module->projection_policy = *policy;
+    module->has_projection_policy = true;
+    return BREADBOARD_OK;
+}
+
+BreadboardResult breadboard_module_get_projection_policy(
+    const BreadboardModule* module,
+    BreadboardProjectionPolicy* out_policy)
+{
+    if (!module)
+    {
+        return BREADBOARD_ERR_INVALID_HANDLE;
+    }
+
+    if (!out_policy)
+    {
+        return BREADBOARD_ERR_INVALID_ARGUMENT;
+    }
+
+    if (module->has_projection_policy)
+    {
+        *out_policy = module->projection_policy;
+    }
+    else
+    {
+        fill_default_projection_policy(module->target, out_policy);
+    }
+    return BREADBOARD_OK;
+}
+
 BreadboardResult breadboard_module_add_component_instance(
     BreadboardModule* module,
     const BreadboardComponentSpec* spec)
@@ -2145,7 +2229,8 @@ BreadboardResult breadboard_module_compile(
     }
 
     /* If strict projection is demanded, emit a diagnostic noting that structural analysis is incomplete. */
-    if (options->strict_projection || options->deny_approximation)
+    if (options &&
+        (options->strict_projection || options->deny_approximation))
     {
         record_diagnostic(module, BREADBOARD_DIAG_ERROR, BREADBOARD_DIAG_CODE_UNSUPPORTED_CONSTRUCT, "Approximation denial and strict projection are not yet supported without real structural analysis");
         return BREADBOARD_ERR_COMPILE_FAILED;
@@ -3127,6 +3212,8 @@ BreadboardResult breadboard_module_query_target_info(
     }
 
     out_info->target = module->target;
+    out_info->allowed_projection_families_mask = target_allowed_projection_families_mask(module->target);
+    memset(out_info->reserved, 0, sizeof(out_info->reserved));
     return BREADBOARD_OK;
 }
 
