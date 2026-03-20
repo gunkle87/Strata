@@ -317,6 +317,33 @@ resolve_projection_lowering_decision(
 }
 
 static void
+fill_projection_metadata(
+    const BreadboardProjectionLoweringDecision* decision,
+    BreadboardProjectionMetadata* out_metadata)
+{
+    if (!out_metadata)
+    {
+        return;
+    }
+
+    memset(out_metadata, 0, sizeof(*out_metadata));
+
+    if (!decision)
+    {
+        return;
+    }
+
+    out_metadata->required_projection_families_mask =
+        decision->required_families_mask;
+    out_metadata->lowered_projection_families_mask =
+        decision->projected_families_mask;
+    out_metadata->projection_occurred =
+        (decision->projected_families_mask != 0u);
+    out_metadata->approximation_occurred =
+        (decision->projected_families_mask != 0u);
+}
+
+static void
 free_descriptor_array(
     BreadboardDescriptor* descriptors,
     size_t count)
@@ -2568,6 +2595,9 @@ BreadboardResult breadboard_module_compile(
         draft->structure_summary.declared_connection_count;
     draft->info.declared_stateful_node_count =
         draft->structure_summary.declared_stateful_node_count;
+    fill_projection_metadata(
+        &projection_decision,
+        &draft->info.projection_metadata);
     draft->admission_info.target = module->target;
 
     if (options && options->require_real_executable)

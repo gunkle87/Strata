@@ -244,7 +244,8 @@ BreadboardResult breadboard_artifact_draft_query_metadata(
 /*
  * breadboard_artifact_draft_query_info
  *
- * Retrieves coarse structural metadata about the generated draft.
+ * Retrieves coarse structural metadata about the generated draft, including
+ * compiler-emitted projection outcome metadata.
  */
 BreadboardResult breadboard_artifact_draft_query_info(
     const BreadboardArtifactDraft* draft,

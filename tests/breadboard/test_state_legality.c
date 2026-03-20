@@ -45,6 +45,38 @@ static void expect_last_diagnostic(
     printf("[PASS] Diagnostic code/message matched expectation\n");
 }
 
+static void expect_projection_metadata(
+    const BreadboardDraftInfo* info,
+    uint32_t expected_required_mask,
+    uint32_t expected_lowered_mask,
+    int expected_projection_occurred,
+    int expected_approximation_occurred)
+{
+    if (!info)
+    {
+        printf("[FAIL] projection metadata info pointer was NULL\n");
+        exit(1);
+    }
+
+    if (info->projection_metadata.required_projection_families_mask != expected_required_mask ||
+        info->projection_metadata.lowered_projection_families_mask != expected_lowered_mask ||
+        info->projection_metadata.projection_occurred !=
+            (expected_projection_occurred ? true : false) ||
+        info->projection_metadata.approximation_occurred !=
+            (expected_approximation_occurred ? true : false))
+    {
+        printf(
+            "[FAIL] projection metadata mismatch (required=0x%x lowered=0x%x projected=%d approx=%d)\n",
+            info->projection_metadata.required_projection_families_mask,
+            info->projection_metadata.lowered_projection_families_mask,
+            info->projection_metadata.projection_occurred ? 1 : 0,
+            info->projection_metadata.approximation_occurred ? 1 : 0);
+        exit(1);
+    }
+
+    printf("[PASS] Projection metadata matched expectation\n");
+}
+
 static BreadboardModule* build_strength_projection_module(void)
 {
     BreadboardModule* module = NULL;
@@ -132,6 +164,7 @@ int main(void)
         BreadboardResult res;
         BreadboardArtifactDraft* draft = NULL;
         BreadboardDraftAdmissionInfo admission_info;
+        BreadboardDraftInfo draft_info;
         BreadboardProjectionPolicy policy;
         BreadboardCompileOptions options;
 
@@ -160,6 +193,15 @@ int main(void)
             printf("[FAIL] Expected real executable draft after strength projection lowering.\n");
             return 1;
         }
+
+        res = breadboard_artifact_draft_query_info(draft, &draft_info);
+        print_result("draft_query_info(strength projection)", res, BREADBOARD_OK);
+        expect_projection_metadata(
+            &draft_info,
+            (1u << STRATA_PROJECTION_FAMILY_STRENGTH_DISTINCTION),
+            (1u << STRATA_PROJECTION_FAMILY_STRENGTH_DISTINCTION),
+            1,
+            1);
 
         breadboard_artifact_draft_free(draft);
         breadboard_module_free(module);
@@ -278,6 +320,7 @@ int main(void)
         BreadboardModule* module = build_plain_fast_module();
         BreadboardResult res;
         BreadboardArtifactDraft* draft = NULL;
+        BreadboardDraftInfo draft_info;
         BreadboardCompileOptions options;
         BreadboardDraftAdmissionInfo admission_info;
 
@@ -298,6 +341,10 @@ int main(void)
             printf("[FAIL] Expected real executable draft when no projection is needed.\n");
             return 1;
         }
+
+        res = breadboard_artifact_draft_query_info(draft, &draft_info);
+        print_result("draft_query_info(no projection needed)", res, BREADBOARD_OK);
+        expect_projection_metadata(&draft_info, 0u, 0u, 0, 0);
 
         breadboard_artifact_draft_free(draft);
         breadboard_module_free(module);

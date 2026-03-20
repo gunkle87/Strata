@@ -23,6 +23,7 @@ int main(void)
     BreadboardResult res;
     BreadboardArtifactDraft* draft = NULL;
     BreadboardDraftAdmissionInfo admission_info;
+    BreadboardDraftInfo draft_info;
 
     res = breadboard_module_create(&module);
     if (res != BREADBOARD_OK || !module)
@@ -98,6 +99,20 @@ int main(void)
     if (!admission_info.native_only_behavior)
     {
         printf("[FAIL] Expected UNINIT fallback to be marked native-only.\n");
+        return 1;
+    }
+
+    res = breadboard_artifact_draft_query_info(draft, &draft_info);
+    print_result("draft_query_info", res, BREADBOARD_OK);
+
+    if (draft_info.projection_metadata.required_projection_families_mask !=
+            (1u << STRATA_PROJECTION_FAMILY_INITIALIZATION) ||
+        draft_info.projection_metadata.lowered_projection_families_mask !=
+            (1u << STRATA_PROJECTION_FAMILY_INITIALIZATION) ||
+        !draft_info.projection_metadata.projection_occurred ||
+        !draft_info.projection_metadata.approximation_occurred)
+    {
+        printf("[FAIL] Expected UNINIT compile to report initialization projection metadata.\n");
         return 1;
     }
 

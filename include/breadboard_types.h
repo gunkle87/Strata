@@ -461,6 +461,23 @@ typedef struct BreadboardTargetInfo
 BreadboardTargetInfo;
 
 /*
+ * BreadboardProjectionMetadata
+ *
+ * Descriptive compiler-emitted metadata summarizing projection handling for a
+ * compiled draft. This reports what authored families required handling, what
+ * Breadboard actually lowered, and whether approximation occurred.
+ */
+typedef struct BreadboardProjectionMetadata
+{
+    uint32_t required_projection_families_mask;
+    uint32_t lowered_projection_families_mask;
+    bool projection_occurred;
+    bool approximation_occurred;
+    uint32_t reserved[4];
+}
+BreadboardProjectionMetadata;
+
+/*
  * BreadboardDraftInfo
  *
  * Metadata surface describing a constructed compilation artifact draft.
@@ -476,6 +493,7 @@ typedef struct BreadboardDraftInfo
     uint32_t declared_component_count;
     uint32_t declared_connection_count;
     uint32_t declared_stateful_node_count;
+    BreadboardProjectionMetadata projection_metadata;
 }
 BreadboardDraftInfo;
 
