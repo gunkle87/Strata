@@ -463,52 +463,67 @@ forge_extension_mask_from_placeholder_requirements(uint32_t requirement_flags)
 
 static ForgeResult
 forge_validate_artifact_requirements(
-    const ForgeEffectiveProfile *profile,
-    ForgeBackendClass backend_class,
-    uint32_t required_extension_mask,
-    uint32_t requires_advanced_controls,
-    uint32_t requires_native_state_read,
-    uint32_t requires_native_inputs)
-{
-    if (!profile)
-    {
-        return forge_fail(FORGE_ERR_INTERNAL,
-            "forge_artifact_load: effective profile unavailable");
-    }
+	const ForgeEffectiveProfile *profile,
+	const ForgeCapabilities *backend_caps,
+	uint32_t required_extension_mask,
+	uint32_t requires_advanced_controls,
+	uint32_t requires_native_state_read,
+	uint32_t requires_native_inputs)
+	{
+	uint32_t native_extension_mask;
+	uint32_t index;
 
-    if ((required_extension_mask & ~profile->allowed_extension_mask) != 0u)
-    {
-        return forge_fail(FORGE_ERR_FORBIDDEN,
-            "forge_artifact_load: artifact requires extension family denied by active profile");
-    }
+	if (!profile || !backend_caps)
+		{
+		return forge_fail(FORGE_ERR_INTERNAL,
+			"forge_artifact_load: effective profile or capabilities unavailable");
+		}
 
-    if (requires_advanced_controls && !profile->allow_advanced_controls)
-    {
-        return forge_fail(FORGE_ERR_FORBIDDEN,
-            "forge_artifact_load: artifact requires advanced controls denied by active profile");
-    }
+	if ((required_extension_mask & ~profile->allowed_extension_mask) != 0u)
+		{
+		return forge_fail(FORGE_ERR_FORBIDDEN,
+			"forge_artifact_load: artifact requires extension family denied by active profile");
+		}
 
-    if (requires_native_state_read && !profile->allow_native_state_read)
-    {
-        return forge_fail(FORGE_ERR_FORBIDDEN,
-            "forge_artifact_load: artifact requires native state read denied by active profile");
-    }
+	if (requires_advanced_controls && !profile->allow_advanced_controls)
+		{
+		return forge_fail(FORGE_ERR_FORBIDDEN,
+			"forge_artifact_load: artifact requires advanced controls denied by active profile");
+		}
 
-    if (requires_native_inputs && !profile->allow_native_inputs)
-    {
-        return forge_fail(FORGE_ERR_FORBIDDEN,
-            "forge_artifact_load: artifact requires native inputs denied by active profile");
-    }
+	if (requires_native_state_read && !profile->allow_native_state_read)
+		{
+		return forge_fail(FORGE_ERR_FORBIDDEN,
+			"forge_artifact_load: artifact requires native state read denied by active profile");
+		}
 
-    if ((requires_advanced_controls || requires_native_state_read || requires_native_inputs) &&
-        backend_class != FORGE_BACKEND_CLASS_TEMPORAL)
-    {
-        return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
-            "forge_artifact_load: artifact requirements are incompatible with selected backend");
-    }
+	if (requires_native_inputs && !profile->allow_native_inputs)
+		{
+		return forge_fail(FORGE_ERR_FORBIDDEN,
+			"forge_artifact_load: artifact requires native inputs denied by active profile");
+		}
 
-    return FORGE_OK;
-}
+	native_extension_mask = 0u;
+
+	for (index = 0u; index < backend_caps->extension_family_count; ++index)
+		{
+		native_extension_mask |= forge_extension_mask_for_family(backend_caps->extension_families[index]);
+		}
+
+	if ((required_extension_mask & ~native_extension_mask) != 0u)
+		{
+		return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+			"forge_artifact_load: artifact requires extensions not natively supported by backend");
+		}
+
+	if (requires_native_inputs && backend_caps->temporal_substep == 0u)
+		{
+		return forge_fail(FORGE_ERR_ARTIFACT_INCOMPATIBLE,
+			"forge_artifact_load: artifact requires native inputs which this backend does not natively support");
+		}
+
+	return FORGE_OK;
+	}
 
 static uint32_t
 forge_descriptor_class_visible(
@@ -1734,13 +1749,13 @@ forge_artifact_load(
         required_extension_mask = forge_extension_mask_from_placeholder_requirements(
             admission_info->requirement_flags);
 
-        requirement_result = forge_validate_artifact_requirements(
-            &profile,
-            rec->info.backend_class,
-            required_extension_mask,
-            requires_advanced_controls,
-            requires_native_state_read,
-            requires_native_inputs);
+		requirement_result = forge_validate_artifact_requirements(
+			&profile,
+			&rec->capabilities,
+			required_extension_mask,
+			requires_advanced_controls,
+			requires_native_state_read,
+			requires_native_inputs);
 
         if (requirement_result != FORGE_OK)
         {
@@ -1775,13 +1790,13 @@ forge_artifact_load(
                 "forge_artifact_load: real fast admission manifest must be empty");
         }
 
-        requirement_result = forge_validate_artifact_requirements(
-            &profile,
-            rec->info.backend_class,
-            0u,
-            requires_advanced_controls,
-            requires_native_state_read,
-            requires_native_inputs);
+		requirement_result = forge_validate_artifact_requirements(
+			&profile,
+			&rec->capabilities,
+			0u,
+			requires_advanced_controls,
+			requires_native_state_read,
+			requires_native_inputs);
 
         if (requirement_result != FORGE_OK)
         {
