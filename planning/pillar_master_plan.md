@@ -10,7 +10,8 @@ Status
 - Active planning control document.
 - Pillar 1 is complete.
 - Pillar 2 is complete.
-- Pillar 3 is the next pillar to refine and execute.
+- Pillar 3 is complete.
+- Pillar 4 is the next pillar to refine and execute.
 
 ## Build System Rules
 
@@ -76,14 +77,19 @@ Historical benchmark:
   - `planning/pillar_2_tracker.md`
 
 ### Pillar 3 - State Projection Policy Implementation
-- Status: `NEXT`
-- Provisional effort score: `TBD`
+- Status: `COMPLETED`
+- Provisional effort score: `27`
+- Provisional task count: `9`
 - Summary:
   - implement explicit projection rules for targeting reduced-state backends
   - keep approximation in the compiler layer, not hidden in runtime behavior
+  - surface projection truth through emitted metadata and Forge visibility
+- Detailed files:
+  - `planning/pillar_3_plan.md`
+  - `planning/pillar_3_tracker.md`
 
 ### Pillar 4 - Shared Artifact Evolution
-- Status: `FUTURE`
+- Status: `NEXT`
 - Provisional effort score: `TBD`
 - Summary:
   - evolve the temporary executable envelope into a cleaner long-term shared
