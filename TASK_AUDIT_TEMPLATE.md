@@ -1,17 +1,16 @@
-﻿# Task Audit Template
+# Task Audit Template
 
 STRICT TASK AUDIT DIRECTIVE
 (READ-ONLY, NO EXECUTION-DRIFT, TASK-LOCKED)
 
 ---
 
-STATE RESET REQUIREMENT:
+STATE RESET:
 
 Ignore all prior conversational context.
 
-This directive is fully self-contained and authoritative.
-
-Only the information provided below defines scope.
+This directive is self-contained and authoritative.
+Only the content below defines scope.
 
 ---
 
@@ -19,12 +18,12 @@ OBJECTIVE:
 
 Audit one completed task exactly as implemented.
 
-The goal is to determine whether the task:
-- satisfies its stated intent
+Determine whether the task:
+- satisfies task intent
 - stays within acceptable scope
-- preserves architectural and phase boundaries
+- preserves architecture and phase boundaries
 - has complete tracker evidence before commit
-- distinguishes real defects from harmless forward coverage
+- contains any harmless forward coverage
 
 ---
 
@@ -38,26 +37,23 @@ TASK CONTEXT:
 Audit Scope Files:
 [PASTE FILE LIST]
 
-FORMAT AND MATCHING RULES:
-
-- Use 1 tab for all indentation levels; do not use spaces for indentation.
-- No trailing whitespace is allowed on any line.
-- When a tracker update is required, prefer replacing the full task block or
-  known section rather than attempting whitespace-sensitive surgical edits.
-- Prefer whole-block overwrite behavior over regex-based shell edits when a
-  structured block replacement is practical.
+Format and matching rules:
+- use 1 tab for indentation; do not use spaces for indentation
+- no trailing whitespace on any line
+- when a tracker update is required, prefer whole-block replacement over
+  whitespace-sensitive partial edits
 
 ---
 
-PRE-AUDIT GATE (REQUIRED):
+PRE-AUDIT GATE:
 
-Before auditing, you MUST verify in the tracker:
+Before auditing, verify in the tracker:
 1. all previous tasks are fully complete
-2. the target task implementation checkbox is complete
-3. the target task tests-passed checkbox is complete
-4. the target task test-evidence checkbox is complete
+2. target task implementation checkbox is complete
+3. target task tests-passed checkbox is complete
+4. target task test-evidence checkbox is complete
 
-Definition of "fully complete" for every previous task:
+Definition of fully complete:
 - Implementation complete = `[x]`
 - Tests passed = `[x]`
 - Test evidence recorded = `[x]`
@@ -65,24 +61,24 @@ Definition of "fully complete" for every previous task:
 - Local commit created = `[x]`
 
 Hard gate:
-- If any previous task is missing its local commit checkbox, this audit is
-  INVALID and MUST STOP.
+- if any previous task is missing its local commit checkbox, this audit is
+  locked and must not proceed
 
 If any gate fails:
 - STOP
 - return FAIL
-- do not continue the audit
+- do not continue
 
 ---
 
 AUDIT SCOPE LOCK:
 
 You MUST:
-- audit ONLY the task scope and required references
-- verify tracker evidence before judging the task ready for commit
+- audit only the task scope and required references
+- verify tracker evidence before judging pre-commit readiness
 
 You MUST NOT:
-- expand into future tasks
+- expand into future tasks unnecessarily
 - suggest unrelated improvements
 - broaden scope beyond what is needed to judge this task
 
@@ -91,45 +87,47 @@ You MUST NOT:
 REQUIRED CHECKS:
 
 1. previous-task completion gate verified
-2. task-scope compliance
-3. functional correctness for task intent
-4. architectural boundary preservation
-5. placeholder vs real honesty
-6. test evidence validity
-7. tracker completeness for pre-commit readiness
+2. previous-task local commit gate verified
+3. task-scope compliance
+4. functional correctness for task intent
+5. architectural boundary preservation
+6. placeholder vs real honesty
+7. test evidence validity
+8. tracker completeness for pre-commit readiness
+
+---
 
 FORWARD COVERAGE RULE:
 
-If the implementation includes work that naturally reaches into the immediately
-upcoming task or tasks, the audit MUST distinguish between:
+Distinguish between:
 - harmful scope drift
 - harmless forward coverage
 
-Harmless forward coverage means ALL of the following are true:
+Harmless forward coverage means all of the following are true:
 - the code is functionally correct
 - the code does not violate architecture or phase boundaries
-- the code does not make false claims about completed behavior
+- the code does not make false claims
 - the code belongs to an immediately upcoming planned task
 - the code does not make later work harder or more confusing
 
-If all of the above are true:
-- do NOT require rollback
-- do NOT classify this alone as FAIL
+If all are true:
+- do not require rollback
+- do not fail the audit for that reason alone
 - record it explicitly as forward coverage
 
 ---
 
-TRACKER UPDATE REQUIREMENT:
+TRACKER RULE:
 
-After audit, update the tracker for this task only.
+After audit, update this task only.
 
-If verdict is PASS:
+If verdict is `PASS` or `PASS WITH FORWARD COVERAGE`:
 - mark Audit passed
 
-If verdict is FAIL:
-- do NOT mark Audit passed
+If verdict is `FAIL`:
+- do not mark Audit passed
 
-You MUST NOT mark:
+Do NOT mark:
 - Local commit created
 - GitHub push complete
 
@@ -137,12 +135,11 @@ You MUST NOT mark:
 
 STRICT PROHIBITIONS:
 
-- NO code changes
-- NO fix proposals in place of findings
-- NO future-task design work
-- NO scope expansion
-- NO mixed indentation styles in any tracker or template update
-- NO trailing whitespace
+- no code changes
+- no future-task design work
+- no scope expansion
+- no mixed indentation styles in any tracker update
+- no trailing whitespace
 
 ---
 
@@ -158,33 +155,29 @@ OUTPUT FORMAT:
 8. Recommended next step
 
 Hard rule:
-- If any blocker exists, verdict must be FAIL
-- Non-blockers that are only harmless forward coverage do NOT force FAIL
-- PASS WITH FORWARD COVERAGE is allowed only when there are:
-  - no blockers
-  - no architectural violations
-  - no correctness failures
+- if any blocker exists, verdict must be FAIL
+- non-blockers that are only harmless forward coverage do not force FAIL
 
 ---
 
-FAIL CONDITIONS (INVALID OUTPUT):
+INVALID OUTPUT IF:
 
-- previous-task tracker gate not checked
-- previous-task local commit gate not checked
-- tracker evidence not checked before audit
-- scope expansion
-- missing blockers/non-blockers structure
-- harmless forward coverage incorrectly forced to FAIL without a real defect
-- audit pass box marked despite findings
-- non-English output
+- previous-task tracker gate was not checked
+- previous-task local commit gate was not checked
+- tracker evidence was not checked before audit
+- scope expanded without need
+- blockers/non-blockers structure is missing
+- harmless forward coverage was forced to FAIL without a real defect
+- audit pass was marked despite blockers
+- output is not in English
 
 ---
 
 CONSTRAINT:
 
-- Audit only this task
-- Do not modify implementation
-- Do not anticipate future work
+Audit only this task.
+Do not modify implementation.
+Do not anticipate future work.
 
 ---
 

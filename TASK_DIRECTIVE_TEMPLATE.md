@@ -1,103 +1,58 @@
-﻿STRICT IMPLEMENTATION DIRECTIVE
+STRICT IMPLEMENTATION DIRECTIVE
 (NO DRIFT, NO EXPANSION, TASK-LOCKED)
 
 ---
 
-STATE RESET REQUIREMENT:
+STATE RESET:
 
 Ignore all prior conversational context.
 
-This directive is fully self-contained and authoritative.
-
-Only the information provided below defines scope.
+This directive is self-contained and authoritative.
+Only the content below defines scope.
 
 ---
 
 OBJECTIVE:
 
-Implement the specified task EXACTLY as defined.
+Implement the specified task exactly as defined.
 
-The goal is to produce a minimal, correct implementation that:
-- satisfies the task intent
-- does not exceed scope
-- preserves architectural and phase constraints
+Deliver the smallest correct implementation that:
+- satisfies task intent
+- stays within allowed scope
+- preserves architecture and phase constraints
 
 ---
 
-EMBEDDED REPOSITORY RULES SUMMARY
-(AUTHORITATIVE, COMPACT, NO EXTERNAL DEPENDENCY):
+COMPACT REPOSITORY RULES:
 
 Core doctrine:
 - structure is the authoring layer
 - function is the execution layer
-- authored structure is not execution
 - structural translation is not execution
 
-System identity:
-- Breadboard = structural compiler layer
-- Forge = shared runtime API layer
-- LXS = fast backend
-- HighZ = temporal backend
-
 Layer ownership:
-- Authoring owns structure, hierarchy, ports, connections, and edit intent
-- Breadboard owns import, normalization, validation, recognition, macro
-  substitution, and backend-targeted lowering
-- Forge owns shared lifecycle, common reads, common probes, capability
-  discovery, and backend dispatch boundary
-- Backends own native state model, native scheduling, execution kernels, state
-  commit behavior, and backend-specific diagnostics
-- Tooling owns conversion, corpus prep, benchmarking, reporting, and support
+- Breadboard owns structural compilation and lowering
+- Forge owns shared runtime boundary and capability discovery
+- Backends own native execution truth
+- Tests must use public interfaces only
 
-Hard boundary rules:
+Hard boundaries:
 - do not blur layers
-- do not move behavior into the wrong layer for convenience
-- do not couple backends together
-- all runtime interaction must happen through Forge
-- no UI, tool, or test may reach into backend internals directly
+- do not move runtime logic into compile layers or vice versa
+- do not reach into backend internals from tests, tools, or UI
+- all runtime interaction goes through Forge
 
-Recognition and macro rules:
-- recognition belongs in Breadboard, not in the backends
-- macro semantic definition belongs above execution
-- macro execution kernels belong in or beside the backend that executes them
+Clean-room:
+- all code must be original
 
-State-model rules:
-- preserve native backend truth for execution
-- shared observation may normalize for interoperability
-- unsupported state distinctions must be handled during structural compilation
-- do not force one backend to carry another backend's native runtime truth
-
-Testing and tooling rules:
-- tests and tooling must remain distinct from engine code
-- tests must exercise public interfaces, not private internals
-- benchmarks or tooling must not become the real engine by accident
-
-Clean-room rule:
-- all code must be original work for Strata or clean-room work based only on
-  allowed internal host-system architectural references
-- no copying or adapting external code
-
-Style baseline:
-- PascalCase for types and major concepts
-- snake_case for functions, variables, and file names
-- UPPER_SNAKE_CASE for constants and macros
-- keep core logic flat and data-oriented
-- no object-oriented design patterns in core engine code
-- opening brace on new line, one tab beyond the parent declaration or command
-- body aligned to the opening brace indentation
-- closing brace on its own line, followed by a blank line
-- use 1 tab for all indentation levels; do not use spaces for indentation
+Formatting:
+- opening brace on a new line
+- use 1 tab for indentation; do not use spaces for indentation
 - no trailing whitespace on any line
 
-Conflict handling:
-- if the task conflicts with these rules, STOP
+If any task instruction conflicts with these rules:
+- STOP
 - state the conflict plainly
-- do not silently proceed
-
-Response style:
-- use plain English
-- keep language short and clear
-- avoid unnecessary jargon
 
 ---
 
@@ -113,22 +68,22 @@ Task Directive:
 
 ---
 
-GOVERNING PRIORITY:
+PRIORITY:
 
-1. Task intent (absolute authority)
-2. Phase constraints (allowed temporary behavior)
-3. Architecture (final system rules)
+1. Task intent
+2. Phase constraints
+3. Architecture
 
 ---
 
-PRE-EXECUTION GATE (REQUIRED):
+PRE-EXECUTION GATE:
 
-Before implementation, you MUST verify in the tracker:
+Before implementation, verify in the tracker:
 1. all previous tasks are fully complete
-2. the current task is the next allowed task in sequence
+2. the current task is the next allowed task
 3. there are no unresolved blockers or non-blockers carried forward
 
-Definition of "fully complete" for every previous task:
+Definition of fully complete:
 - Implementation complete = `[x]`
 - Tests passed = `[x]`
 - Test evidence recorded = `[x]`
@@ -136,8 +91,8 @@ Definition of "fully complete" for every previous task:
 - Local commit created = `[x]`
 
 Hard gate:
-- If any previous task is missing its local commit checkbox, the next task is
-  LOCKED and MUST NOT begin.
+- if any previous task is missing its local commit checkbox, the next task is
+  locked and must not begin
 
 If any gate fails:
 - STOP
@@ -146,147 +101,103 @@ If any gate fails:
 
 ---
 
-SCOPE LOCK (CRITICAL):
+SCOPE LOCK:
 
 You MUST:
-
-- implement ONLY what is explicitly required
-- touch ONLY files necessary for this task
-- avoid introducing any behavior not required
+- implement only what is explicitly required
+- touch only files necessary for this task
+- preserve existing behavior unless the task requires change
 
 You MUST NOT:
-
-- anticipate future tasks
+- anticipate future tasks intentionally
 - expand features
-- generalize beyond task intent
+- refactor unrelated code
 - improve design beyond requirements
 
-Forward-coverage exception:
-- do not intentionally build future tasks ahead of sequence
-- but if a small amount of immediately upcoming work is naturally coupled to
-  the current task and is implemented correctly, it may remain in place
-- if that happens, you MUST disclose it explicitly in the final summary
-- do NOT add broad speculative work under this exception
+Forward coverage exception:
+- if a small amount of immediately upcoming work is naturally coupled and
+  implemented correctly, it may remain
+- if that happens, disclose it explicitly
+- do not use this to justify broad speculative work
 
 ---
 
-PRE-IMPLEMENTATION DECLARATION (REQUIRED):
+PRE-IMPLEMENTATION DECLARATION:
 
-Before writing code, you MUST state:
+Before writing code, state:
+1. files to modify or create
+2. why each file is needed
+3. what will change in each file
 
-1. Files that will be modified or created
-2. Why each file is required
-3. What will change in each file (brief)
-
-RULE:
-- No code before this step
-- If unclear -> STOP and request clarification
-
-FILE-EDIT RELIABILITY RULE:
-
-When modifying an existing task block, tracker block, function, or similar
-known context:
-- prefer replacing the entire block over surgical in-line matching
-- prefer whole-block overwrite behavior over regex-based shell edits
-- do not rely on fragile whitespace-sensitive partial replacements when a full
-  block replacement is practical
+No code before this step.
+If unclear:
+- STOP
+- request clarification
 
 ---
 
-IMPLEMENTATION RULES:
+EDIT RELIABILITY RULE:
 
-- All code must be original (clean-room)
-- Follow existing project structure and naming
-- Maintain strict layer boundaries
-- Preserve all existing behavior unless task requires change
-
----
-
-BOUNDARY ENFORCEMENT:
-
-You MUST NOT:
-
-- move logic across layers
-- introduce cross-layer coupling
-- bypass defined APIs
-- embed runtime logic into compile layers or vice versa
+When changing a known block, function, or tracker section:
+- prefer replacing the whole block
+- prefer structured block overwrite over regex-style shell edits
+- avoid fragile whitespace-sensitive partial replacements when a full block
+  replacement is practical
 
 ---
 
-PLACEHOLDER / PHASE RULES:
+TEST RULE:
 
-- If task uses placeholders:
-  - they must remain clearly identifiable
-  - must not masquerade as final implementation
-
-- If introducing real behavior:
-  - must align with phase constraints
-  - must not break existing placeholder pathways
+- modify or add tests only if the task requires it
+- tests must validate through public interfaces only
 
 ---
 
-TEST ALIGNMENT:
+TRACKER RULE:
 
-- Only modify or create tests if required by task
-- Tests must:
-  - validate through public interfaces
-  - not rely on internal shortcuts
+After implementation, update this task only.
 
----
-
-TRACKER UPDATE REQUIREMENT:
-
-After implementation, update the tracker for this task only.
-
-You MUST mark as complete when true:
+Mark `[x]` only when true:
 - Implementation complete
 - Tests passed (current + previous = 100%)
 - Test evidence recorded
 
-You MUST NOT mark:
+Do NOT mark:
 - Audit passed
 - Local commit created
 - GitHub push complete
 
-If implementation-only effort rating is required by the tracker:
+Effort rating:
 - record it only if the user provided it
-- otherwise leave it unmarked
 
 ---
 
-STRICT PROHIBITIONS:
+POST-IMPLEMENTATION REPORT:
 
-- NO unrelated refactoring
-- NO cleanup outside task scope
-- NO performance optimization unless required
-- NO speculative improvements
-- NO undocumented behavior
-- NO mixed indentation styles
-- NO trailing whitespace
-
----
-
-POST-IMPLEMENTATION VALIDATION (REQUIRED):
-
-After implementation, you MUST provide:
-
-1. Summary of what was implemented
-2. Confirmation that:
-   - scope was not exceeded
-   - no unrelated files were modified
-   - architectural boundaries were preserved
-3. Explicit list:
-   - files changed
-   - functions added/modified
-4. Forward coverage disclosure:
-   - state `NONE` if the task stayed fully isolated
-   - otherwise list any immediately upcoming task areas that were naturally
-     covered early
-5. Confirmation that tracker boxes were updated appropriately
+Provide:
+1. summary of what was implemented
+2. confirmation that scope was respected
+3. confirmation that boundaries were preserved
+4. list of files changed
+5. list of functions added or modified
+6. forward coverage disclosure:
+   - `NONE`
+   - or the immediately upcoming task areas covered early
+7. confirmation that tracker boxes were updated correctly
 
 ---
 
 OUTPUT FORMAT:
+
+If the gate fails, output only:
+
+GATE FAILURE
+- Previous task completion status: PASS/FAIL
+- Previous task local commit status: PASS/FAIL
+- Current task unlocked: YES/NO
+- Implementation started: YES/NO
+
+If the gate passes, use:
 
 --- PRE-IMPLEMENTATION PLAN ---
 [files + changes]
@@ -308,26 +219,24 @@ OUTPUT FORMAT:
 
 ---
 
-FAIL CONDITIONS (INVALID OUTPUT):
+INVALID OUTPUT IF:
 
-- code written before plan
-- scope expansion
-- missing file list
-- undocumented changes
-- architectural boundary violations
-- speculative additions
-- tracker gate not checked first
-- previous task commit gate ignored
-- tracker not updated after implementation
-- non-English output
+- code appears before the plan
+- scope expands without disclosure
+- files changed are not listed
+- architectural boundaries are violated
+- speculative additions are introduced
+- the tracker gate was not checked first
+- the previous-task commit gate was ignored
+- the tracker was not updated after implementation
+- output is not in English
 
 ---
 
 CONSTRAINT:
 
-- Implement only this task
-- Do not anticipate future work
-- Do not modify system design
+Implement only this task.
+Do not redesign the system.
 
 ---
 
