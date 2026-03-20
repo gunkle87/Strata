@@ -330,6 +330,12 @@ ForgeResult forge_read_probes(
     ForgeProbeValue    *values,
     uint32_t            count);
 
+ForgeResult forge_session_extension_command(
+    ForgeSession         *session,
+    ForgeExtensionFamily  extension_family,
+    uint32_t              extension_opcode,
+    void                 *data);
+
 ForgeResult forge_session_reset(ForgeSession *session);
 
 ForgeResult forge_session_free(ForgeSession *session);

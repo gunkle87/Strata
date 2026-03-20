@@ -113,16 +113,16 @@ refusal behavior.
 Brief: Implement explicit refusal behavior for unsupported common or extension
 requests.
 
-- [ ] Implementation complete - `YYYY-MM-DD HH:MM TZ`
-- [ ] Tests passed (current + previous = 100%) -
-      `YYYY-MM-DD HH:MM TZ` - `runner: <COMMAND>`
-- [ ] Test evidence recorded (scope, totals, failed IDs, reruns) -
-      `YYYY-MM-DD HH:MM TZ` - `<evidence>`
-- [ ] Audit passed (100%, blockers=0, non-blockers=0) -
-      `YYYY-MM-DD HH:MM TZ`
+- [x] Implementation complete - `2026-03-19 22:16 CDT`
+- [x] Tests passed (current + previous = 100%) -
+      `2026-03-19 22:16 CDT` - `runner: make -C tests/forge clean; make -C tests/forge test`
+- [x] Test evidence recorded (scope, totals, failed IDs, reruns) -
+      `2026-03-19 22:16 CDT` - `forge suite: total=13 passed=13 failed=0 failed_ids=none; reruns=none`
+- [x] Audit passed (100%, blockers=0, non-blockers=0) -
+      2026-03-20 04:00 UTC
 - [ ] Local commit created - `YYYY-MM-DD HH:MM TZ` - `commit: <HASH>`
-- [ ] Effort rating recorded (implementation only) -
-      `YYYY-MM-DD HH:MM TZ` - `rating: <TOO_EASY|EASY|PERFECT|HARD|TOO_HARD>`
+- [x] Effort rating recorded (implementation only) -
+      `2026-03-19 22:21 CDT` - `rating: PERFECT`
 
 ## Task 2.7 - Public Tests For Capability And Extension Reporting
 

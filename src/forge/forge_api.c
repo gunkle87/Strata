@@ -525,6 +525,54 @@ forge_validate_artifact_requirements(
 	return FORGE_OK;
 	}
 
+static const ForgeCapabilities *
+forge_backend_capabilities_for_id(ForgeBackendId backend_id)
+{
+    const ForgeBackendRecord *record;
+
+    record = forge_registry_backend_by_id(backend_id);
+    if (!record)
+    {
+        return NULL;
+    }
+
+    return &record->capabilities;
+}
+
+static const ForgeCapabilities *
+forge_session_backend_capabilities(const ForgeSession *session)
+{
+    if (!session || !session->artifact)
+    {
+        return NULL;
+    }
+
+    return forge_backend_capabilities_for_id(session->artifact->backend_id);
+}
+
+static uint32_t
+forge_capabilities_include_extension(
+    const ForgeCapabilities *capabilities,
+    ForgeExtensionFamily extension_family)
+{
+    uint32_t index;
+
+    if (!capabilities || extension_family == FORGE_EXT_NONE)
+    {
+        return 0u;
+    }
+
+    for (index = 0u; index < capabilities->extension_family_count; ++index)
+    {
+        if (capabilities->extension_families[index] == extension_family)
+        {
+            return 1u;
+        }
+    }
+
+    return 0u;
+}
+
 static uint32_t
 forge_descriptor_class_visible(
     const ForgeEffectiveProfile *profile,
@@ -2251,6 +2299,7 @@ forge_step(
     ForgeSession *session,
     uint32_t step_count)
 {
+    const ForgeCapabilities *backend_caps;
     uint32_t index;
     ForgeResult result;
 
@@ -2264,6 +2313,27 @@ forge_step(
     {
         return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
             "forge_step: step_count is zero");
+    }
+
+    backend_caps = forge_session_backend_capabilities(session);
+    if (!backend_caps)
+    {
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_step: backend capabilities unavailable");
+    }
+
+    if (step_count == 1u &&
+        backend_caps->common_single_step_advance == FORGE_SUPPORT_NONE)
+    {
+        return forge_fail(FORGE_ERR_UNSUPPORTED,
+            "forge_step: single-step advancement unsupported by backend");
+    }
+
+    if (step_count > 1u &&
+        backend_caps->common_multi_step_advance == FORGE_SUPPORT_NONE)
+    {
+        return forge_fail(FORGE_ERR_UNSUPPORTED,
+            "forge_step: multi-step advancement unsupported by backend");
     }
 
     if (!session->effective_profile.allow_advanced_controls &&
@@ -2299,6 +2369,7 @@ forge_read_outputs(
     ForgeSignalValue   *values,
     uint32_t count)
 {
+    const ForgeCapabilities *backend_caps;
     uint32_t index;
 
     if (!session)
@@ -2311,6 +2382,19 @@ forge_read_outputs(
     {
         return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
             "forge_read_outputs: values is NULL or count is zero");
+    }
+
+    backend_caps = forge_session_backend_capabilities(session);
+    if (!backend_caps)
+    {
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_read_outputs: backend capabilities unavailable");
+    }
+
+    if (backend_caps->reads.output_read == FORGE_SUPPORT_NONE)
+    {
+        return forge_fail(FORGE_ERR_UNSUPPORTED,
+            "forge_read_outputs: output reads unsupported by backend");
     }
 
     if (!session->effective_profile.allow_common_observation)
@@ -2831,6 +2915,8 @@ forge_read_probes(
     ForgeProbeValue    *values,
     uint32_t            count)
 {
+    const ForgeCapabilities *backend_caps;
+
     if (!session)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
@@ -2841,6 +2927,19 @@ forge_read_probes(
     {
         return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
             "forge_read_probes: values is NULL or count is zero");
+    }
+
+    backend_caps = forge_session_backend_capabilities(session);
+    if (!backend_caps)
+    {
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_read_probes: backend capabilities unavailable");
+    }
+
+    if (backend_caps->probe_support == FORGE_SUPPORT_NONE)
+    {
+        return forge_fail(FORGE_ERR_UNSUPPORTED,
+            "forge_read_probes: probe reads unsupported by backend");
     }
 
     if (!session->effective_profile.allow_common_probes)
@@ -2854,12 +2953,88 @@ forge_read_probes(
 }
 
 ForgeResult
+forge_session_extension_command(
+    ForgeSession         *session,
+    ForgeExtensionFamily  extension_family,
+    uint32_t              extension_opcode,
+    void                 *data)
+{
+    const ForgeCapabilities *backend_caps;
+
+    (void)extension_opcode;
+    (void)data;
+
+    if (!session)
+    {
+        return forge_fail(FORGE_ERR_INVALID_HANDLE,
+            "forge_session_extension_command: session is NULL");
+    }
+
+    if (extension_family == FORGE_EXT_NONE)
+    {
+        return forge_fail(FORGE_ERR_INVALID_ARGUMENT,
+            "forge_session_extension_command: extension_family is invalid");
+    }
+
+    backend_caps = forge_session_backend_capabilities(session);
+    if (!backend_caps)
+    {
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_session_extension_command: backend capabilities unavailable");
+    }
+
+    if (!forge_capabilities_include_extension(backend_caps, extension_family))
+    {
+        return forge_fail(FORGE_ERR_UNSUPPORTED,
+            "forge_session_extension_command: extension family unsupported by backend");
+    }
+
+    if (!forge_policy_extension_allowed(&session->effective_profile, extension_family))
+    {
+        return forge_fail(FORGE_ERR_FORBIDDEN,
+            "forge_session_extension_command: extension family denied by active profile");
+    }
+
+    if (extension_family == FORGE_EXT_NATIVE_STATE_READ &&
+        !session->effective_profile.allow_native_state_read)
+    {
+        return forge_fail(FORGE_ERR_FORBIDDEN,
+            "forge_session_extension_command: native state read denied by active profile");
+    }
+
+    if (extension_family == FORGE_EXT_TEMPORAL_CONTROL &&
+        !session->effective_profile.allow_advanced_controls)
+    {
+        return forge_fail(FORGE_ERR_FORBIDDEN,
+            "forge_session_extension_command: temporal control denied by active profile");
+    }
+
+    return forge_fail(FORGE_ERR_UNSUPPORTED,
+        "forge_session_extension_command: extension command not implemented for this family");
+}
+
+ForgeResult
 forge_session_reset(ForgeSession *session)
 {
+    const ForgeCapabilities *backend_caps;
+
     if (!session)
     {
         return forge_fail(FORGE_ERR_INVALID_HANDLE,
             "forge_session_reset: session is NULL");
+    }
+
+    backend_caps = forge_session_backend_capabilities(session);
+    if (!backend_caps)
+    {
+        return forge_fail(FORGE_ERR_INTERNAL,
+            "forge_session_reset: backend capabilities unavailable");
+    }
+
+    if (backend_caps->lifecycle.session_reset == FORGE_SUPPORT_NONE)
+    {
+        return forge_fail(FORGE_ERR_UNSUPPORTED,
+            "forge_session_reset: session reset unsupported by backend");
     }
 
     session->placeholder_state = 0;
