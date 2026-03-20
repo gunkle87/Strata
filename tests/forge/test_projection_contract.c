@@ -81,6 +81,56 @@ build_strength_projection_module(void)
 }
 
 static void
+exercise_denied_projection_visibility(void)
+{
+    BreadboardModule* module = build_strength_projection_module();
+    BreadboardArtifactDraft* draft = NULL;
+    BreadboardCompileOptions options;
+    BreadboardDiagnostic diag;
+    BreadboardProjectionPolicy deny_policy;
+
+    memset(&deny_policy, 0, sizeof(deny_policy));
+    if (breadboard_module_set_projection_policy(module, &deny_policy) !=
+        BREADBOARD_OK)
+    {
+        breadboard_artifact_draft_free(draft);
+        breadboard_module_free(module);
+        fail("could not install denied projection policy");
+    }
+
+    memset(&options, 0, sizeof(options));
+    options.require_real_executable = true;
+    options.allowed_projection_families_mask = 0u;
+
+    if (breadboard_module_compile(module, &options, &draft) !=
+        BREADBOARD_ERR_COMPILE_FAILED)
+    {
+        breadboard_artifact_draft_free(draft);
+        breadboard_module_free(module);
+        fail("denied strength projection did not fail through the public Breadboard boundary");
+    }
+
+    if (breadboard_module_get_last_diagnostic(module, &diag) != BREADBOARD_OK)
+    {
+        breadboard_artifact_draft_free(draft);
+        breadboard_module_free(module);
+        fail("could not retrieve denied projection diagnostic");
+    }
+
+    if (diag.code != BREADBOARD_DIAG_CODE_STATE_DISTINCTION_UNSUPPORTED ||
+        !diag.message ||
+        strstr(diag.message, "projection policy denies") == NULL)
+    {
+        breadboard_artifact_draft_free(draft);
+        breadboard_module_free(module);
+        fail("denied projection diagnostic did not match the public contract");
+    }
+
+    breadboard_artifact_draft_free(draft);
+    breadboard_module_free(module);
+}
+
+static void
 expect_projection_metadata_matches(
     const BreadboardDraftInfo* draft_info,
     const ForgeArtifactInfo* artifact_info)
@@ -300,6 +350,8 @@ int main(void)
         1u,
         1u);
     breadboard_module_free(projected_module);
+
+    exercise_denied_projection_visibility();
 
     printf("PASS: projection data contracts and Forge visibility compile correctly\n");
     return 0;
