@@ -1023,7 +1023,7 @@ main(void)
     {
         BreadboardModule *module;
         BreadboardArtifactDraft *draft;
-        BreadboardRequirementProfile native_profile = { 1u, false, true, true };
+        BreadboardRequirementProfile native_profile = { 1u, false, true, true, 0u };
 
         module = NULL;
         draft = NULL;

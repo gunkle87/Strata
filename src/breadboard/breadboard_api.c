@@ -1156,6 +1156,11 @@ primitive_kind_from_name(
         *out_kind = BREADBOARD_PRIMITIVE_XOR;
         return 1;
     }
+    if (strcmp(kind_name, "UNINIT") == 0)
+    {
+        *out_kind = BREADBOARD_PRIMITIVE_UNINIT;
+        return 1;
+    }
 
     *out_kind = BREADBOARD_PRIMITIVE_INVALID;
     return 0;
@@ -1174,6 +1179,8 @@ primitive_input_count(
         case BREADBOARD_PRIMITIVE_OR:
         case BREADBOARD_PRIMITIVE_XOR:
             return 2u;
+        case BREADBOARD_PRIMITIVE_UNINIT:
+            return 0u;
         default:
             return 0u;
     }
@@ -1250,6 +1257,8 @@ executable_assessment_reason_message(
             return "Executable subset requires every primitive input and module output to be driven";
         case BREADBOARD_EXEC_REASON_CYCLE_DETECTED:
             return "Executable subset requires an acyclic combinational topology";
+        case BREADBOARD_EXEC_REASON_INITIALIZATION_STATE_UNSUPPORTED:
+            return "Initialization-state constructs like UNINIT cannot participate in fast steady-state execution";
         default:
             return "Executable subset requirement not satisfied";
     }
@@ -1339,6 +1348,13 @@ assess_executable_subset(
                 &primitive_kind))
         {
             assessment.reason = BREADBOARD_EXEC_REASON_PRIMITIVE_UNSUPPORTED;
+            assessment.failing_component_id = module->components[component_index].id;
+            return assessment;
+        }
+
+        if (primitive_kind == BREADBOARD_PRIMITIVE_UNINIT)
+        {
+            assessment.reason = BREADBOARD_EXEC_REASON_INITIALIZATION_STATE_UNSUPPORTED;
             assessment.failing_component_id = module->components[component_index].id;
             return assessment;
         }
@@ -1628,6 +1644,38 @@ cleanup:
     free(output_seen);
     free(component_input_seen);
     return assessment;
+}
+
+static int
+module_contains_primitive_kind(
+    const BreadboardModule* module,
+    BreadboardPrimitiveKind expected_kind)
+{
+    size_t component_index;
+
+    if (!module)
+    {
+        return 0;
+    }
+
+    for (component_index = 0u; component_index < module->component_count; ++component_index)
+    {
+        BreadboardPrimitiveKind primitive_kind;
+
+        if (!primitive_kind_from_name(
+                module->components[component_index].kind_name,
+                &primitive_kind))
+        {
+            continue;
+        }
+
+        if (primitive_kind == expected_kind)
+        {
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
 static void
@@ -2158,6 +2206,7 @@ BreadboardResult breadboard_module_compile(
     BreadboardArtifactDraft** out_draft)
 {
     BreadboardExecutableAssessment executable_assessment;
+    int contains_uninit;
 
     if (!module || !out_draft)
     {
@@ -2258,6 +2307,9 @@ BreadboardResult breadboard_module_compile(
     }
 
     executable_assessment = assess_executable_subset(module);
+    contains_uninit = module_contains_primitive_kind(
+        module,
+        BREADBOARD_PRIMITIVE_UNINIT);
     if (executable_assessment.status == BREADBOARD_EXECUTABLE_ASSESSMENT_INVALID)
     {
         record_diagnostic(
@@ -2273,6 +2325,17 @@ BreadboardResult breadboard_module_compile(
         if (executable_assessment.status !=
             BREADBOARD_EXECUTABLE_ASSESSMENT_EXECUTABLE)
         {
+            if (executable_assessment.reason ==
+                BREADBOARD_EXEC_REASON_INITIALIZATION_STATE_UNSUPPORTED)
+            {
+                record_diagnostic(
+                    module,
+                    BREADBOARD_DIAG_ERROR,
+                    BREADBOARD_DIAG_CODE_STATE_DISTINCTION_UNSUPPORTED,
+                    "UNINIT-style initialization semantics must be lowered through a placeholder/native admission path before fast steady-state execution");
+                return BREADBOARD_ERR_COMPILE_FAILED;
+            }
+
             record_diagnostic(
                 module,
                 BREADBOARD_DIAG_ERROR,
@@ -2523,6 +2586,12 @@ BreadboardResult breadboard_module_compile(
         draft->admission_info.native_only_behavior =
             (draft->admission_info.requires_native_state_read ||
              draft->admission_info.requires_native_inputs);
+
+        if (contains_uninit)
+        {
+            draft->admission_info.requires_native_state_read = true;
+            draft->admission_info.native_only_behavior = true;
+        }
     }
 
     /* Record a warning that placeholders were emitted */
